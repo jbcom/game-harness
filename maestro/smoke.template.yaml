@@ -1,0 +1,11 @@
+# Maestro smoke-test template — copy to <repo>/.maestro/smoke.yaml and fill
+# in the placeholders below. This is the minimal "does the app boot and
+# render its first screen" flow; add game-specific flows alongside it as
+# separate .maestro/*.yaml files (they're app-specific user journeys, not
+# shareable config — see @arcade-cabinet/test-harness's package notes).
+appId: __APP_ID__ # e.g. com.jbcom.kuroga — must match capacitor.config.ts's appId
+---
+- launchApp
+- assertVisible:
+    id: __ROOT_ELEMENT_ID__ # e.g. the canvas mount root or title-screen testID
+- takeScreenshot: smoke-boot
