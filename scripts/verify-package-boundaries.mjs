@@ -1,12 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const scratchPrefix = join(tmpdir(), 'arcade-test-harness-');
 const scratchDir = mkdtempSync(scratchPrefix);
+if (!scratchDir.startsWith(scratchPrefix)) {
+  throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
+}
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npmEnvironment = { ...process.env };
 for (const key of [
@@ -110,8 +106,5 @@ try {
 
   console.log('Package boundary smoke passed for peer-free root and Playwright-only consumers.');
 } finally {
-  if (!scratchDir.startsWith(scratchPrefix)) {
-    throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
-  }
   rmSync(scratchDir, { recursive: true, force: true });
 }
