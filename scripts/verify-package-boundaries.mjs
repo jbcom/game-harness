@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const scratchPrefix = join(tmpdir(), 'arcade-test-harness-');
 const scratchDir = mkdtempSync(scratchPrefix);
+if (!scratchDir.startsWith(scratchPrefix)) {
+  throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
+}
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npmEnvironment = { ...process.env };
 for (const key of [
@@ -44,13 +47,6 @@ function assertMissing(directory, packagePath) {
   if (existsSync(installedPath)) {
     throw new Error(`unexpected framework peer installed: ${packagePath}`);
   }
-}
-
-function removeScratchDirectory() {
-  if (!scratchDir.startsWith(scratchPrefix)) {
-    throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
-  }
-  rmSync(scratchDir, { recursive: true, force: true });
 }
 
 try {
@@ -114,9 +110,6 @@ try {
   );
 
   console.log('Package boundary smoke passed for peer-free root and Playwright-only consumers.');
-} catch (error) {
-  removeScratchDirectory();
-  throw error;
+} finally {
+  rmSync(scratchDir, { recursive: true, force: true });
 }
-
-removeScratchDirectory();
