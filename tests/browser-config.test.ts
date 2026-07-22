@@ -55,8 +55,31 @@ describe('defineBrowserTestConfig', () => {
 
   it('merges custom gpuArgs after the default GPU/ANGLE args', () => {
     const config = defineBrowserTestConfig({ gpuArgs: ['--custom-flag'] });
-    const provider = config.browser?.provider as { name?: string } | undefined;
+    const provider = config.browser?.provider as
+      | {
+          name?: string;
+          options?: { launchOptions?: { args?: string[] } };
+        }
+      | undefined;
     expect(provider?.name).toBe('playwright');
+    expect(provider?.options?.launchOptions?.args).toEqual([
+      '--use-gl=swiftshader',
+      '--enable-webgl',
+      '--ignore-gpu-blocklist',
+      '--custom-flag',
+      '--mute-audio',
+    ]);
+  });
+
+  it('deduplicates a caller-supplied mute argument and keeps it last', () => {
+    const config = defineBrowserTestConfig({ gpuArgs: ['--mute-audio', '--custom-flag'] });
+    const provider = config.browser?.provider as {
+      options?: { launchOptions?: { args?: string[] } };
+    };
+    expect(provider.options?.launchOptions?.args?.filter((arg) => arg === '--mute-audio')).toEqual([
+      '--mute-audio',
+    ]);
+    expect(provider.options?.launchOptions?.args?.at(-1)).toBe('--mute-audio');
   });
 
   it('surfaces optimizeDeps via __optimizeDepsInclude for the caller to merge into vite config', () => {

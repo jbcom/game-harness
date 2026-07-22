@@ -1,8 +1,107 @@
-import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
+import {
+  defineConfig,
+  devices,
+  expect,
+  type Page,
+  type PlaywrightTestConfig,
+  type Response,
+} from '@playwright/test';
 
 export type DeviceTier = 'desktop' | 'mobile' | 'tablet' | 'foldable' | 'ultrawide';
 
 type Project = NonNullable<PlaywrightTestConfig['projects']>[number];
+type LaunchOptions = NonNullable<NonNullable<PlaywrightTestConfig['use']>['launchOptions']>;
+
+export type SilentQueryValue = string | number | boolean;
+
+export interface SilentTestUrlOptions {
+  /** Runtime-only mute query parameter. Defaults to the fleet-standard `muted`. */
+  muteQueryParameter?: string;
+  /** Runtime-only mute query value. Defaults to `1`. */
+  muteQueryValue?: string;
+}
+
+export interface OpenSilentGameOptions extends SilentTestUrlOptions {
+  /** DOM selector that owns the mute-ready marker. Defaults to `html`. */
+  markerSelector?: string;
+  /** Marker attribute set only after runtime audio is muted. */
+  markerAttribute?: string;
+  /** Required marker value. Defaults to `muted-test`. */
+  markerValue?: string;
+  /** Maximum time to wait for the application mute marker. Defaults to 5 seconds. */
+  markerTimeout?: number;
+  /** Options forwarded to `page.goto()`. */
+  navigationOptions?: NonNullable<Parameters<Page['goto']>[1]>;
+}
+
+export const SILENT_QA_QUERY_PARAMETER = 'muted';
+export const SILENT_QA_QUERY_VALUE = '1';
+export const SILENT_QA_MARKER_ATTRIBUTE = 'data-audio-mode';
+export const SILENT_QA_MARKER_VALUE = 'muted-test';
+
+/**
+ * Adds the fleet's non-persistent mute mode to a relative or absolute URL.
+ * Explicit caller parameters replace existing values, and the mute value is
+ * applied last so a stale `muted=0` can never make an agent run audible.
+ */
+export function silentTestUrl(
+  target = '.',
+  parameters: Readonly<Record<string, SilentQueryValue>> = {},
+  options: SilentTestUrlOptions = {},
+): string {
+  const fragmentIndex = target.indexOf('#');
+  const fragment = fragmentIndex >= 0 ? target.slice(fragmentIndex) : '';
+  const withoutFragment = fragmentIndex >= 0 ? target.slice(0, fragmentIndex) : target;
+  const queryIndex = withoutFragment.indexOf('?');
+  const pathname = queryIndex >= 0 ? withoutFragment.slice(0, queryIndex) : withoutFragment;
+  const query = queryIndex >= 0 ? withoutFragment.slice(queryIndex + 1) : '';
+  const search = new URLSearchParams(query);
+
+  for (const [key, value] of Object.entries(parameters)) search.set(key, String(value));
+  search.set(
+    options.muteQueryParameter ?? SILENT_QA_QUERY_PARAMETER,
+    options.muteQueryValue ?? SILENT_QA_QUERY_VALUE,
+  );
+
+  return `${pathname}?${search.toString()}${fragment}`;
+}
+
+/**
+ * Navigates to a game in runtime-only mute mode and fails closed until the
+ * application confirms that audio was muted before test interaction begins.
+ */
+export async function openSilentGame(
+  page: Page,
+  target = '.',
+  parameters: Readonly<Record<string, SilentQueryValue>> = {},
+  options: OpenSilentGameOptions = {},
+): Promise<Response | null> {
+  const response = await page.goto(
+    silentTestUrl(target, parameters, {
+      ...(options.muteQueryParameter === undefined
+        ? {}
+        : { muteQueryParameter: options.muteQueryParameter }),
+      ...(options.muteQueryValue === undefined ? {} : { muteQueryValue: options.muteQueryValue }),
+    }),
+    options.navigationOptions,
+  );
+
+  await expect(page.locator(options.markerSelector ?? 'html')).toHaveAttribute(
+    options.markerAttribute ?? SILENT_QA_MARKER_ATTRIBUTE,
+    options.markerValue ?? SILENT_QA_MARKER_VALUE,
+    { timeout: options.markerTimeout ?? 5_000 },
+  );
+
+  return response;
+}
+
+function mergeMutedLaunchOptions(...sources: Array<LaunchOptions | undefined>): LaunchOptions {
+  const merged = Object.assign({}, ...sources.filter((source) => source !== undefined));
+  const args = sources
+    .flatMap((source) => source?.args ?? [])
+    .filter((argument) => argument !== '--mute-audio');
+  return { ...merged, args: [...new Set(args), '--mute-audio'] };
+}
 
 const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
   desktop: [
@@ -164,6 +263,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
       navigationTimeout: NAV_TIMEOUT_MS,
       browserName: 'chromium',
       channel: CHROMIUM_CHANNEL,
+      launchOptions: mergeMutedLaunchOptions(),
     },
     webServer: {
       command: `pnpm exec vite --host 127.0.0.1 --port ${PORT}`,
@@ -181,6 +281,22 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     : ({ ...singleWebServer, ...overrides.webServer } as NonNullable<
         PlaywrightTestConfig['webServer']
       >);
+  const mergedUse: NonNullable<PlaywrightTestConfig['use']> = {
+    ...resolved.use,
+    ...overrides.use,
+    launchOptions: mergeMutedLaunchOptions(
+      resolved.use?.launchOptions,
+      overrides.use?.launchOptions,
+    ),
+  };
+  const configuredProjects = overrides.projects ?? resolved.projects ?? [];
+  const mutedProjects = configuredProjects.map((project) => ({
+    ...project,
+    use: {
+      ...project.use,
+      launchOptions: mergeMutedLaunchOptions(mergedUse.launchOptions, project.use?.launchOptions),
+    },
+  }));
 
   return {
     ...resolved,
@@ -190,7 +306,8 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     // an extra header), not replace baseURL/headless/timeouts wholesale.
     // Every other top-level field (projects, testMatch, etc.) still fully
     // replaces on override, matching a plain object spread.
-    use: { ...resolved.use, ...overrides.use },
+    use: mergedUse,
     webServer: mergedWebServer,
+    projects: mutedProjects,
   };
 }

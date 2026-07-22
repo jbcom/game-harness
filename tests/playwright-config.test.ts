@@ -154,6 +154,37 @@ describe('definePlaywrightConfig', () => {
     expect(config.use?.baseURL).toBe('http://127.0.0.1:4173/');
   });
 
+  it('mutes every browser process by default', () => {
+    const config = definePlaywrightConfig();
+    expect(config.use?.launchOptions?.args).toContain('--mute-audio');
+    expect(
+      config.projects?.every((project) =>
+        project.use?.launchOptions?.args?.includes('--mute-audio'),
+      ),
+    ).toBe(true);
+  });
+
+  it('preserves custom launch arguments while enforcing one mute argument', () => {
+    const config = definePlaywrightConfig({
+      overrides: {
+        use: { launchOptions: { args: ['--use-angle=swiftshader', '--mute-audio'] } },
+        projects: [
+          {
+            name: 'custom',
+            use: { launchOptions: { args: ['--enable-unsafe-webgpu'] } },
+          },
+        ],
+      },
+    });
+
+    expect(config.use?.launchOptions?.args).toEqual(['--use-angle=swiftshader', '--mute-audio']);
+    expect(config.projects?.[0]?.use?.launchOptions?.args).toEqual([
+      '--use-angle=swiftshader',
+      '--enable-unsafe-webgpu',
+      '--mute-audio',
+    ]);
+  });
+
   it('merges overrides.webServer on top of the computed webServer instead of replacing it', () => {
     const config = definePlaywrightConfig({
       port: 4173,

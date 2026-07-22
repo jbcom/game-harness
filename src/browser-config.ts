@@ -117,7 +117,10 @@ export function defineBrowserTestConfig(
   } = opts;
 
   const resolvedHeadless = resolveHeadless(headless);
-  const args = [...DEFAULT_GPU_ARGS, ...gpuArgs];
+  const args = [
+    ...new Set([...DEFAULT_GPU_ARGS, ...gpuArgs].filter((argument) => argument !== '--mute-audio')),
+    '--mute-audio',
+  ];
 
   const test: TestUserConfig & { __optimizeDepsInclude?: string[] } = {
     name,

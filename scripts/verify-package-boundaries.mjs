@@ -95,7 +95,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@arcade-cabinet/test-harness/playwright'); if(typeof h.definePlaywrightConfig!=='function')throw new Error('invalid CJS Playwright entry')",
+      "const h=require('@arcade-cabinet/test-harness/playwright'); if(typeof h.definePlaywrightConfig!=='function'||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid CJS Playwright entry')",
     ],
     playwrightConsumer,
   );
@@ -104,12 +104,46 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@arcade-cabinet/test-harness/playwright'); if(typeof h.definePlaywrightConfig!=='function')throw new Error('invalid ESM Playwright entry')",
+      "const h=await import('@arcade-cabinet/test-harness/playwright'); if(typeof h.definePlaywrightConfig!=='function'||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid ESM Playwright entry')",
     ],
     playwrightConsumer,
   );
 
-  console.log('Package boundary smoke passed for peer-free root and Playwright-only consumers.');
+  const vitestConsumer = createConsumer('vitest-browser-only-consumer');
+  run(
+    npmCommand,
+    [
+      'install',
+      tarballPath,
+      'vitest@4.1.10',
+      '@vitest/browser-playwright@4.1.10',
+      'playwright@1.61.1',
+      '--ignore-scripts',
+    ],
+    vitestConsumer,
+  );
+  assertMissing(vitestConsumer, '@playwright/test');
+  run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('@arcade-cabinet/test-harness/vitest'); const c=h.defineBrowserTestConfig(); const a=c.browser.provider.options.launchOptions.args; if(typeof h.defineBrowserTestConfig!=='function'||a.at(-1)!=='--mute-audio')throw new Error('invalid CJS Vitest Browser entry')",
+    ],
+    vitestConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('@arcade-cabinet/test-harness/vitest'); const c=h.defineBrowserTestConfig(); const a=c.browser.provider.options.launchOptions.args; if(typeof h.defineBrowserTestConfig!=='function'||a.at(-1)!=='--mute-audio')throw new Error('invalid ESM Vitest Browser entry')",
+    ],
+    vitestConsumer,
+  );
+
+  console.log(
+    'Package boundary smoke passed for peer-free root, Playwright-only, and Vitest Browser-only consumers.',
+  );
 } finally {
   rmSync(scratchDir, { recursive: true, force: true });
 }
