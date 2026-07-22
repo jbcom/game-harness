@@ -99,6 +99,40 @@ describe('runVisualBattery', () => {
     expect(ranCommand.startsWith('npm run test:browser')).toBe(true);
   });
 
+  it('runs selected harnesses in fresh browser processes', () => {
+    writeFileSync(join(harnessDir, 'webgl.browser.test.tsx'), '// WebGL harness');
+    const ranCommands: string[] = [];
+    mockedExecSync.mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status')) return '';
+      ranCommands.push(cmdStr);
+      return '';
+    });
+
+    runVisualBattery('tests/harness', {
+      cwd,
+      isolatedHarnessFiles: ['webgl.browser.test.tsx'],
+      ...quiet,
+    });
+
+    expect(ranCommands).toHaveLength(2);
+    expect(ranCommands[0]).toContain('foo.browser.test.tsx');
+    expect(ranCommands[0]).not.toContain('webgl.browser.test.tsx');
+    expect(ranCommands[1]).toContain('webgl.browser.test.tsx');
+    expect(ranCommands[1]).not.toContain('foo.browser.test.tsx');
+  });
+
+  it('rejects an unknown isolated harness name', () => {
+    expect(() =>
+      runVisualBattery('tests/harness', {
+        cwd,
+        isolatedHarnessFiles: ['missing.browser.test.tsx'],
+        ...quiet,
+      }),
+    ).toThrow(/isolated harness file.*not found/i);
+    expect(mockedExecSync).not.toHaveBeenCalled();
+  });
+
   it('reports clean when git status shows no diff after the run', () => {
     const logs: string[] = [];
     mockedExecSync.mockImplementation((cmd) => {

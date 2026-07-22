@@ -11,6 +11,12 @@ export interface VisualBatteryOptions {
   testCommand?: string;
   /** Where the baseline PNGs land, relative to `cwd`. Defaults to `${harnessGlob}/__screenshots__`. */
   baselinesDir?: string;
+  /**
+   * Harness basenames that each need a fresh browser process. Use this for
+   * WebGL screenshots whose renderer state can drift after earlier canvases
+   * have shared a long-lived Chromium process.
+   */
+  isolatedHarnessFiles?: string[];
   /** Logger, swappable for tests. Defaults to `console.log`/`console.error`. */
   log?: (msg: string) => void;
   error?: (msg: string) => void;
@@ -71,6 +77,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     ci = false,
     cwd = process.cwd(),
     testCommand = 'pnpm test:browser',
+    isolatedHarnessFiles = [],
     log = defaultLog,
     error = defaultError,
   } = options;
@@ -112,6 +119,21 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     die('no harness files found');
   }
 
+  const unknownIsolatedHarnessFiles = isolatedHarnessFiles.filter(
+    (file) => !harnessFiles.some((harnessFile) => harnessFile.endsWith(`/${file}`)),
+  );
+  if (unknownIsolatedHarnessFiles.length > 0) {
+    die(`isolated harness file(s) not found: ${unknownIsolatedHarnessFiles.join(', ')}`);
+  }
+
+  const isolatedHarnessSet = new Set(isolatedHarnessFiles);
+  const batchedHarnessFiles = harnessFiles.filter(
+    (file) => !isolatedHarnessSet.has(file.slice(file.lastIndexOf('/') + 1)),
+  );
+  const isolatedHarnessPaths = harnessFiles.filter((file) =>
+    isolatedHarnessSet.has(file.slice(file.lastIndexOf('/') + 1)),
+  );
+
   log(`running ${harnessFiles.length} harness file(s):`);
   for (const f of harnessFiles) log(`  - ${f}`);
 
@@ -132,11 +154,19 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     }
   }
 
-  log(`running ${testCommand} ${harnessFiles.join(' ')}...`);
-  try {
-    execSync(`${testCommand} ${harnessFiles.join(' ')}`, { cwd, stdio: 'inherit' });
-  } catch {
-    die('one or more harnesses failed — fix the failing test before re-running visual battery');
+  const runHarnessFiles = (files: string[], label: string): void => {
+    if (files.length === 0) return;
+    log(`running ${label}: ${testCommand} ${files.join(' ')}...`);
+    try {
+      execSync(`${testCommand} ${files.join(' ')}`, { cwd, stdio: 'inherit' });
+    } catch {
+      die('one or more harnesses failed — fix the failing test before re-running visual battery');
+    }
+  };
+
+  runHarnessFiles(batchedHarnessFiles, 'batched harnesses');
+  for (const isolatedHarnessPath of isolatedHarnessPaths) {
+    runHarnessFiles([isolatedHarnessPath], `isolated harness ${isolatedHarnessPath}`);
   }
 
   if (!existsSync(BASELINES_DIR)) {

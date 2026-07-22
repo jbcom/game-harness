@@ -61,3 +61,13 @@ const canvas = document.querySelector('canvas');
 if (!(canvas instanceof HTMLCanvasElement)) throw new Error('canvas missing');
 await page.elementLocator(canvas).screenshot({ path: '__screenshots__/scene.png' });
 ```
+
+If a canvas baseline is stable alone but changes after other harnesses have run
+in the same long-lived Chromium process, isolate that file so it gets a fresh
+browser process while the remaining files stay in one fast batch:
+
+```ts
+runVisualBattery('tests/harness', {
+  isolatedHarnessFiles: ['scene.browser.test.tsx'],
+});
+```
