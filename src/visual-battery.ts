@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 export interface VisualBatteryOptions {
   /** CI mode: refuses to run with a dirty baseline dir, fails on drift instead of updating. */
@@ -17,6 +17,26 @@ export interface VisualBatteryOptions {
 }
 
 export class VisualBatteryError extends Error {}
+
+function findUnexpectedBaselineDirectories(root: string, expected: string): string[] {
+  const unexpected: string[] = [];
+
+  const visit = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const child = resolve(directory, entry.name);
+      if (child === expected) continue;
+      if (entry.name === '__screenshots__') {
+        unexpected.push(child);
+        continue;
+      }
+      visit(child);
+    }
+  };
+
+  visit(root);
+  return unexpected;
+}
 
 function defaultLog(msg: string): void {
   console.log(`[visual-battery] ${msg}`);
@@ -70,6 +90,18 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   if (!existsSync(HARNESS_DIR)) {
     die(`harness dir not found: ${HARNESS_DIR}`);
+  }
+
+  const unexpectedBaselineDirectories = findUnexpectedBaselineDirectories(
+    HARNESS_DIR,
+    BASELINES_DIR,
+  );
+  if (unexpectedBaselineDirectories.length > 0) {
+    die(
+      `unexpected screenshot director${unexpectedBaselineDirectories.length === 1 ? 'y' : 'ies'} outside ${relativeBaselinesDir}: ${unexpectedBaselineDirectories
+        .map((directory) => relative(cwd, directory))
+        .join(', ')}`,
+    );
   }
 
   const harnessFiles = readdirSync(HARNESS_DIR)

@@ -47,6 +47,17 @@ describe('runVisualBattery', () => {
     expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(VisualBatteryError);
   });
 
+  it('rejects screenshot directories nested outside the owned baseline directory', () => {
+    const misplaced = join(harnessDir, 'tests/harness/__screenshots__');
+    mkdirSync(misplaced, { recursive: true });
+    writeFileSync(join(misplaced, 'missed.png'), 'misplaced-png-bytes');
+
+    expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
+      /unexpected screenshot director/i,
+    );
+    expect(mockedExecSync).not.toHaveBeenCalled();
+  });
+
   it('CI mode refuses to run with a dirty baseline dir', () => {
     mockedExecSync.mockImplementation((cmd) => {
       if (String(cmd).startsWith('git status')) return ' M tests/harness/__screenshots__/foo.png\n';
