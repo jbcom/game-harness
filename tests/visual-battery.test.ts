@@ -42,7 +42,7 @@ describe('runVisualBattery', () => {
     );
   });
 
-  it('throws when no .browser.test.tsx files are found', () => {
+  it('throws when no browser harness files are found', () => {
     rmSync(join(harnessDir, 'foo.browser.test.tsx'));
     expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(VisualBatteryError);
   });
@@ -80,6 +80,21 @@ describe('runVisualBattery', () => {
 
     runVisualBattery('tests/harness', { cwd, ...quiet });
     expect(ranCommand).toContain('tests/harness/foo.browser.test.tsx');
+  });
+
+  it('discovers TypeScript harness files without JSX', () => {
+    writeFileSync(join(harnessDir, 'behavior.browser.test.ts'), '// behavior harness');
+    let ranCommand = '';
+    mockedExecSync.mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status')) return '';
+      ranCommand = cmdStr;
+      return '';
+    });
+
+    runVisualBattery('tests/harness', { cwd, ...quiet });
+
+    expect(ranCommand).toContain('tests/harness/behavior.browser.test.ts');
   });
 
   it('uses a custom testCommand when provided', () => {

@@ -112,11 +112,11 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   }
 
   const harnessFiles = readdirSync(HARNESS_DIR)
-    .filter((f) => f.endsWith('.browser.test.tsx'))
+    .filter((f) => /\.browser\.test\.(?:ts|tsx)$/.test(f))
     .map((f) => `${relativeHarnessDir}/${f}`);
 
   if (harnessFiles.length === 0) {
-    die('no harness files found');
+    die('no .browser.test.ts or .browser.test.tsx harness files found');
   }
 
   const unknownIsolatedHarnessFiles = isolatedHarnessFiles.filter(
