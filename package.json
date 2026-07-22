@@ -10,11 +10,12 @@
     "directory": "packages/test-harness"
   },
   "files": [
+    "bin",
     "dist",
     "maestro"
   ],
   "bin": {
-    "test-harness-visual-battery": "./dist/esm/bin/visual-battery.js"
+    "test-harness-visual-battery": "./bin/test-harness-visual-battery.mjs"
   },
   "exports": {
     ".": {
@@ -59,8 +60,9 @@
     "build:types": "tsc -p tsconfig.types.json",
     "build:fixup": "node scripts/fixup-cjs-package-json.mjs",
     "clean": "rimraf dist",
+    "prepack": "pnpm run build",
     "test": "vitest run",
-    "test:package": "pnpm run build && node scripts/verify-package-boundaries.mjs",
+    "test:package": "node scripts/verify-package-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {

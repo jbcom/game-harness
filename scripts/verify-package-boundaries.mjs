@@ -1,12 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +46,13 @@ function assertMissing(directory, packagePath) {
   }
 }
 
+function removeScratchDirectory() {
+  if (!scratchDir.startsWith(scratchPrefix)) {
+    throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
+  }
+  rmSync(scratchDir, { recursive: true, force: true });
+}
+
 try {
   run(npmCommand, ['pack', packageDir, '--pack-destination', scratchDir], packageDir);
   const tarball = readdirSync(scratchDir).find((entry) => entry.endsWith('.tgz'));
@@ -79,6 +79,11 @@ try {
       '-e',
       "const h=await import('@arcade-cabinet/test-harness'); if(typeof h.lighthouseAssertions!=='function'||'definePlaywrightConfig'in h||'defineBrowserTestConfig'in h)throw new Error('invalid ESM root')",
     ],
+    rootConsumer,
+  );
+  run(
+    join(rootConsumer, 'node_modules', '.bin', 'test-harness-visual-battery'),
+    ['--help'],
     rootConsumer,
   );
 
@@ -109,9 +114,9 @@ try {
   );
 
   console.log('Package boundary smoke passed for peer-free root and Playwright-only consumers.');
-} finally {
-  if (!scratchDir.startsWith(scratchPrefix)) {
-    throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
-  }
-  rmSync(scratchDir, { recursive: true, force: true });
+} catch (error) {
+  removeScratchDirectory();
+  throw error;
 }
+
+removeScratchDirectory();
