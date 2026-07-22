@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 interface PackageManifest {
+  bin: Record<string, string>;
   exports: Record<string, unknown>;
+  files: string[];
   peerDependencies: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 }
@@ -11,6 +13,10 @@ const manifest = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 ) as PackageManifest;
 const rootSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+const binShim = readFileSync(
+  new URL('../bin/test-harness-visual-battery.mjs', import.meta.url),
+  'utf8',
+);
 
 describe('package peer boundaries', () => {
   it('lets consumers install only the framework peer for their chosen entry point', () => {
@@ -37,5 +43,13 @@ describe('package peer boundaries', () => {
         './visual-battery',
       ]),
     );
+  });
+
+  it('ships a stable executable shim before generated dist files exist', () => {
+    expect(manifest.bin['test-harness-visual-battery']).toBe(
+      './bin/test-harness-visual-battery.mjs',
+    );
+    expect(manifest.files).toContain('bin');
+    expect(binShim).toContain('../dist/esm/bin/visual-battery.js');
   });
 });

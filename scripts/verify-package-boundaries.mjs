@@ -77,6 +77,11 @@ try {
     ],
     rootConsumer,
   );
+  run(
+    join(rootConsumer, 'node_modules', '.bin', 'test-harness-visual-battery'),
+    ['--help'],
+    rootConsumer,
+  );
 
   const playwrightConsumer = createConsumer('playwright-only-consumer');
   run(

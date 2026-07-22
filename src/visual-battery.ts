@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 
 export interface VisualBatteryOptions {
   /** CI mode: refuses to run with a dirty baseline dir, fails on drift instead of updating. */
@@ -11,12 +11,38 @@ export interface VisualBatteryOptions {
   testCommand?: string;
   /** Where the baseline PNGs land, relative to `cwd`. Defaults to `${harnessGlob}/__screenshots__`. */
   baselinesDir?: string;
+  /**
+   * Harness basenames that each need a fresh browser process. Use this for
+   * WebGL screenshots whose renderer state can drift after earlier canvases
+   * have shared a long-lived Chromium process.
+   */
+  isolatedHarnessFiles?: string[];
   /** Logger, swappable for tests. Defaults to `console.log`/`console.error`. */
   log?: (msg: string) => void;
   error?: (msg: string) => void;
 }
 
 export class VisualBatteryError extends Error {}
+
+function findUnexpectedBaselineDirectories(root: string, expected: string): string[] {
+  const unexpected: string[] = [];
+
+  const visit = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const child = resolve(directory, entry.name);
+      if (child === expected) continue;
+      if (entry.name === '__screenshots__') {
+        unexpected.push(child);
+        continue;
+      }
+      visit(child);
+    }
+  };
+
+  visit(root);
+  return unexpected;
+}
 
 function defaultLog(msg: string): void {
   console.log(`[visual-battery] ${msg}`);
@@ -51,6 +77,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     ci = false,
     cwd = process.cwd(),
     testCommand = 'pnpm test:browser',
+    isolatedHarnessFiles = [],
     log = defaultLog,
     error = defaultError,
   } = options;
@@ -72,13 +99,40 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     die(`harness dir not found: ${HARNESS_DIR}`);
   }
 
+  const unexpectedBaselineDirectories = findUnexpectedBaselineDirectories(
+    HARNESS_DIR,
+    BASELINES_DIR,
+  );
+  if (unexpectedBaselineDirectories.length > 0) {
+    die(
+      `unexpected screenshot director${unexpectedBaselineDirectories.length === 1 ? 'y' : 'ies'} outside ${relativeBaselinesDir}: ${unexpectedBaselineDirectories
+        .map((directory) => relative(cwd, directory))
+        .join(', ')}`,
+    );
+  }
+
   const harnessFiles = readdirSync(HARNESS_DIR)
-    .filter((f) => f.endsWith('.browser.test.tsx'))
+    .filter((f) => /\.browser\.test\.(?:ts|tsx)$/.test(f))
     .map((f) => `${relativeHarnessDir}/${f}`);
 
   if (harnessFiles.length === 0) {
-    die('no harness files found');
+    die('no .browser.test.ts or .browser.test.tsx harness files found');
   }
+
+  const unknownIsolatedHarnessFiles = isolatedHarnessFiles.filter(
+    (file) => !harnessFiles.some((harnessFile) => harnessFile.endsWith(`/${file}`)),
+  );
+  if (unknownIsolatedHarnessFiles.length > 0) {
+    die(`isolated harness file(s) not found: ${unknownIsolatedHarnessFiles.join(', ')}`);
+  }
+
+  const isolatedHarnessSet = new Set(isolatedHarnessFiles);
+  const batchedHarnessFiles = harnessFiles.filter(
+    (file) => !isolatedHarnessSet.has(file.slice(file.lastIndexOf('/') + 1)),
+  );
+  const isolatedHarnessPaths = harnessFiles.filter((file) =>
+    isolatedHarnessSet.has(file.slice(file.lastIndexOf('/') + 1)),
+  );
 
   log(`running ${harnessFiles.length} harness file(s):`);
   for (const f of harnessFiles) log(`  - ${f}`);
@@ -100,11 +154,19 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     }
   }
 
-  log(`running ${testCommand} ${harnessFiles.join(' ')}...`);
-  try {
-    execSync(`${testCommand} ${harnessFiles.join(' ')}`, { cwd, stdio: 'inherit' });
-  } catch {
-    die('one or more harnesses failed — fix the failing test before re-running visual battery');
+  const runHarnessFiles = (files: string[], label: string): void => {
+    if (files.length === 0) return;
+    log(`running ${label}: ${testCommand} ${files.join(' ')}...`);
+    try {
+      execSync(`${testCommand} ${files.join(' ')}`, { cwd, stdio: 'inherit' });
+    } catch {
+      die('one or more harnesses failed — fix the failing test before re-running visual battery');
+    }
+  };
+
+  runHarnessFiles(batchedHarnessFiles, 'batched harnesses');
+  for (const isolatedHarnessPath of isolatedHarnessPaths) {
+    runHarnessFiles([isolatedHarnessPath], `isolated harness ${isolatedHarnessPath}`);
   }
 
   if (!existsSync(BASELINES_DIR)) {

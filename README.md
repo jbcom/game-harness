@@ -43,3 +43,31 @@ port must never be accepted as proof.
 Before publishing the package, run `pnpm test:package` to pack it and verify the
 peer-free root plus the Playwright-only consumer boundary in clean temporary
 installs.
+
+## Visual battery contract
+
+`runVisualBattery()` owns one baseline directory directly under the configured
+harness directory. Vitest screenshot paths are relative to the test file, so a
+harness must write `__screenshots__/name.png`, not a repository-relative path
+such as `tests/harness/__screenshots__/name.png`. The battery rejects any second
+`__screenshots__` directory nested elsewhere under the harness tree; otherwise
+an apparently green run could leave an important screenshot outside the Git
+diff gate.
+
+For WebGL scenes, capture the canvas locator instead of the full browser page:
+
+```ts
+const canvas = document.querySelector('canvas');
+if (!(canvas instanceof HTMLCanvasElement)) throw new Error('canvas missing');
+await page.elementLocator(canvas).screenshot({ path: '__screenshots__/scene.png' });
+```
+
+If a canvas baseline is stable alone but changes after other harnesses have run
+in the same long-lived Chromium process, isolate that file so it gets a fresh
+browser process while the remaining files stay in one fast batch:
+
+```ts
+runVisualBattery('tests/harness', {
+  isolatedHarnessFiles: ['scene.browser.test.tsx'],
+});
+```
