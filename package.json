@@ -1,6 +1,6 @@
 {
   "name": "@arcade-cabinet/test-harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "vitest-browser config + playwright config/preset + release verification ladder — extracted from Aethelgard-Chronicles-of-Strata's four-pillar test harness (tiered Playwright, deterministic visual-regression battery, Lighthouse CI presets, release-ladder orchestrator).",
   "type": "module",
   "license": "MIT",
@@ -32,6 +32,21 @@
       "import": "./dist/esm/playwright-config.js",
       "require": "./dist/cjs/playwright-config.js"
     },
+    "./lighthouse": {
+      "types": "./dist/types/lighthouse.d.ts",
+      "import": "./dist/esm/lighthouse.js",
+      "require": "./dist/cjs/lighthouse.js"
+    },
+    "./release-ladder": {
+      "types": "./dist/types/release-ladder.d.ts",
+      "import": "./dist/esm/release-ladder.js",
+      "require": "./dist/cjs/release-ladder.js"
+    },
+    "./visual-battery": {
+      "types": "./dist/types/visual-battery.d.ts",
+      "import": "./dist/esm/visual-battery.js",
+      "require": "./dist/cjs/visual-battery.js"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/cjs/index.js",
@@ -45,12 +60,24 @@
     "build:fixup": "node scripts/fixup-cjs-package-json.mjs",
     "clean": "rimraf dist",
     "test": "vitest run",
+    "test:package": "pnpm run build && node scripts/verify-package-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.50.0",
     "@vitest/browser-playwright": ">=4.0.0",
     "vitest": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    },
+    "@vitest/browser-playwright": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@playwright/test": "1.60.0",
