@@ -7,6 +7,8 @@ Import only the entry point a game uses:
   preview-server configuration; install `@playwright/test`;
 - `@arcade-cabinet/test-harness/production-runtime` for a fresh, silent
   production-artifact or exact-live boot; install `@playwright/test`;
+- `@arcade-cabinet/test-harness/chromium` for peer-free Chromium renderer and
+  silence launch profiles;
 - `@arcade-cabinet/test-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
 - `@arcade-cabinet/test-harness`, `/lighthouse`, `/release-ladder`, and
@@ -25,6 +27,7 @@ import { definePlaywrightConfig } from '@arcade-cabinet/test-harness/playwright'
 export default definePlaywrightConfig({
   port: 4391,
   deviceTiers: ['desktop', 'mobile'],
+  gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
   overrides: {
     webServer: {
       command: 'npm run build && npm run serve:e2e',
@@ -33,6 +36,26 @@ export default definePlaywrightConfig({
   },
 });
 ```
+
+Chromium is headed by default locally and in CI. Linux CI must provide a
+display with `xvfb-run`; it should not change the browser to headless simply to
+make WebGL start. The default `auto` profile lets Chromium select the native
+renderer (including Metal on macOS). `software` is an explicit SwiftShader
+fallback. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
+`EGL_PLATFORM=surfaceless` for a runner that exposes `/dev/dri/renderD128`.
+
+Vitest's interactive UI is disabled by default even though the Chromium window
+remains visible. This gives Playwright a fixed viewport and a deterministic
+device scale of 1, so a headed macOS run does not silently recapture visual
+baselines at the host Retina scale. Pass `ui: true` only for an interactive
+debugging session.
+
+A Gitea runner job using the hardware profile must install
+`mesa-vulkan-drivers` and `xvfb`, require the render device with
+`test -c /dev/dri/renderD128`, and run the browser command under
+`xvfb-run --auto-servernum`. Use `requireHardwareWebGL()` in the journey itself
+so a green test cannot silently fall back to SwiftShader or llvmpipe. The
+assertion also fails closed when the browser withholds its unmasked renderer.
 
 `deviceTiers` declares the available matrix, while the default fast gate runs
 only its first tier. Run `MULTIVIEW=1 pnpm exec playwright test` (or
@@ -74,24 +97,31 @@ boundaries in clean temporary installs.
 ## Production runtime verification
 
 `verifyProductionRuntime()` turns a successful build into runtime evidence. It
-always launches a fresh Chromium process with `--mute-audio`, navigates through
+always launches a fresh headed Chromium process with `--mute-audio`, navigates through
 `openSilentGame()`, and fails on page errors, console errors, failed requests,
 HTTP errors, an inactive silent-QA marker, or a changed local-storage sentinel.
 The required `assertReady` callback pins game identity and the primary UI or
 canvas instead of accepting any app that happens to answer on the same port.
 
 ```ts
-import { verifyProductionRuntime } from '@arcade-cabinet/test-harness/production-runtime';
+import {
+  findAvailableProductionPort,
+  requireHardwareWebGL,
+  verifyProductionRuntime,
+} from '@arcade-cabinet/test-harness/production-runtime';
+
+const port = await findAvailableProductionPort();
 
 await verifyProductionRuntime({
-  url: 'http://127.0.0.1:4274/',
+  url: `http://127.0.0.1:${port}/`,
+  gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
   server: {
     command: process.execPath,
     args: [
       'node_modules/vite/bin/vite.js',
       'preview',
       '--host=127.0.0.1',
-      '--port=4274',
+      `--port=${port}`,
       '--strictPort',
     ],
   },
@@ -99,14 +129,23 @@ await verifyProductionRuntime({
   assertReady: async (page) => {
     await page.getByRole('heading', { name: 'Aethelgard' }).waitFor();
     await page.locator('canvas').waitFor({ state: 'visible' });
+    const { renderer } = await requireHardwareWebGL(page);
+    console.log(`Aethelgard WebGL renderer: ${renderer}`);
   },
 });
 ```
+
+Pass `browserLaunchOptions: { headless: true }` only for a deliberately
+constrained non-visual check. Release and final gameplay proof remain headed.
 
 When `server` is present, its readiness URL must be unreachable before launch;
 the verifier never reuses an arbitrary process. It owns that child process,
 waits for readiness, and terminates it after either success or failure. Omit
 `server` to apply the same strict gate to an already-deployed exact-live URL.
+Use `findAvailableProductionPort()` for CI or any shared runner instead of a
+hard-coded port. It delegates selection to `get-port`, reserves that selection
+against parallel calls in the current process, and still requires the owned
+server to bind with strict-port semantics so an external race fails closed.
 
 ## Visual battery contract
 

@@ -31,14 +31,41 @@ describe('defineBrowserTestConfig', () => {
     expect(config.fileParallelism).toBe(false);
   });
 
-  it('resolves headless=false locally by default ("ci-only")', () => {
+  it('defaults to headed locally', () => {
     const config = defineBrowserTestConfig();
     expect(config.browser?.headless).toBe(false);
   });
 
-  it('resolves headless=true under CI by default ("ci-only")', () => {
+  it('disables Vitest UI while keeping the headed Chromium window visible', () => {
+    const config = defineBrowserTestConfig();
+    expect(config.browser?.headless).toBe(false);
+    expect(config.browser?.ui).toBe(false);
+  });
+
+  it('allows interactive Vitest UI as an explicit debugging mode', () => {
+    const config = defineBrowserTestConfig({ ui: true });
+    expect(config.browser?.ui).toBe(true);
+    const provider = config.browser?.provider as {
+      options?: { contextOptions?: { deviceScaleFactor?: number } };
+    };
+    expect(provider.options?.contextOptions?.deviceScaleFactor).toBeUndefined();
+  });
+
+  it('rejects a device scale that Playwright cannot combine with Vitest UI', () => {
+    expect(() =>
+      defineBrowserTestConfig({ ui: true, contextOptions: { deviceScaleFactor: 2 } }),
+    ).toThrow(/deviceScaleFactor is not supported when ui is true/);
+  });
+
+  it('remains headed under CI so Xvfb can exercise normal compositing', () => {
     process.env.CI = '1';
     const config = defineBrowserTestConfig();
+    expect(config.browser?.headless).toBe(false);
+  });
+
+  it('supports an explicit ci-only headless mode for constrained runners', () => {
+    process.env.CI = '1';
+    const config = defineBrowserTestConfig({ headless: 'ci-only' });
     expect(config.browser?.headless).toBe(true);
   });
 
@@ -53,7 +80,7 @@ describe('defineBrowserTestConfig', () => {
     expect(config.browser?.headless).toBe(false);
   });
 
-  it('merges custom gpuArgs after the default GPU/ANGLE args', () => {
+  it('uses native Chromium renderer selection by default', () => {
     const config = defineBrowserTestConfig({ gpuArgs: ['--custom-flag'] });
     const provider = config.browser?.provider as
       | {
@@ -62,13 +89,55 @@ describe('defineBrowserTestConfig', () => {
         }
       | undefined;
     expect(provider?.name).toBe('playwright');
-    expect(provider?.options?.launchOptions?.args).toEqual([
+    expect(provider?.options?.launchOptions?.args).toEqual(['--custom-flag', '--mute-audio']);
+  });
+
+  it('pins device scale to one for deterministic headed screenshots', () => {
+    const config = defineBrowserTestConfig();
+    const provider = config.browser?.provider as {
+      options?: { contextOptions?: { deviceScaleFactor?: number } };
+    };
+    expect(provider.options?.contextOptions?.deviceScaleFactor).toBe(1);
+  });
+
+  it('allows callers to opt into a high-DPI browser context', () => {
+    const config = defineBrowserTestConfig({
+      contextOptions: { deviceScaleFactor: 2, locale: 'en-US' },
+    });
+    const provider = config.browser?.provider as {
+      options?: { contextOptions?: { deviceScaleFactor?: number; locale?: string } };
+    };
+    expect(provider.options?.contextOptions).toEqual({ deviceScaleFactor: 2, locale: 'en-US' });
+  });
+
+  it('makes the software renderer an explicit profile', () => {
+    const config = defineBrowserTestConfig({ gpuMode: 'software' });
+    const provider = config.browser?.provider as {
+      options?: { launchOptions?: { args?: string[] } };
+    };
+    expect(provider.options?.launchOptions?.args).toEqual([
       '--use-gl=swiftshader',
       '--enable-webgl',
       '--ignore-gpu-blocklist',
-      '--custom-flag',
       '--mute-audio',
     ]);
+  });
+
+  it('provides the proven Linux Intel Vulkan profile', () => {
+    const config = defineBrowserTestConfig({ gpuMode: 'linux-hardware-vulkan' });
+    const provider = config.browser?.provider as {
+      options?: {
+        launchOptions?: { args?: string[]; env?: Record<string, string | undefined> };
+      };
+    };
+    expect(provider.options?.launchOptions?.args).toEqual([
+      '--use-gpu-in-tests',
+      '--use-gl=angle',
+      '--use-angle=vulkan',
+      '--ignore-gpu-blocklist',
+      '--mute-audio',
+    ]);
+    expect(provider.options?.launchOptions?.env?.EGL_PLATFORM).toBe('surfaceless');
   });
 
   it('deduplicates a caller-supplied mute argument and keeps it last', () => {

@@ -71,6 +71,23 @@ try {
   run(
     process.execPath,
     [
+      '-e',
+      "const h=require('@arcade-cabinet/test-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-gl=swiftshader'))throw new Error('invalid CJS Chromium entry')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('@arcade-cabinet/test-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'linux-hardware-vulkan'}); if(p.env.EGL_PLATFORM!=='surfaceless'||p.args.at(-1)!=='--mute-audio')throw new Error('invalid ESM Chromium entry')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
       '--input-type=module',
       '-e',
       "const h=await import('@arcade-cabinet/test-harness'); if(typeof h.lighthouseAssertions!=='function'||'definePlaywrightConfig'in h||'defineBrowserTestConfig'in h)throw new Error('invalid ESM root')",
@@ -93,7 +110,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@arcade-cabinet/test-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.ProductionRuntimeVerificationError!=='function')throw new Error('invalid CJS production-runtime entry')",
+      "const h=require('@arcade-cabinet/test-harness/production-runtime'); (async()=>{if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid CJS production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid CJS production-runtime port allocation')})()",
     ],
     playwrightConsumer,
   );
@@ -102,7 +119,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@arcade-cabinet/test-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.ProductionRuntimeVerificationError!=='function')throw new Error('invalid ESM production-runtime entry')",
+      "const h=await import('@arcade-cabinet/test-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid ESM production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid ESM production-runtime port allocation')",
     ],
     playwrightConsumer,
   );

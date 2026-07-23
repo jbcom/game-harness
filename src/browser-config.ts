@@ -1,5 +1,6 @@
-import { playwright } from '@vitest/browser-playwright';
+import { type PlaywrightProviderOptions, playwright } from '@vitest/browser-playwright';
 import type { TestUserConfig } from 'vitest/node';
+import { type ChromiumGpuMode, createChromiumLaunchProfile } from './chromium-launch.js';
 
 /**
  * A single browser instance entry, as accepted by Vitest Browser Mode's
@@ -12,18 +13,31 @@ export interface BrowserInstance {
 
 export interface BrowserTestConfigOptions {
   /**
-   * Extra Chromium launch args merged after the sane GPU/ANGLE defaults.
+   * Playwright browser-context options. A device scale factor of 1 is the
+   * default so headed and headless Chromium produce the same deterministic
+   * screenshot dimensions; callers can override it explicitly when a test
+   * needs high-DPI rendering.
+   */
+  contextOptions?: PlaywrightProviderOptions['contextOptions'];
+  /**
+   * Extra Chromium launch args merged after the selected renderer profile.
    * Forwarded to the Playwright provider's `launchOptions.args`.
    */
   gpuArgs?: string[];
+  /** Renderer profile. Defaults to `auto`; software rendering is always explicit. */
+  gpuMode?: ChromiumGpuMode;
   /**
-   * `true` — always headed. `false` — always headless.
-   * `'ci-only'` (default) — headed locally, headless when `process.env.CI`
-   * is set. Matches the Aethelgard convention: real-GPU rendering is more
-   * trustworthy for WebGL/r3f assertions during local dev, while CI runners
-   * have no GPU and must run headless regardless.
+   * `true` — always headless. `false` (default) — always headed.
+   * `'ci-only'` — headed locally, headless when `process.env.CI` is set.
+   * Fleet CI should normally retain the headed default and supply Xvfb.
    */
   headless?: boolean | 'ci-only';
+  /**
+   * Show Vitest's interactive browser UI. Defaults to false so headed runs use
+   * a fixed Playwright viewport and deterministic device scale. The Chromium
+   * window remains visible whenever `headless` is false.
+   */
+  ui?: boolean;
   /** Browser instances for the `browser.instances` array. Defaults to a single chromium instance. */
   instances?: BrowserInstance[];
   /**
@@ -54,17 +68,9 @@ export interface BrowserTestConfigOptions {
   fileParallelism?: boolean;
 }
 
-const DEFAULT_GPU_ARGS: readonly string[] = [
-  // ANGLE/SwiftShader software rasterizer flags — let WebGL contexts
-  // initialize in a headless/CI environment with no real GPU.
-  '--use-gl=swiftshader',
-  '--enable-webgl',
-  '--ignore-gpu-blocklist',
-];
-
 function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolean {
   if (typeof headless === 'boolean') return headless;
-  // 'ci-only' (default): headed locally, headless under CI.
+  // Explicit legacy/hosted-runner mode: headed locally, headless under CI.
   return Boolean(process.env.CI);
 }
 
@@ -72,11 +78,9 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * Builds a `test` fragment for a Vitest Browser Mode project, wired for
  * real-Chromium (or other Playwright-driven browser) test execution.
  *
- * Encodes the Aethelgard pattern: headed-by-default locally so WebGL/r3f
- * assertions run against real GPU compositing, CI auto-detects headless
- * (no GPU on hosted runners — SwiftShader/ANGLE software rasterizer flags
- * are baked in as defaults), and ANGLE/GPU launchOptions are pre-tuned so
- * consumers don't have to rediscover the flag set.
+ * Encodes the reviewed fleet pattern: headed by default both locally and in
+ * CI, silent at the Chromium boundary, and native renderer selection unless a
+ * consumer explicitly requests software or the proven Linux Vulkan profile.
  *
  * The returned object is meant to be spread into a Vitest `projects[]`
  * entry's `test` field (or merged into a top-level `test` block for
@@ -97,17 +101,18 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * });
  * ```
  *
- * NOTE: xvfb — if you set `headless: false` (or leave `'ci-only'` and run
- * this in a CI image without `process.env.CI` set), a truly headed browser
- * needs a display server. On Linux CI images without one, wrap the test
- * command in `xvfb-run` rather than forcing headless here.
+ * NOTE: a headed browser needs a display server. On Linux CI images without
+ * one, wrap the test command in `xvfb-run` rather than forcing headless here.
  */
 export function defineBrowserTestConfig(
   opts: BrowserTestConfigOptions = {},
 ): TestUserConfig & { __optimizeDepsInclude?: string[] } {
   const {
+    contextOptions = {},
     gpuArgs = [],
-    headless = 'ci-only',
+    gpuMode = 'auto',
+    headless = false,
+    ui = false,
     instances = [{ browser: 'chromium' }],
     optimizeDeps = [],
     setupFiles,
@@ -117,10 +122,13 @@ export function defineBrowserTestConfig(
   } = opts;
 
   const resolvedHeadless = resolveHeadless(headless);
-  const args = [
-    ...new Set([...DEFAULT_GPU_ARGS, ...gpuArgs].filter((argument) => argument !== '--mute-audio')),
-    '--mute-audio',
-  ];
+  const launchProfile = createChromiumLaunchProfile({ gpuMode, args: gpuArgs });
+  if (ui && contextOptions.deviceScaleFactor !== undefined) {
+    throw new Error(
+      'Vitest browser UI uses a null viewport, so contextOptions.deviceScaleFactor is not supported when ui is true',
+    );
+  }
+  const resolvedContextOptions = ui ? contextOptions : { deviceScaleFactor: 1, ...contextOptions };
 
   const test: TestUserConfig & { __optimizeDepsInclude?: string[] } = {
     name,
@@ -129,7 +137,11 @@ export function defineBrowserTestConfig(
     browser: {
       enabled: true,
       headless: resolvedHeadless,
-      provider: playwright({ launchOptions: { args } }),
+      ui,
+      provider: playwright({
+        launchOptions: launchProfile,
+        contextOptions: resolvedContextOptions,
+      }),
       instances,
     },
   };

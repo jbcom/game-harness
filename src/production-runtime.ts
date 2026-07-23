@@ -1,6 +1,8 @@
 import { type ChildProcess, type SpawnOptions, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { type Browser, chromium, type Page } from '@playwright/test';
+import getPort from 'get-port';
+import { type ChromiumGpuMode, createChromiumLaunchProfile } from './chromium-launch.js';
 import {
   type OpenSilentGameOptions,
   openSilentGame,
@@ -34,6 +36,8 @@ export interface ProductionRuntimeOptions {
   server?: ProductionRuntimeServerOptions;
   /** Chromium options. `--mute-audio` is always de-duplicated and applied last. */
   browserLaunchOptions?: BrowserLaunchOptions;
+  /** Renderer profile. Defaults to native Chromium selection (`auto`). */
+  gpuMode?: ChromiumGpuMode;
   /** Options for the fresh browser page. */
   pageOptions?: BrowserPageOptions;
   /** Extra query parameters composed with the mandatory runtime mute. */
@@ -61,6 +65,11 @@ export interface ProductionRuntimeIssue {
   url?: string;
 }
 
+export interface AvailableProductionPortOptions {
+  /** Loopback interface used by the owned preview server. Defaults to IPv4 localhost. */
+  host?: string;
+}
+
 export class ProductionRuntimeVerificationError extends Error {
   readonly issues: readonly ProductionRuntimeIssue[];
 
@@ -69,6 +78,18 @@ export class ProductionRuntimeVerificationError extends Error {
     this.name = 'ProductionRuntimeVerificationError';
     this.issues = issues;
   }
+}
+
+/**
+ * Finds and process-reserves an available loopback port for an owned production
+ * preview. The reservation prevents parallel verifier setup in this process
+ * from selecting the same port; the preview must still bind with strict-port
+ * semantics so an external race fails closed.
+ */
+export async function findAvailableProductionPort(
+  options: AvailableProductionPortOptions = {},
+): Promise<number> {
+  return getPort({ host: options.host ?? '127.0.0.1', reserve: true });
 }
 
 interface ProbeResult {
@@ -174,13 +195,65 @@ function formatIssues(issues: readonly ProductionRuntimeIssue[]): string {
     .join('\n');
 }
 
-function mutedLaunchOptions(options: BrowserLaunchOptions | undefined): BrowserLaunchOptions {
-  const args = (options?.args ?? []).filter((argument) => argument !== '--mute-audio');
+function mutedLaunchOptions(
+  options: BrowserLaunchOptions | undefined,
+  gpuMode: ChromiumGpuMode | undefined,
+): BrowserLaunchOptions {
+  const profile = createChromiumLaunchProfile({
+    ...(gpuMode === undefined ? {} : { gpuMode }),
+    ...(options?.args === undefined ? {} : { args: options.args }),
+    ...(options?.env === undefined ? {} : { env: options.env }),
+  });
   return {
     ...options,
-    headless: options?.headless ?? true,
-    args: [...new Set(args), '--mute-audio'],
+    ...profile,
+    headless: options?.headless ?? false,
   };
+}
+
+export interface WebGLRendererInfo {
+  renderer: string;
+  vendor: string;
+  /** True only when Chromium exposed `WEBGL_debug_renderer_info`. */
+  unmasked: boolean;
+}
+
+const SOFTWARE_RENDERER_PATTERN =
+  /swiftshader|llvmpipe|software rasterizer|microsoft basic render driver|angle.*(?:warp|software)/i;
+
+/** Reads the unmasked WebGL renderer already attached to the selected game canvas. */
+export async function readWebGLRenderer(
+  page: Page,
+  canvasSelector = 'canvas',
+): Promise<WebGLRendererInfo> {
+  return page.evaluate((selector) => {
+    const canvas = document.querySelector(selector);
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error(`WebGL canvas not found: ${selector}`);
+    }
+    const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    if (!context) throw new Error(`WebGL context unavailable: ${selector}`);
+    const extension = context.getExtension('WEBGL_debug_renderer_info');
+    const renderer = String(
+      context.getParameter(extension?.UNMASKED_RENDERER_WEBGL ?? context.RENDERER),
+    );
+    const vendor = String(context.getParameter(extension?.UNMASKED_VENDOR_WEBGL ?? context.VENDOR));
+    return { renderer, vendor, unmasked: extension !== null };
+  }, canvasSelector);
+}
+
+/** Requires a real hardware-backed WebGL renderer and returns its identity. */
+export async function requireHardwareWebGL(
+  page: Page,
+  canvasSelector = 'canvas',
+): Promise<WebGLRendererInfo> {
+  const info = await readWebGLRenderer(page, canvasSelector);
+  if (!info.unmasked || !info.renderer.trim() || SOFTWARE_RENDERER_PATTERN.test(info.renderer)) {
+    throw new ProductionRuntimeVerificationError(
+      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}`,
+    );
+  }
+  return info;
 }
 
 async function seedLocalStorage(
@@ -243,7 +316,9 @@ export async function verifyProductionRuntime(
   try {
     if (options.server) child = await startServer(options.server, options.url);
 
-    browser = await chromium.launch(mutedLaunchOptions(options.browserLaunchOptions));
+    browser = await chromium.launch(
+      mutedLaunchOptions(options.browserLaunchOptions, options.gpuMode),
+    );
     const page = options.pageOptions
       ? await browser.newPage(options.pageOptions)
       : await browser.newPage();

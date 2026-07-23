@@ -6,6 +6,7 @@ import {
   type PlaywrightTestConfig,
   type Response,
 } from '@playwright/test';
+import { type ChromiumGpuMode, createChromiumLaunchProfile } from './chromium-launch.js';
 
 export type DeviceTier = 'desktop' | 'mobile' | 'tablet' | 'foldable' | 'ultrawide';
 
@@ -140,6 +141,14 @@ export interface PlaywrightConfigOptions {
   basePath?: string;
   /** Port for the local webServer + baseURL. Defaults to 4173, overridable via `PLAYWRIGHT_PORT`/`PW_PORT`. */
   port?: number;
+  /** Renderer profile. Defaults to native Chromium selection (`auto`). */
+  gpuMode?: ChromiumGpuMode;
+  /**
+   * `false` (default) keeps Chromium headed locally and in CI. Use Xvfb on
+   * Linux CI. `true` is explicit headless mode; `ci-only` retains the older
+   * hosted-runner behavior when a display is genuinely unavailable.
+   */
+  headless?: boolean | 'ci-only';
   /**
    * Which device-tier Playwright projects to include. `desktop` is always
    * present as the tier-1 CI gate; passing more tiers here is equivalent to
@@ -203,6 +212,8 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     testDir = './tests',
     basePath = '/',
     port,
+    gpuMode = 'auto',
+    headless = false,
     deviceTiers = ['desktop'],
     extraProjects = [],
     journeySpecs = [],
@@ -211,7 +222,8 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   } = opts;
 
   const IS_CI = Boolean(process.env.CI);
-  const IS_HEADLESS = process.env.PW_HEADLESS === '1' || IS_CI;
+  const IS_HEADLESS =
+    process.env.PW_HEADLESS === '1' || (headless === 'ci-only' ? IS_CI : headless);
   const CHROMIUM_CHANNEL =
     process.env.PW_CHROMIUM_CHANNEL ?? (!IS_CI && !IS_HEADLESS ? 'chrome' : undefined);
 
@@ -245,6 +257,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   const tiers = includeMultiview ? deviceTiers : (deviceTiers.slice(0, 1) as DeviceTier[]);
   const tierProjects = tiers.flatMap((tier) => DEVICE_TIER_PROJECTS[tier] ?? []);
   const projects = [...tierProjects, ...extraProjects];
+  const launchProfile = createChromiumLaunchProfile({ gpuMode });
 
   const base: PlaywrightTestConfig = {
     testDir,
@@ -263,7 +276,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
       navigationTimeout: NAV_TIMEOUT_MS,
       browserName: 'chromium',
       channel: CHROMIUM_CHANNEL,
-      launchOptions: mergeMutedLaunchOptions(),
+      launchOptions: mergeMutedLaunchOptions(launchProfile),
     },
     webServer: {
       command: `pnpm exec vite --host 127.0.0.1 --port ${PORT}`,

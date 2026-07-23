@@ -116,6 +116,18 @@ describe('definePlaywrightConfig', () => {
     expect(config.reporter).toBe('github');
   });
 
+  it('keeps Chromium headed under CI by default', () => {
+    process.env.CI = '1';
+    const config = definePlaywrightConfig();
+    expect(config.use?.headless).toBe(false);
+  });
+
+  it('supports explicit headless and ci-only modes', () => {
+    expect(definePlaywrightConfig({ headless: true }).use?.headless).toBe(true);
+    process.env.CI = '1';
+    expect(definePlaywrightConfig({ headless: 'ci-only' }).use?.headless).toBe(true);
+  });
+
   it('sets forbidOnly/retries/reporter for local runs', () => {
     const config = definePlaywrightConfig();
     expect(config.forbidOnly).toBe(false);
@@ -162,6 +174,23 @@ describe('definePlaywrightConfig', () => {
         project.use?.launchOptions?.args?.includes('--mute-audio'),
       ),
     ).toBe(true);
+  });
+
+  it('applies the Linux hardware Vulkan profile to every project', () => {
+    const config = definePlaywrightConfig({ gpuMode: 'linux-hardware-vulkan' });
+    expect(config.use?.launchOptions).toEqual(
+      expect.objectContaining({
+        args: [
+          '--use-gpu-in-tests',
+          '--use-gl=angle',
+          '--use-angle=vulkan',
+          '--ignore-gpu-blocklist',
+          '--mute-audio',
+        ],
+        env: expect.objectContaining({ EGL_PLATFORM: 'surfaceless' }),
+      }),
+    );
+    expect(config.projects?.[0]?.use?.launchOptions?.args).toEqual(config.use?.launchOptions?.args);
   });
 
   it('preserves custom launch arguments while enforcing one mute argument', () => {

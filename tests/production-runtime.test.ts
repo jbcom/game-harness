@@ -3,7 +3,12 @@ import { EventEmitter } from 'node:events';
 import { chromium } from '@playwright/test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openSilentGame } from '../src/playwright-config.js';
-import { verifyProductionRuntime } from '../src/production-runtime.js';
+import {
+  findAvailableProductionPort,
+  readWebGLRenderer,
+  requireHardwareWebGL,
+  verifyProductionRuntime,
+} from '../src/production-runtime.js';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 vi.mock('@playwright/test', () => ({ chromium: { launch: vi.fn() } }));
@@ -41,6 +46,17 @@ describe('verifyProductionRuntime', () => {
     vi.unstubAllGlobals();
   });
 
+  it('reserves distinct available ports for parallel production verifiers', async () => {
+    const [first, second] = await Promise.all([
+      findAvailableProductionPort(),
+      findAvailableProductionPort(),
+    ]);
+
+    expect(first).toBeGreaterThan(0);
+    expect(first).toBeLessThanOrEqual(65_535);
+    expect(second).not.toBe(first);
+  });
+
   it('boots a fresh browser silently and preserves saved preferences', async () => {
     const { browser, page } = createRuntime();
     const assertReady = vi.fn().mockResolvedValue(undefined);
@@ -55,7 +71,7 @@ describe('verifyProductionRuntime', () => {
     });
 
     expect(chromium.launch).toHaveBeenCalledWith(
-      expect.objectContaining({ args: ['--custom', '--mute-audio'], headless: true }),
+      expect.objectContaining({ args: ['--custom', '--mute-audio'], headless: false }),
     );
     expect(page.addInitScript).toHaveBeenCalledOnce();
     expect(openSilentGame).toHaveBeenCalledWith(
@@ -69,6 +85,65 @@ describe('verifyProductionRuntime', () => {
     expect(browser.close).toHaveBeenCalledOnce();
     expect(result.finalUrl).toContain('muted=1');
     expect(result.localStorage).toEqual({ 'settings::muted': 'false' });
+  });
+
+  it('applies the Linux hardware Vulkan renderer profile', async () => {
+    createRuntime();
+
+    await verifyProductionRuntime({
+      url: 'https://game.example/',
+      gpuMode: 'linux-hardware-vulkan',
+      assertReady: async () => undefined,
+    });
+
+    expect(chromium.launch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: [
+          '--use-gpu-in-tests',
+          '--use-gl=angle',
+          '--use-angle=vulkan',
+          '--ignore-gpu-blocklist',
+          '--mute-audio',
+        ],
+        env: expect.objectContaining({ EGL_PLATFORM: 'surfaceless' }),
+        headless: false,
+      }),
+    );
+  });
+
+  it('reads and accepts a hardware-backed WebGL renderer', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValue({
+      renderer: 'ANGLE (Intel, Vulkan 1.4, Intel open-source Mesa driver)',
+      vendor: 'Google Inc. (Intel)',
+      unmasked: true,
+    });
+
+    await expect(readWebGLRenderer(page as never)).resolves.toEqual(
+      expect.objectContaining({ renderer: expect.stringContaining('Intel') }),
+    );
+    await expect(requireHardwareWebGL(page as never)).resolves.toEqual(
+      expect.objectContaining({ renderer: expect.stringContaining('Intel') }),
+    );
+  });
+
+  it.each(['SwiftShader', 'llvmpipe (LLVM 19.1.7)'])(
+    'rejects the software WebGL renderer %s',
+    async (renderer) => {
+      const { page } = createRuntime();
+      page.evaluate.mockResolvedValue({ renderer, vendor: 'software', unmasked: true });
+      await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/hardware WebGL required/i);
+    },
+  );
+
+  it('fails closed when the browser exposes only a masked renderer', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValue({
+      renderer: 'WebKit WebGL',
+      vendor: 'WebKit',
+      unmasked: false,
+    });
+    await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/masked renderer/i);
   });
 
   it('fails when runtime errors are emitted after navigation', async () => {
