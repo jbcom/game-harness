@@ -5,6 +5,8 @@ Import only the entry point a game uses:
 
 - `@arcade-cabinet/test-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`;
+- `@arcade-cabinet/test-harness/production-runtime` for a fresh, silent
+  production-artifact or exact-live boot; install `@playwright/test`;
 - `@arcade-cabinet/test-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
 - `@arcade-cabinet/test-harness`, `/lighthouse`, `/release-ladder`, and
@@ -57,25 +59,80 @@ fragment), navigates, and requires the application to set
 must mute audio before any sound objects can play and must never write the
 player's saved audio preference. Use `silentTestUrl()` when a test needs the
 URL without navigating. Custom marker/query names are supported for legacy
-adapters, but new games use the fleet defaults.
+adapters, but new games use the fleet defaults. There is no audible-debug
+exception: verify audio behavior through programmatic state, mocks, or analyser
+assertions while agent-controlled playback remains muted.
 
 Keep `reuseExistingServer` false for fleet evidence and assert the game identity
 before exercising a journey. A process from another repository on a familiar
 port must never be accepted as proof.
 
 Before publishing the package, run `pnpm test:package` to pack it and verify the
-peer-free root, Playwright-only, and Vitest Browser-only consumer boundaries in
-clean temporary installs.
+peer-free root, Playwright/production-runtime, and Vitest Browser consumer
+boundaries in clean temporary installs.
+
+## Production runtime verification
+
+`verifyProductionRuntime()` turns a successful build into runtime evidence. It
+always launches a fresh Chromium process with `--mute-audio`, navigates through
+`openSilentGame()`, and fails on page errors, console errors, failed requests,
+HTTP errors, an inactive silent-QA marker, or a changed local-storage sentinel.
+The required `assertReady` callback pins game identity and the primary UI or
+canvas instead of accepting any app that happens to answer on the same port.
+
+```ts
+import { verifyProductionRuntime } from '@arcade-cabinet/test-harness/production-runtime';
+
+await verifyProductionRuntime({
+  url: 'http://127.0.0.1:4274/',
+  server: {
+    command: process.execPath,
+    args: [
+      'node_modules/vite/bin/vite.js',
+      'preview',
+      '--host=127.0.0.1',
+      '--port=4274',
+      '--strictPort',
+    ],
+  },
+  localStorageSentinels: { 'settings::muted': 'false' },
+  assertReady: async (page) => {
+    await page.getByRole('heading', { name: 'Aethelgard' }).waitFor();
+    await page.locator('canvas').waitFor({ state: 'visible' });
+  },
+});
+```
+
+When `server` is present, its readiness URL must be unreachable before launch;
+the verifier never reuses an arbitrary process. It owns that child process,
+waits for readiness, and terminates it after either success or failure. Omit
+`server` to apply the same strict gate to an already-deployed exact-live URL.
 
 ## Visual battery contract
 
-`runVisualBattery()` owns one baseline directory directly under the configured
-harness directory. Vitest screenshot paths are relative to the test file, so a
-harness must write `__screenshots__/name.png`, not a repository-relative path
-such as `tests/harness/__screenshots__/name.png`. The battery rejects any second
-`__screenshots__` directory nested elsewhere under the harness tree; otherwise
-an apparently green run could leave an important screenshot outside the Git
-diff gate.
+`runVisualBattery()` owns one canonical `__screenshots__` tree directly under
+the configured harness directory. Vitest screenshot paths are relative to the
+test file, so a harness must write `__screenshots__/name.png`, not a
+repository-relative path such as `tests/harness/__screenshots__/name.png`. The
+battery rejects any second `__screenshots__` directory nested elsewhere under
+the harness tree; otherwise an apparently green run could leave an important
+screenshot outside the Git diff gate.
+
+When two renderers cannot produce byte-identical PNGs, keep strict profiles
+instead of adding a pixel threshold. Pass `baselineProfile: 'linux'`; the
+battery compares `__screenshots__/linux/` and exposes the same value to Vite as
+`VITE_VISUAL_BASELINE_PROFILE`. Screenshot helpers should include that optional
+directory in their path:
+
+```ts
+const profile = import.meta.env.VITE_VISUAL_BASELINE_PROFILE?.trim();
+const path = profile ? `__screenshots__/${profile}/scene.png` : '__screenshots__/scene.png';
+```
+
+`baselinesDir` names the baseline root. When it is combined with
+`baselineProfile`, the profile is always appended below that root. For example,
+`{ baselinesDir: 'visual-baselines', baselineProfile: 'linux' }` owns and diffs
+`visual-baselines/linux/`.
 
 For WebGL scenes, capture the canvas locator instead of the full browser page:
 

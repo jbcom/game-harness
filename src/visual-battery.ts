@@ -9,8 +9,15 @@ export interface VisualBatteryOptions {
   cwd?: string;
   /** The `pnpm test:browser`-equivalent command to shell out to (without the file args). Defaults to `'pnpm test:browser'`. */
   testCommand?: string;
-  /** Where the baseline PNGs land, relative to `cwd`. Defaults to `${harnessGlob}/__screenshots__`. */
+  /** Baseline root relative to `cwd`. Defaults to `${harnessGlob}/__screenshots__`; `baselineProfile` is appended below it. */
   baselinesDir?: string;
+  /**
+   * Optional platform/profile directory below the baseline root (for example
+   * `linux`). The profile is also exposed to Vite browser tests as
+   * `VITE_VISUAL_BASELINE_PROFILE`, allowing byte-exact baselines to remain
+   * strict on renderers that cannot produce identical PNGs.
+   */
+  baselineProfile?: string;
   /**
    * Harness basenames that each need a fresh browser process. Use this for
    * WebGL screenshots whose renderer state can drift after earlier canvases
@@ -24,14 +31,14 @@ export interface VisualBatteryOptions {
 
 export class VisualBatteryError extends Error {}
 
-function findUnexpectedBaselineDirectories(root: string, expected: string): string[] {
+function findUnexpectedBaselineDirectories(root: string, canonical: string): string[] {
   const unexpected: string[] = [];
 
   const visit = (directory: string): void => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const child = resolve(directory, entry.name);
-      if (child === expected) continue;
+      if (child === canonical) continue;
       if (entry.name === '__screenshots__') {
         unexpected.push(child);
         continue;
@@ -77,6 +84,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     ci = false,
     cwd = process.cwd(),
     testCommand = 'pnpm test:browser',
+    baselineProfile,
     isolatedHarnessFiles = [],
     log = defaultLog,
     error = defaultError,
@@ -84,11 +92,15 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   const HARNESS_DIR = resolve(cwd, harnessDir);
   const relativeHarnessDir = harnessDir.replace(/^\.\//, '').replace(/\/$/, '');
-  const BASELINES_DIR = resolve(
-    cwd,
-    options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`,
-  );
-  const relativeBaselinesDir = options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`;
+  if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
+    throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
+  }
+  const relativeBaselinesRoot = options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`;
+  const canonicalBaselinesDir = resolve(cwd, relativeBaselinesRoot);
+  const relativeBaselinesDir = baselineProfile
+    ? `${relativeBaselinesRoot.replace(/\/$/, '')}/${baselineProfile}`
+    : relativeBaselinesRoot;
+  const BASELINES_DIR = resolve(cwd, relativeBaselinesDir);
 
   const die = (msg: string): never => {
     error(msg);
@@ -101,7 +113,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   const unexpectedBaselineDirectories = findUnexpectedBaselineDirectories(
     HARNESS_DIR,
-    BASELINES_DIR,
+    canonicalBaselinesDir,
   );
   if (unexpectedBaselineDirectories.length > 0) {
     die(
@@ -158,7 +170,14 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     if (files.length === 0) return;
     log(`running ${label}: ${testCommand} ${files.join(' ')}...`);
     try {
-      execSync(`${testCommand} ${files.join(' ')}`, { cwd, stdio: 'inherit' });
+      execSync(`${testCommand} ${files.join(' ')}`, {
+        cwd,
+        stdio: 'inherit',
+        env: {
+          ...process.env,
+          ...(baselineProfile ? { VITE_VISUAL_BASELINE_PROFILE: baselineProfile } : {}),
+        },
+      });
     } catch {
       die('one or more harnesses failed — fix the failing test before re-running visual battery');
     }

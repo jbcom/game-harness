@@ -89,6 +89,23 @@ try {
     ['install', tarballPath, '@playwright/test@1.60.0', '--ignore-scripts'],
     playwrightConsumer,
   );
+  run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('@arcade-cabinet/test-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.ProductionRuntimeVerificationError!=='function')throw new Error('invalid CJS production-runtime entry')",
+    ],
+    playwrightConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('@arcade-cabinet/test-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.ProductionRuntimeVerificationError!=='function')throw new Error('invalid ESM production-runtime entry')",
+    ],
+    playwrightConsumer,
+  );
   assertMissing(playwrightConsumer, 'vitest');
   assertMissing(playwrightConsumer, '@vitest/browser-playwright');
   run(
@@ -142,7 +159,7 @@ try {
   );
 
   console.log(
-    'Package boundary smoke passed for peer-free root, Playwright-only, and Vitest Browser-only consumers.',
+    'Package boundary smoke passed for peer-free root, Playwright/production-runtime, and Vitest Browser consumers.',
   );
 } finally {
   rmSync(scratchDir, { recursive: true, force: true });

@@ -38,6 +38,7 @@ describe('package peer boundaries', () => {
         '.',
         './vitest',
         './playwright',
+        './production-runtime',
         './lighthouse',
         './release-ladder',
         './visual-battery',

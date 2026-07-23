@@ -114,6 +114,74 @@ describe('runVisualBattery', () => {
     expect(ranCommand.startsWith('npm run test:browser')).toBe(true);
   });
 
+  it('scopes byte-exact baselines and the browser test environment to a profile', () => {
+    const linuxBaselinesDir = join(baselinesDir, 'linux');
+    mkdirSync(linuxBaselinesDir, { recursive: true });
+    writeFileSync(join(linuxBaselinesDir, 'foo.png'), 'linux-png-bytes');
+    const statusCommands: string[] = [];
+    let browserEnv: NodeJS.ProcessEnv | undefined;
+    mockedExecSync.mockImplementation((cmd, options) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status')) {
+        statusCommands.push(cmdStr);
+        return '';
+      }
+      browserEnv = options?.env;
+      return '';
+    });
+
+    runVisualBattery('tests/harness', {
+      cwd,
+      ci: true,
+      baselineProfile: 'linux',
+      ...quiet,
+    });
+
+    expect(statusCommands).toHaveLength(2);
+    expect(statusCommands.every((command) => command.includes('__screenshots__/linux/'))).toBe(
+      true,
+    );
+    expect(browserEnv?.VITE_VISUAL_BASELINE_PROFILE).toBe('linux');
+  });
+
+  it('appends a profile below a custom baseline root', () => {
+    rmSync(baselinesDir, { recursive: true });
+    const customRoot = join(harnessDir, 'visual-baselines');
+    const linuxBaselinesDir = join(customRoot, 'linux');
+    mkdirSync(linuxBaselinesDir, { recursive: true });
+    writeFileSync(join(linuxBaselinesDir, 'foo.png'), 'linux-png-bytes');
+    const statusCommands: string[] = [];
+    mockedExecSync.mockImplementation((cmd) => {
+      const command = String(cmd);
+      if (command.startsWith('git status')) statusCommands.push(command);
+      return '';
+    });
+
+    runVisualBattery('tests/harness', {
+      cwd,
+      ci: true,
+      baselinesDir: 'tests/harness/visual-baselines',
+      baselineProfile: 'linux',
+      ...quiet,
+    });
+
+    expect(statusCommands).toHaveLength(2);
+    expect(statusCommands.every((command) => command.includes('visual-baselines/linux/'))).toBe(
+      true,
+    );
+  });
+
+  it('rejects a baseline profile that could escape the owned directory', () => {
+    expect(() =>
+      runVisualBattery('tests/harness', {
+        cwd,
+        baselineProfile: '../linux',
+        ...quiet,
+      }),
+    ).toThrow(/invalid baseline profile/i);
+    expect(mockedExecSync).not.toHaveBeenCalled();
+  });
+
   it('runs selected harnesses in fresh browser processes', () => {
     writeFileSync(join(harnessDir, 'webgl.browser.test.tsx'), '// WebGL harness');
     const ranCommands: string[] = [];
