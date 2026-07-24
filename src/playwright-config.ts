@@ -48,6 +48,13 @@ export interface OpenSilentGameOptions extends SilentTestUrlOptions {
   navigationOptions?: NonNullable<Parameters<Page['goto']>[1]>;
 }
 
+export interface ResolvePlaywrightPortOptions {
+  /** Stable local-development port. Defaults to 4173. */
+  localPort?: number;
+  /** Injectable environment for deterministic consumers and tests. Defaults to `process.env`. */
+  environment?: Readonly<Record<string, string | undefined>>;
+}
+
 /**
  * Adds the fleet's non-persistent mute mode to a relative or absolute URL.
  * Explicit caller parameters replace existing values, and the mute value is
@@ -149,6 +156,12 @@ export interface PlaywrightConfigOptions {
   basePath?: string;
   /** Port for the local webServer + baseURL. Defaults to 4173, overridable via `PLAYWRIGHT_PORT`/`PW_PORT`. */
   port?: number;
+  /**
+   * Builds a custom web-server command with the already-resolved local or
+   * CI-isolated port. Prefer this over hard-coding a port in
+   * `overrides.webServer.command`.
+   */
+  webServerCommand?: (port: number) => string;
   /** Renderer profile. Defaults to native Chromium selection (`auto`). */
   gpuMode?: ChromiumGpuMode;
   /**
@@ -198,9 +211,54 @@ export interface PlaywrightConfigOptions {
 }
 
 const DEFAULT_PORT = 4173;
+const CI_PORT_START = 20_000;
+const CI_PORT_SPAN = 10_000;
 const LOCAL_TEST_TIMEOUT_MS = 45_000;
 const LOCAL_ACTION_TIMEOUT_MS = 15_000;
 const LOCAL_NAV_TIMEOUT_MS = 15_000;
+
+function validPort(value: number): boolean {
+  return Number.isInteger(value) && value > 0 && value <= 65_535;
+}
+
+function stableHash(value: string): number {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Resolves one stable Playwright preview port for every config reload in an
+ * Actions job. Explicit `PLAYWRIGHT_PORT`/`PW_PORT` values win; local runs use
+ * `localPort`; GitHub/Gitea CI hashes repository, run, job, and local port into
+ * the fleet's isolated port range.
+ */
+export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}): number {
+  const environment = options.environment ?? process.env;
+  const configuredPort = Number(environment.PLAYWRIGHT_PORT ?? environment.PW_PORT);
+  if (validPort(configuredPort)) return configuredPort;
+
+  const localPort = options.localPort ?? DEFAULT_PORT;
+  if (!validPort(localPort)) {
+    throw new TypeError(
+      `Playwright port must be an integer from 1 to 65535; received ${localPort}`,
+    );
+  }
+
+  const runId = environment.GITHUB_RUN_ID ?? environment.GITHUB_RUN_NUMBER;
+  if (!environment.CI || !runId) return localPort;
+
+  const identity = [
+    environment.GITHUB_REPOSITORY ?? '',
+    runId,
+    environment.GITHUB_JOB ?? '',
+    String(localPort),
+  ].join('\0');
+  return CI_PORT_START + (stableHash(identity) % CI_PORT_SPAN);
+}
 
 /**
  * Builds a full Playwright config, encoding the Aethelgard tiered-device +
@@ -220,6 +278,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     testDir = './tests',
     basePath = '/',
     port,
+    webServerCommand,
     gpuMode = 'auto',
     headless = false,
     deviceTiers = ['desktop'],
@@ -235,11 +294,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   const CHROMIUM_CHANNEL =
     process.env.PW_CHROMIUM_CHANNEL ?? (!IS_CI && !IS_HEADLESS ? 'chrome' : undefined);
 
-  const configuredPort = Number(process.env.PLAYWRIGHT_PORT ?? process.env.PW_PORT);
-  const PORT =
-    Number.isInteger(configuredPort) && configuredPort > 0
-      ? configuredPort
-      : (port ?? DEFAULT_PORT);
+  const PORT = resolvePlaywrightPort({ localPort: port ?? DEFAULT_PORT });
   const BASE_URL = `http://127.0.0.1:${PORT}${basePath}`;
   const REUSE_SERVER = !IS_CI && process.env.PW_REUSE_SERVER === '1';
 
@@ -287,7 +342,8 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
       launchOptions: mergeMutedLaunchOptions(launchProfile),
     },
     webServer: {
-      command: `pnpm exec vite --host 127.0.0.1 --port ${PORT}`,
+      command:
+        webServerCommand?.(PORT) ?? `pnpm exec vite --host 127.0.0.1 --port ${PORT} --strictPort`,
       url: BASE_URL,
       reuseExistingServer: REUSE_SERVER,
       timeout: 60_000,

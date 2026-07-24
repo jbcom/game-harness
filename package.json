@@ -1,6 +1,6 @@
 {
   "name": "@arcade-cabinet/test-harness",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "vitest-browser config + playwright config/preset + release verification ladder — extracted from Aethelgard-Chronicles-of-Strata's four-pillar test harness (tiered Playwright, deterministic visual-regression battery, Lighthouse CI presets, release-ladder orchestrator).",
   "type": "module",
   "license": "MIT",
