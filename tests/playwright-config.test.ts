@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { definePlaywrightConfig } from '../src/playwright-config.js';
+import { definePlaywrightConfig, resolvePlaywrightPort } from '../src/playwright-config.js';
 
 const ENV_KEYS = [
   'CI',
@@ -9,6 +9,9 @@ const ENV_KEYS = [
   'PLAYWRIGHT_PORT',
   'PW_PORT',
   'PW_HEADLESS',
+  'GITHUB_REPOSITORY',
+  'GITHUB_RUN_ID',
+  'GITHUB_JOB',
 ] as const;
 
 describe('definePlaywrightConfig', () => {
@@ -144,6 +147,62 @@ describe('definePlaywrightConfig', () => {
     process.env.PLAYWRIGHT_PORT = '9999';
     const config = definePlaywrightConfig({ port: 5555 });
     expect(config.use?.baseURL).toBe('http://127.0.0.1:9999/');
+  });
+
+  it('derives one stable CI port across parent and worker config reloads', () => {
+    process.env.CI = '1';
+    process.env.GITHUB_REPOSITORY = 'arcade-cabinet/quest-for-the-crown';
+    process.env.GITHUB_RUN_ID = '1955';
+    process.env.GITHUB_JOB = 'verify';
+
+    const first = resolvePlaywrightPort({ localPort: 4399 });
+    const second = resolvePlaywrightPort({ localPort: 4399 });
+    const config = definePlaywrightConfig({ port: 4399 });
+
+    expect(first).toBe(second);
+    expect(first).toBeGreaterThanOrEqual(20_000);
+    expect(first).toBeLessThan(30_000);
+    expect(config.use?.baseURL).toBe(`http://127.0.0.1:${first}/`);
+  });
+
+  it('isolates concurrent CI runs and jobs while preserving explicit overrides', () => {
+    const environment = {
+      CI: '1',
+      GITHUB_REPOSITORY: 'arcade-cabinet/quest-for-the-crown',
+      GITHUB_RUN_ID: '1955',
+      GITHUB_JOB: 'verify',
+    };
+    const first = resolvePlaywrightPort({ localPort: 4399, environment });
+    const otherRun = resolvePlaywrightPort({
+      localPort: 4399,
+      environment: { ...environment, GITHUB_RUN_ID: '1956' },
+    });
+    const otherJob = resolvePlaywrightPort({
+      localPort: 4399,
+      environment: { ...environment, GITHUB_JOB: 'release-playthrough' },
+    });
+    const explicit = resolvePlaywrightPort({
+      localPort: 4399,
+      environment: { ...environment, PLAYWRIGHT_PORT: '5444' },
+    });
+
+    expect(new Set([first, otherRun, otherJob]).size).toBe(3);
+    expect(explicit).toBe(5444);
+  });
+
+  it('passes the resolved port to a custom web-server command', () => {
+    process.env.CI = '1';
+    process.env.GITHUB_REPOSITORY = 'arcade-cabinet/quest-for-the-crown';
+    process.env.GITHUB_RUN_ID = '1955';
+    process.env.GITHUB_JOB = 'verify';
+    const config = definePlaywrightConfig({
+      port: 4399,
+      webServerCommand: (port) => `pnpm preview --port ${port} --strictPort`,
+    });
+    const webServer = config.webServer as { command?: string };
+    const resolvedPort = new URL(String(config.use?.baseURL)).port;
+
+    expect(webServer.command).toBe(`pnpm preview --port ${resolvedPort} --strictPort`);
   });
 
   it('respects a custom basePath', () => {

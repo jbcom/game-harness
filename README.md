@@ -30,14 +30,24 @@ export default definePlaywrightConfig({
   port: 4391,
   deviceTiers: ['desktop', 'mobile'],
   gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
-  overrides: {
-    webServer: {
-      command: 'npm run build && npm run serve:e2e',
-      reuseExistingServer: false,
-    },
-  },
+  webServerCommand: (port) =>
+    `pnpm build && pnpm exec vite preview --host 127.0.0.1 --port ${port} --strictPort`,
 });
 ```
+
+The configured `port` is the stable local-development port. On GitHub or Gitea
+Actions, the factory derives a deterministic port from repository, run, and job
+identity so concurrent workflows cannot accidentally share the same preview.
+Every Playwright config reload in the parent and worker processes resolves the
+same value. `PLAYWRIGHT_PORT` or `PW_PORT` remains an exact override. A rare
+cross-process/hash collision still fails closed because the preview must use
+strict-port semantics; it never reuses a reachable process.
+
+Use `webServerCommand(port)` when a consumer needs build or asset-preparation
+steps around its preview. The callback receives the already-resolved local or
+CI-isolated port. A literal `overrides.webServer.command` remains supported,
+but a command that hard-codes its own port bypasses isolation and is not valid
+fleet evidence.
 
 Chromium is headed by default locally and in CI. Linux CI must provide a
 display with `xvfb-run`; it should not change the browser to headless simply to

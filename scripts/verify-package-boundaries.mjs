@@ -146,7 +146,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@arcade-cabinet/test-harness/playwright'); if(typeof h.definePlaywrightConfig!=='function'||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid CJS Playwright entry')",
+      "const h=require('@arcade-cabinet/test-harness/playwright'); const p=h.resolvePlaywrightPort({localPort:4399,environment:{CI:'1',GITHUB_REPOSITORY:'arcade-cabinet/quest',GITHUB_RUN_ID:'1955',GITHUB_JOB:'verify'}}); if(typeof h.definePlaywrightConfig!=='function'||typeof h.resolvePlaywrightPort!=='function'||!Number.isInteger(p)||p<20000||p>=30000||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid CJS Playwright entry')",
     ],
     playwrightConsumer,
   );
@@ -155,7 +155,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@arcade-cabinet/test-harness/playwright'); if(typeof h.definePlaywrightConfig!=='function'||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid ESM Playwright entry')",
+      "const h=await import('@arcade-cabinet/test-harness/playwright'); const p=h.resolvePlaywrightPort({localPort:4399,environment:{CI:'1',GITHUB_REPOSITORY:'arcade-cabinet/quest',GITHUB_RUN_ID:'1955',GITHUB_JOB:'verify'}}); if(typeof h.definePlaywrightConfig!=='function'||typeof h.resolvePlaywrightPort!=='function'||!Number.isInteger(p)||p<20000||p>=30000||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid ESM Playwright entry')",
     ],
     playwrightConsumer,
   );
