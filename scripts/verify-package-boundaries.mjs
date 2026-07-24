@@ -95,6 +95,23 @@ try {
     rootConsumer,
   );
   run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('@arcade-cabinet/test-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid CJS silent-QA entry')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('@arcade-cabinet/test-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid ESM silent-QA entry')",
+    ],
+    rootConsumer,
+  );
+  run(
     join(rootConsumer, 'node_modules', '.bin', 'test-harness-visual-battery'),
     ['--help'],
     rootConsumer,
@@ -176,7 +193,7 @@ try {
   );
 
   console.log(
-    'Package boundary smoke passed for peer-free root, Playwright/production-runtime, and Vitest Browser consumers.',
+    'Package boundary smoke passed for peer-free root/silent QA, Playwright/production-runtime, and Vitest Browser consumers.',
   );
 } finally {
   rmSync(scratchDir, { recursive: true, force: true });

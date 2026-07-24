@@ -5,6 +5,8 @@ Import only the entry point a game uses:
 
 - `@arcade-cabinet/test-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`;
+- `@arcade-cabinet/test-harness/silent-qa` for a peer-free,
+  audio-engine-agnostic application-side runtime mute adapter;
 - `@arcade-cabinet/test-harness/production-runtime` for a fresh, silent
   production-artifact or exact-live boot; install `@playwright/test`;
 - `@arcade-cabinet/test-harness/chromium` for peer-free Chromium renderer and
@@ -66,6 +68,20 @@ Every browser launched by `definePlaywrightConfig()` or
 defense-in-depth guard, including projects with custom launch options. The
 application must also expose a non-persistent mute mode so tests fail closed
 before interacting with it:
+
+```ts
+import { activateSilentQa } from '@arcade-cabinet/test-harness/silent-qa';
+import { Howler } from 'howler';
+
+// Evaluate before the rest of the application/audio graph.
+export const silentQaActive = activateSilentQa(() => Howler.mute(true));
+```
+
+`activateSilentQa()` detects `?muted` by presence, invokes the consumer-owned
+audio-engine callback, and only then publishes
+`<html data-audio-mode="muted-test">`. It never reads or writes saved audio
+preferences. Consumers use its boolean return value or `isSilentQaActive()` to
+prevent later preference restoration from overriding the page-lifetime mute.
 
 ```ts
 import { openSilentGame } from '@arcade-cabinet/test-harness/playwright';

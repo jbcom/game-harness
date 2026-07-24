@@ -7,6 +7,19 @@ import {
   type Response,
 } from '@playwright/test';
 import { type ChromiumGpuMode, createChromiumLaunchProfile } from './chromium-launch.js';
+import {
+  SILENT_QA_MARKER_ATTRIBUTE,
+  SILENT_QA_MARKER_VALUE,
+  SILENT_QA_QUERY_PARAMETER,
+  SILENT_QA_QUERY_VALUE,
+} from './silent-qa.js';
+
+export {
+  SILENT_QA_MARKER_ATTRIBUTE,
+  SILENT_QA_MARKER_VALUE,
+  SILENT_QA_QUERY_PARAMETER,
+  SILENT_QA_QUERY_VALUE,
+} from './silent-qa.js';
 
 export type DeviceTier = 'desktop' | 'mobile' | 'tablet' | 'foldable' | 'ultrawide';
 
@@ -34,11 +47,6 @@ export interface OpenSilentGameOptions extends SilentTestUrlOptions {
   /** Options forwarded to `page.goto()`. */
   navigationOptions?: NonNullable<Parameters<Page['goto']>[1]>;
 }
-
-export const SILENT_QA_QUERY_PARAMETER = 'muted';
-export const SILENT_QA_QUERY_VALUE = '1';
-export const SILENT_QA_MARKER_ATTRIBUTE = 'data-audio-mode';
-export const SILENT_QA_MARKER_VALUE = 'muted-test';
 
 /**
  * Adds the fleet's non-persistent mute mode to a relative or absolute URL.
