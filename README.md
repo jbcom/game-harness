@@ -198,6 +198,12 @@ const path = profile ? `__screenshots__/${profile}/scene.png` : '__screenshots__
 `baselineProfile`, the profile is always appended below that root. For example,
 `{ baselinesDir: 'visual-baselines', baselineProfile: 'linux' }` owns and diffs
 `visual-baselines/linux/`.
+```
+
+`baselinesDir` names the baseline root. When it is combined with
+`baselineProfile`, the profile is always appended below that root. For example,
+`{ baselinesDir: 'visual-baselines', baselineProfile: 'linux' }` owns and diffs
+`visual-baselines/linux/`.
 
 For WebGL scenes, capture the canvas locator instead of the full browser page:
 
