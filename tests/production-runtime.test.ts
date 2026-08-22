@@ -241,4 +241,70 @@ describe('verifyProductionRuntime', () => {
     ).rejects.toThrow(/already reachable/i);
     expect(spawn).not.toHaveBeenCalled();
   });
+
+  it('cancels every reachable readiness response body before retry or success', async () => {
+    createRuntime();
+    const child = Object.assign(new EventEmitter(), {
+      exitCode: null as number | null,
+      signalCode: null as NodeJS.Signals | null,
+      kill: vi.fn(),
+    });
+    child.kill.mockImplementation(() => {
+      child.exitCode = 0;
+      queueMicrotask(() => child.emit('exit', 0, null));
+      return true;
+    });
+    vi.mocked(spawn).mockReturnValue(child as never);
+    const retryCancel = vi.fn().mockResolvedValue(undefined);
+    const readyCancel = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('not listening'))
+        .mockResolvedValueOnce({
+          body: { cancel: retryCancel },
+          ok: false,
+          status: 503,
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          body: { cancel: readyCancel },
+          ok: true,
+          status: 200,
+        } as unknown as Response),
+    );
+
+    await verifyProductionRuntime({
+      url: 'http://127.0.0.1:4274/',
+      server: { command: 'vite', args: ['preview', '--strictPort'] },
+      assertReady: async () => undefined,
+    });
+
+    expect(retryCancel).toHaveBeenCalledOnce();
+    expect(readyCancel).toHaveBeenCalledOnce();
+  });
+
+  it('keeps proven reachability authoritative when body cancellation rejects', async () => {
+    createRuntime();
+    const cancel = vi.fn().mockRejectedValue(new Error('stream already locked'));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        body: { cancel },
+        ok: true,
+        status: 200,
+      } as unknown as Response),
+    );
+
+    await expect(
+      verifyProductionRuntime({
+        url: 'http://127.0.0.1:4274/',
+        server: { command: 'vite', args: ['preview', '--strictPort'] },
+        assertReady: async () => undefined,
+      }),
+    ).rejects.toThrow(/already reachable/i);
+
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(spawn).not.toHaveBeenCalled();
+  });
 });

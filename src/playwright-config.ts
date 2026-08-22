@@ -230,6 +230,14 @@ function stableHash(value: string): number {
   return hash >>> 0;
 }
 
+function normalizePlaywrightChildEnvironment(): void {
+  // Playwright 1.62 injects FORCE_COLOR=1 into web-server and worker
+  // processes. An inherited NO_COLOR is therefore ignored and only makes
+  // Node emit a warning in each child. Removing it here changes this
+  // Playwright subprocess only; the invoking shell remains untouched.
+  delete process.env.NO_COLOR;
+}
+
 /**
  * Resolves one stable Playwright preview port for every config reload in an
  * Actions job. Explicit `PLAYWRIGHT_PORT`/`PW_PORT` values win; local runs use
@@ -274,6 +282,8 @@ export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}
  *   (CI runners run WebGL/render-heavy tests 2-4x slower than local dev).
  */
 export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): PlaywrightTestConfig {
+  normalizePlaywrightChildEnvironment();
+
   const {
     testDir = './tests',
     basePath = '/',

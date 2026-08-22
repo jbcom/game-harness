@@ -1,34 +1,47 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createAnonymousEnvironment } from '../../../scripts/anonymous-environment.mjs';
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const packageManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
 const scratchPrefix = join(tmpdir(), 'arcade-test-harness-');
 const scratchDir = mkdtempSync(scratchPrefix);
 if (!scratchDir.startsWith(scratchPrefix)) {
   throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
 }
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const npmEnvironment = { ...process.env };
-for (const key of [
-  'npm_config_auto_install_peers',
-  'npm_config_hoist_pattern',
-  'npm_config_recursive',
-]) {
-  delete npmEnvironment[key];
-}
+const anonymousConfig = join(scratchDir, 'anonymous.npmrc');
+writeFileSync(
+  anonymousConfig,
+  [
+    'registry=https://registry.npmjs.org/',
+    '@arcade-cabinet:registry=https://redacted-private-registry.example/api/packages/arcade-cabinet/npm/',
+    'audit=false',
+    'fund=false',
+    '',
+  ].join('\n'),
+);
+const npmEnvironment = createAnonymousEnvironment({
+  home: join(scratchDir, 'home'),
+  userConfig: anonymousConfig,
+});
 
 function run(command, args, cwd) {
   execFileSync(command, args, {
     cwd,
     stdio: 'inherit',
-    env: {
-      ...npmEnvironment,
-      npm_config_audit: 'false',
-      npm_config_fund: 'false',
-    },
+    env: npmEnvironment,
   });
 }
 
@@ -50,13 +63,45 @@ function assertMissing(directory, packagePath) {
 }
 
 try {
-  run(npmCommand, ['pack', packageDir, '--pack-destination', scratchDir], packageDir);
+  const npmVersion = execFileSync(npmCommand, ['--version'], {
+    cwd: packageDir,
+    encoding: 'utf8',
+    env: npmEnvironment,
+  }).trim();
+  if (npmVersion !== '11.17.0') {
+    throw new Error(`package verifier requires npm 11.17.0, got ${npmVersion}`);
+  }
+
+  run(npmCommand, ['pack', '--pack-destination', scratchDir], packageDir);
   const tarball = readdirSync(scratchDir).find((entry) => entry.endsWith('.tgz'));
   if (!tarball) throw new Error('npm pack did not produce a tarball');
+  const expectedTarball = `arcade-cabinet-test-harness-${packageManifest.version}.tgz`;
+  if (tarball !== expectedTarball) {
+    throw new Error(`npm pack produced ${tarball}, expected ${expectedTarball}`);
+  }
   const tarballPath = join(scratchDir, tarball);
+  const registryConsumerSource = process.env.TEST_HARNESS_CONSUMER_SOURCE;
+  if (
+    registryConsumerSource &&
+    !/^@arcade-cabinet\/test-harness@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(
+      registryConsumerSource,
+    )
+  ) {
+    throw new Error(
+      'TEST_HARNESS_CONSUMER_SOURCE must be an exact @arcade-cabinet/test-harness package spec',
+    );
+  }
+  const consumerSource = registryConsumerSource ?? tarballPath;
 
   const rootConsumer = createConsumer('peer-free-root-consumer');
-  run(npmCommand, ['install', tarballPath, '--ignore-scripts'], rootConsumer);
+  run(npmCommand, ['install', consumerSource, '--ignore-scripts'], rootConsumer);
+  const installedLicense = readFileSync(
+    join(rootConsumer, 'node_modules', '@arcade-cabinet', 'test-harness', 'LICENSE'),
+    'utf8',
+  );
+  if (!installedLicense.includes('Copyright (c) 2026 arcade-cabinet')) {
+    throw new Error('installed package-local LICENSE is missing Arcade Cabinet copyright');
+  }
   assertMissing(rootConsumer, '@playwright/test');
   assertMissing(rootConsumer, 'vitest');
   assertMissing(rootConsumer, '@vitest/browser-playwright');
@@ -120,7 +165,7 @@ try {
   const playwrightConsumer = createConsumer('playwright-only-consumer');
   run(
     npmCommand,
-    ['install', tarballPath, '@playwright/test@1.60.0', '--ignore-scripts'],
+    ['install', consumerSource, '@playwright/test@1.62.1', '--ignore-scripts'],
     playwrightConsumer,
   );
   run(
@@ -165,10 +210,10 @@ try {
     npmCommand,
     [
       'install',
-      tarballPath,
+      consumerSource,
       'vitest@4.1.10',
       '@vitest/browser-playwright@4.1.10',
-      'playwright@1.61.1',
+      'playwright@1.62.1',
       '--ignore-scripts',
     ],
     vitestConsumer,

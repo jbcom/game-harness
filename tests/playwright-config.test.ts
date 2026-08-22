@@ -12,6 +12,7 @@ const ENV_KEYS = [
   'GITHUB_REPOSITORY',
   'GITHUB_RUN_ID',
   'GITHUB_JOB',
+  'NO_COLOR',
 ] as const;
 
 describe('definePlaywrightConfig', () => {
@@ -34,6 +35,16 @@ describe('definePlaywrightConfig', () => {
   it('defaults to a single desktop project when no env gates are set', () => {
     const config = definePlaywrightConfig();
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop']);
+  });
+
+  it('removes inherited NO_COLOR before Playwright forces color in child processes', () => {
+    process.env.NO_COLOR = '1';
+    process.env.CI = '1';
+
+    definePlaywrightConfig();
+
+    expect(process.env.NO_COLOR).toBeUndefined();
+    expect(process.env.CI).toBe('1');
   });
 
   it('expands to every requested device tier under MULTIVIEW=1', () => {

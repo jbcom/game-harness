@@ -101,7 +101,14 @@ interface ProbeResult {
 async function probe(url: string): Promise<ProbeResult> {
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
-    return { reachable: true, ok: response.ok, status: response.status };
+    const result = { reachable: true, ok: response.ok, status: response.status };
+    try {
+      await response.body?.cancel();
+    } catch {
+      // Reachability is already proven. A stream-cleanup failure must not make
+      // an occupied address look free or make a ready server look unreachable.
+    }
+    return result;
   } catch {
     return { reachable: false, ok: false };
   }

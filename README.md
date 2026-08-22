@@ -21,6 +21,18 @@ by the package root. Each consumer must install the peers required by the
 framework entry point it imports. A Playwright-only game, for example, installs
 `@playwright/test` but does not need Vitest or `@vitest/browser-playwright`.
 
+## Current release matrix
+
+The package is built and packed with Node 24.19.0, pnpm 11.21.0, and Node's
+bundled npm 11.17.0. Its current conformance matrix is Playwright 1.62.1 and
+Vitest Browser 4.1.10. Package-boundary consumers run with a credential-free
+HOME and npm configuration, install only the peer family needed by each entry
+point, and exercise ESM, CommonJS, types, the CLI, silent runtime markers, and
+headed Chromium launch profiles. A metadata-only dependency bump is not
+release evidence.
+
+Every packed release carries this README and the package-local MIT license.
+
 ## Playwright example
 
 ```ts
@@ -42,6 +54,14 @@ Every Playwright config reload in the parent and worker processes resolves the
 same value. `PLAYWRIGHT_PORT` or `PW_PORT` remains an exact override. A rare
 cross-process/hash collision still fails closed because the preview must use
 strict-port semantics; it never reuses a reachable process.
+
+Playwright 1.62 forces coloured output in its web-server and worker children.
+If the invoking shell exports `NO_COLOR`, Node warns that the variable is
+ignored once Playwright adds `FORCE_COLOR=1`. During config evaluation the
+factory therefore removes only the already-ignored `NO_COLOR` value from the
+Playwright process environment before those children are spawned. This does
+not modify the parent shell, and every other environment variable and warning
+remains intact.
 
 Use `webServerCommand(port)` when a consumer needs build or asset-preparation
 steps around its preview. The callback receives the already-resolved local or
@@ -116,9 +136,20 @@ Keep `reuseExistingServer` false for fleet evidence and assert the game identity
 before exercising a journey. A process from another repository on a familiar
 port must never be accepted as proof.
 
-Before publishing the package, run `pnpm test:package` to pack it and verify the
-peer-free root, Playwright/production-runtime, and Vitest Browser consumer
-boundaries in clean temporary installs.
+Before publishing the package, run `pnpm test:package` under the exact release
+toolchain. The verifier rejects any npm other than the bundled npm 11.17.0 and
+uses that packer directly from the package directory to verify the peer-free
+root, Playwright/production-runtime, and Vitest Browser consumer boundaries in
+clean temporary installs. The guarded publication workflow repeats that exact
+source pack twice and requires byte identity before publishing. It also
+generates and compares three independent normalized SBOMs through the pnpm
+11.21.0 CycloneDX 1.7
+`--lockfile-only --prod --exclude-peers --no-optional` SBOM for the shipped
+runtime: one component and the root dependency edge to `get-port`. Required
+Playwright and optional Vitest Browser peers remain manifest and clean-consumer
+contracts rather than being mislabeled as bundled components. Source epoch,
+lockfile, package-tree, release-input, and archive provenance make the canonical
+SBOM and checksum set reproducible on retries.
 
 ## Production runtime verification
 
@@ -168,6 +199,9 @@ When `server` is present, its readiness URL must be unreachable before launch;
 the verifier never reuses an arbitrary process. It owns that child process,
 waits for readiness, and terminates it after either success or failure. Omit
 `server` to apply the same strict gate to an already-deployed exact-live URL.
+Every reachable readiness probe cancels its response body after recording the
+status, including non-OK retry responses. A long polling loop must not retain
+response streams or connections while it waits for the owned server.
 Use `findAvailableProductionPort()` for CI or any shared runner instead of a
 hard-coded port. It delegates selection to `get-port`, reserves that selection
 against parallel calls in the current process, and still requires the owned
@@ -192,12 +226,6 @@ directory in their path:
 ```ts
 const profile = import.meta.env.VITE_VISUAL_BASELINE_PROFILE?.trim();
 const path = profile ? `__screenshots__/${profile}/scene.png` : '__screenshots__/scene.png';
-```
-
-`baselinesDir` names the baseline root. When it is combined with
-`baselineProfile`, the profile is always appended below that root. For example,
-`{ baselinesDir: 'visual-baselines', baselineProfile: 'linux' }` owns and diffs
-`visual-baselines/linux/`.
 ```
 
 `baselinesDir` names the baseline root. When it is combined with
