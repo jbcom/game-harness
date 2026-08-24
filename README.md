@@ -3,7 +3,6 @@
 ![A browser-game diorama passing through a precision test gantry, with device previews, a muted-audio control, and a lighthouse verification beam](docs/assets/game-harness-hero.webp)
 
 [![CI](https://github.com/jbcom/game-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/jbcom/game-harness/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/jbcom/game-harness/actions/workflows/codeql.yml/badge.svg)](https://github.com/jbcom/game-harness/actions/workflows/codeql.yml)
 [![Node 24+](https://img.shields.io/badge/Node.js-24%2B-417e38)](package.json)
 [![MIT license](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
 
