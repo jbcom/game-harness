@@ -1,6 +1,6 @@
 {
   "name": "game-harness",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "Release-grade browser QA primitives for TypeScript games: silent Playwright/Vitest sessions, deterministic screenshots, runtime proof, and Lighthouse gates.",
   "type": "module",
   "license": "MIT",
