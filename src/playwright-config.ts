@@ -29,7 +29,7 @@ type LaunchOptions = NonNullable<NonNullable<PlaywrightTestConfig['use']>['launc
 export type SilentQueryValue = string | number | boolean;
 
 export interface SilentTestUrlOptions {
-  /** Runtime-only mute query parameter. Defaults to the fleet-standard `muted`. */
+  /** Runtime-only mute query parameter. Defaults to `muted`. */
   muteQueryParameter?: string;
   /** Runtime-only mute query value. Defaults to `1`. */
   muteQueryValue?: string;
@@ -56,7 +56,7 @@ export interface ResolvePlaywrightPortOptions {
 }
 
 /**
- * Adds the fleet's non-persistent mute mode to a relative or absolute URL.
+ * Adds a non-persistent mute mode to a relative or absolute URL.
  * Explicit caller parameters replace existing values, and the mute value is
  * applied last so a stale `muted=0` can never make an agent run audible.
  */
@@ -173,7 +173,7 @@ export interface PlaywrightConfigOptions {
   /**
    * Which device-tier Playwright projects to include. `desktop` is always
    * present as the tier-1 CI gate; passing more tiers here is equivalent to
-   * the fleet's `MULTIVIEW=1` convention already wired below — you don't
+   * the `MULTIVIEW=1` convention already wired below — you don't
    * need to also request `desktop` explicitly.
    * Defaults to `['desktop']` (single project, matching the fast CI gate),
    * expanding to all requested tiers when `MULTIVIEW=1` or `VISUAL=1` is set.
@@ -242,7 +242,7 @@ function normalizePlaywrightChildEnvironment(): void {
  * Resolves one stable Playwright preview port for every config reload in an
  * Actions job. Explicit `PLAYWRIGHT_PORT`/`PW_PORT` values win; local runs use
  * `localPort`; GitHub/Gitea CI hashes repository, run, job, and local port into
- * the fleet's isolated port range.
+ * an isolated port range.
  */
 export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}): number {
   const environment = options.environment ?? process.env;
@@ -269,7 +269,7 @@ export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}
 }
 
 /**
- * Builds a full Playwright config, encoding the Aethelgard tiered-device +
+ * Builds a full Playwright config, encoding a tiered-device +
  * env-gated-suite convention:
  *
  * - `desktop` project always runs; `MULTIVIEW=1` (or `VISUAL=1`) expands to
@@ -312,8 +312,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   const includeMultiview = process.env.MULTIVIEW === '1' || includeVisual;
   const includeJourney = process.env.JOURNEY === '1' || includeVisual;
 
-  // Specs live under e2e/ (+ visual/ when VISUAL=1) relative to testDir —
-  // the Aethelgard convention.
+  // Specs live under e2e/ (+ visual/ when VISUAL=1) relative to testDir.
   const testMatch = includeVisual
     ? ['e2e/**/*.spec.ts', 'visual/**/*.spec.ts']
     : 'e2e/**/*.spec.ts';

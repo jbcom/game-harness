@@ -27,7 +27,7 @@ export interface LighthouseAssertionsOverrides {
 }
 
 const PRESETS: Record<string, LighthouseCiConfig> = {
-  // Aethelgard's lighthouserc.json, verbatim: perf 0.6 / a11y 0.85 /
+  // A production lighthouserc.json, verbatim: perf 0.6 / a11y 0.85 /
   // best-practices 0.7 (warn-level, not error — a score dip surfaces in CI
   // logs without hard-blocking a merge on Lighthouse's inherent run-to-run
   // variance), SEO/PWA assertions off since these are single-page game
@@ -66,7 +66,7 @@ const PRESETS: Record<string, LighthouseCiConfig> = {
  *
  * ```ts
  * // lighthouserc.mjs
- * import { lighthouseAssertions } from '@arcade-cabinet/test-harness';
+ * import { lighthouseAssertions } from '@jbcom/game-harness';
  * export default lighthouseAssertions('game-default');
  * ```
  *

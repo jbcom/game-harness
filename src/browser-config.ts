@@ -29,7 +29,7 @@ export interface BrowserTestConfigOptions {
   /**
    * `true` — always headless. `false` (default) — always headed.
    * `'ci-only'` — headed locally, headless when `process.env.CI` is set.
-   * Fleet CI should normally retain the headed default and supply Xvfb.
+   * CI should normally retain the headed default and supply Xvfb.
    */
   headless?: boolean | 'ci-only';
   /**
@@ -59,10 +59,10 @@ export interface BrowserTestConfigOptions {
   /** Test file glob(s). Defaults to `['tests/browser/**\/*.browser.test.{ts,tsx}']`. */
   include?: string[];
   /**
-   * Disable file-level parallelism. The Aethelgard fleet found that a
-   * shared Playwright Chromium pool flakes under parallel browser-test
-   * load (independent specs racing for the same browser context can time
-   * out). Defaults to `true` (serialized) — flip off only once you've
+   * Disable file-level parallelism. A shared Playwright Chromium pool
+   * flakes under parallel browser-test load (independent specs racing for
+   * the same browser context can time out). Defaults to `true` (serialized)
+   * — flip off only once you've
    * verified your suite tolerates concurrent browser contexts.
    */
   fileParallelism?: boolean;
@@ -78,7 +78,7 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * Builds a `test` fragment for a Vitest Browser Mode project, wired for
  * real-Chromium (or other Playwright-driven browser) test execution.
  *
- * Encodes the reviewed fleet pattern: headed by default both locally and in
+ * Encodes a reviewed pattern: headed by default both locally and in
  * CI, silent at the Chromium boundary, and native renderer selection unless a
  * consumer explicitly requests software or the proven Linux Vulkan profile.
  *
@@ -87,7 +87,7 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * single-project setups):
  *
  * ```ts
- * import { defineBrowserTestConfig } from '@arcade-cabinet/test-harness/vitest';
+ * import { defineBrowserTestConfig } from '@jbcom/game-harness/vitest';
  *
  * export default defineConfig({
  *   test: {

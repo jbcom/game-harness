@@ -10,7 +10,7 @@ export interface SilentQaMarkerTarget {
 export interface ActivateSilentQaOptions {
   /** Query string to inspect. Defaults to `window.location.search` in a browser. */
   search?: string;
-  /** Runtime-only mute parameter. Defaults to the fleet-standard `muted`. */
+  /** Runtime-only mute parameter. Defaults to `muted`. */
   queryParameter?: string;
   /**
    * Element that owns the mute-ready marker. Defaults to `document.documentElement`.
@@ -34,7 +34,7 @@ function browserMarkerTarget(): SilentQaMarkerTarget | null {
 }
 
 /**
- * Detects the fleet's page-lifetime mute request by parameter presence.
+ * Detects a page-lifetime mute request by parameter presence.
  *
  * The value is intentionally ignored so stale links such as `?muted=0` cannot
  * make an agent-controlled session audible.

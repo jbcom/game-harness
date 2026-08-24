@@ -14,7 +14,7 @@ describe('application-side silent QA', () => {
     vi.unstubAllGlobals();
   });
 
-  it('recognizes the fleet query by presence, including stale false-like values', () => {
+  it('recognizes the query by presence, including stale false-like values', () => {
     expect(isSilentQaRequested('?fixture=title&muted=1')).toBe(true);
     expect(isSilentQaRequested('?muted=0')).toBe(true);
     expect(isSilentQaRequested('?fixture=title')).toBe(false);

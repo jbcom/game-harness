@@ -16,7 +16,7 @@ vi.mock('@playwright/test', async (importOriginal) => {
 import { openSilentGame, silentTestUrl } from '../src/playwright-config.js';
 
 describe('silent browser QA', () => {
-  it('adds the fleet mute mode while preserving and overriding query values', () => {
+  it('adds the mute mode while preserving and overriding query values', () => {
     expect(
       silentTestUrl('/chonkers/?muted=0&seed=old#boss', {
         seed: 'new',

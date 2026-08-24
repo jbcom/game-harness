@@ -14,7 +14,7 @@ Import only the entry point a game uses:
 - `@jbcom/game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
 - `@jbcom/game-harness`, `/lighthouse`, `/release-ladder`, and
-  `/visual-battery` for peer-free fleet verification utilities.
+  `/visual-battery` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never loaded
 by the package root. Each consumer must install the peers required by the
@@ -67,7 +67,7 @@ Use `webServerCommand(port)` when a consumer needs build or asset-preparation
 steps around its preview. The callback receives the already-resolved local or
 CI-isolated port. A literal `overrides.webServer.command` remains supported,
 but a command that hard-codes its own port bypasses isolation and is not valid
-fleet evidence.
+release evidence.
 
 Chromium is headed by default locally and in CI. Linux CI must provide a
 display with `xvfb-run`; it should not change the browser to headless simply to
@@ -128,11 +128,11 @@ fragment), navigates, and requires the application to set
 must mute audio before any sound objects can play and must never write the
 player's saved audio preference. Use `silentTestUrl()` when a test needs the
 URL without navigating. Custom marker/query names are supported for legacy
-adapters, but new games use the fleet defaults. There is no audible-debug
+adapters, but new games use these defaults. There is no audible-debug
 exception: verify audio behavior through programmatic state, mocks, or analyser
 assertions while agent-controlled playback remains muted.
 
-Keep `reuseExistingServer` false for fleet evidence and assert the game identity
+Keep `reuseExistingServer` false for release evidence and assert the game identity
 before exercising a journey. A process from another repository on a familiar
 port must never be accepted as proof.
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { lighthouseAssertions } from '../src/lighthouse.js';
 
 describe('lighthouseAssertions', () => {
-  it("returns the game-default preset matching Aethelgard's lighthouserc.json", () => {
+  it("returns the game-default preset matching production lighthouserc.json", () => {
     const config = lighthouseAssertions('game-default');
     expect(config.ci.collect.staticDistDir).toBe('./dist');
     expect(config.ci.collect.url).toEqual(['http://localhost/index.html']);
