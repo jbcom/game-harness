@@ -81,4 +81,17 @@ describe('silent browser QA', () => {
       timeout: 10_000,
     });
   });
+
+  it('applies a custom mute query parameter and value when navigating', async () => {
+    const page = {
+      goto: vi.fn().mockResolvedValue(null),
+      locator: vi.fn().mockReturnValue({}),
+    } as unknown as Page;
+
+    await openSilentGame(page, '/chonkers/', {}, { muteQueryParameter: 'silent' });
+    expect(page.goto).toHaveBeenCalledWith('/chonkers/?silent=1', undefined);
+
+    await openSilentGame(page, '/chonkers/', {}, { muteQueryValue: 'yes' });
+    expect(page.goto).toHaveBeenCalledWith('/chonkers/?muted=yes', undefined);
+  });
 });

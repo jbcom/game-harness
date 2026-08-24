@@ -58,6 +58,20 @@ describe('runVisualBattery', () => {
     expect(mockedExecSync).not.toHaveBeenCalled();
   });
 
+  it('pluralizes the error when multiple misplaced screenshot directories are found', () => {
+    const misplacedA = join(harnessDir, 'nested-a/__screenshots__');
+    const misplacedB = join(harnessDir, 'nested-b/__screenshots__');
+    mkdirSync(misplacedA, { recursive: true });
+    mkdirSync(misplacedB, { recursive: true });
+    writeFileSync(join(misplacedA, 'a.png'), 'a-png-bytes');
+    writeFileSync(join(misplacedB, 'b.png'), 'b-png-bytes');
+
+    expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
+      /unexpected screenshot directories/i,
+    );
+    expect(mockedExecSync).not.toHaveBeenCalled();
+  });
+
   it('CI mode refuses to run with a dirty baseline dir', () => {
     mockedExecSync.mockImplementation((cmd) => {
       if (String(cmd).startsWith('git status')) return ' M tests/harness/__screenshots__/foo.png\n';
@@ -66,6 +80,19 @@ describe('runVisualBattery', () => {
 
     expect(() => runVisualBattery('tests/harness', { cwd, ci: true, ...quiet })).toThrow(
       /uncommitted changes/,
+    );
+  });
+
+  it('CI mode fails closed when the pre-run git status check itself fails', () => {
+    mockedExecSync.mockImplementation((cmd) => {
+      if (String(cmd).startsWith('git status')) {
+        throw new Error('fatal: not a git repository');
+      }
+      return '';
+    });
+
+    expect(() => runVisualBattery('tests/harness', { cwd, ci: true, ...quiet })).toThrow(
+      /git status failed.*not a git repository/,
     );
   });
 
@@ -205,6 +232,25 @@ describe('runVisualBattery', () => {
     expect(ranCommands[1]).not.toContain('foo.browser.test.tsx');
   });
 
+  it('skips the batched run entirely when every discovered harness file is isolated', () => {
+    const ranCommands: string[] = [];
+    mockedExecSync.mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status')) return '';
+      ranCommands.push(cmdStr);
+      return '';
+    });
+
+    runVisualBattery('tests/harness', {
+      cwd,
+      isolatedHarnessFiles: ['foo.browser.test.tsx'],
+      ...quiet,
+    });
+
+    expect(ranCommands).toHaveLength(1);
+    expect(ranCommands[0]).toContain('foo.browser.test.tsx');
+  });
+
   it('rejects an unknown isolated harness name', () => {
     expect(() =>
       runVisualBattery('tests/harness', {
@@ -225,6 +271,20 @@ describe('runVisualBattery', () => {
 
     runVisualBattery('tests/harness', { cwd, log: (m) => logs.push(m), error: noop });
     expect(logs.some((l) => l.includes('no visual drift detected'))).toBe(true);
+  });
+
+  it('skips non-PNG entries when logging baseline file sizes for an update-mode drift report', () => {
+    writeFileSync(join(baselinesDir, 'README.md'), '# not a baseline');
+    const logs: string[] = [];
+    mockedExecSync.mockImplementation((cmd) => {
+      if (String(cmd).startsWith('git status')) return ' M tests/harness/__screenshots__/foo.png\n';
+      return '';
+    });
+
+    runVisualBattery('tests/harness', { cwd, log: (m) => logs.push(m), error: noop });
+
+    expect(logs.some((l) => l.includes('foo.png') && l.includes('bytes'))).toBe(true);
+    expect(logs.some((l) => l.includes('README.md'))).toBe(false);
   });
 
   it('throws in CI mode when the run produces drift', () => {
@@ -262,5 +322,45 @@ describe('runVisualBattery', () => {
     expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
       /one or more harnesses failed/,
     );
+  });
+
+  it('throws when the run completes without ever creating the baselines dir', () => {
+    mockedExecSync.mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status')) return '';
+      // Simulate a harness command that removes the screenshots directory
+      // instead of writing to it (e.g. a misconfigured test run).
+      rmSync(baselinesDir, { recursive: true, force: true });
+      return '';
+    });
+
+    expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
+      /baselines dir not created/,
+    );
+  });
+
+  it('logs through console.log/console.error by default when no logger is supplied', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    mockedExecSync.mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status')) return '';
+      return '';
+    });
+
+    runVisualBattery('tests/harness', { cwd });
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[visual-battery]'));
+    logSpy.mockRestore();
+  });
+
+  it('reports the default console.error prefix on failure when no logger is supplied', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    expect(() => runVisualBattery('tests/does-not-exist', { cwd })).toThrow(VisualBatteryError);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[visual-battery] ERROR: harness dir not found'),
+    );
+    errorSpy.mockRestore();
   });
 });

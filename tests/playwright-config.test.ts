@@ -201,6 +201,27 @@ describe('definePlaywrightConfig', () => {
     expect(explicit).toBe(5444);
   });
 
+  it('rejects a localPort outside the valid TCP range', () => {
+    expect(() => resolvePlaywrightPort({ localPort: 70_000 })).toThrow(
+      /Playwright port must be an integer from 1 to 65535/,
+    );
+    expect(() => resolvePlaywrightPort({ localPort: 0 })).toThrow(TypeError);
+    expect(() => resolvePlaywrightPort({ localPort: 1.5 })).toThrow(TypeError);
+  });
+
+  it('falls back to the package default port when localPort is not provided', () => {
+    expect(resolvePlaywrightPort({})).toBe(4173);
+  });
+
+  it('hashes a stable CI port even when GITHUB_REPOSITORY and GITHUB_JOB are unset', () => {
+    const environment = { CI: '1', GITHUB_RUN_ID: '1955' };
+    const port = resolvePlaywrightPort({ localPort: 4399, environment });
+    expect(port).toBeGreaterThanOrEqual(20_000);
+    expect(port).toBeLessThan(30_000);
+    // Same identity inputs (both missing) must hash identically across calls.
+    expect(resolvePlaywrightPort({ localPort: 4399, environment })).toBe(port);
+  });
+
   it('passes the resolved port to a custom web-server command', () => {
     process.env.CI = '1';
     process.env.GITHUB_REPOSITORY = 'example-org/example-game';
@@ -224,6 +245,17 @@ describe('definePlaywrightConfig', () => {
   it('applies caller overrides last', () => {
     const config = definePlaywrightConfig({ overrides: { timeout: 999 } });
     expect(config.timeout).toBe(999);
+  });
+
+  it('fully replaces the computed projects list when overrides.projects is set', () => {
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'mobile'],
+      overrides: { projects: [{ name: 'custom-only' }] },
+    });
+    // Wholesale replacement (unlike `use`/`webServer`, which merge): only the
+    // one caller-supplied project survives, each still muted by default.
+    expect(config.projects).toHaveLength(1);
+    expect(config.projects?.[0]?.name).toBe('custom-only');
   });
 
   it('merges overrides.use on top of the computed use block instead of replacing it', () => {

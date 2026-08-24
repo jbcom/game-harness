@@ -14,6 +14,36 @@ describe('application-side silent QA', () => {
     vi.unstubAllGlobals();
   });
 
+  it('falls back to window.location.search and document.documentElement when no runtime overrides are given', () => {
+    vi.stubGlobal('window', { location: { search: '?muted=1' } });
+    const setAttribute = vi.fn();
+    vi.stubGlobal('document', { documentElement: { setAttribute } });
+
+    expect(isSilentQaRequested()).toBe(true);
+    expect(activateSilentQa(vi.fn())).toBe(true);
+    expect(setAttribute).toHaveBeenCalledWith(
+      SILENT_QA_MARKER_ATTRIBUTE,
+      SILENT_QA_MARKER_VALUE,
+    );
+  });
+
+  it('treats a non-browser runtime as having no ambient query string', () => {
+    // No `window` stub: this Vitest node environment has none, exercising
+    // the same fallback a non-DOM runtime (e.g. a Node CLI) hits.
+    expect(isSilentQaRequested()).toBe(false);
+    expect(activateSilentQa(vi.fn())).toBe(false);
+  });
+
+  it('activates without a marker target on a non-DOM runtime that still requests silence via an explicit search string', () => {
+    // No `document` stub: browserMarkerTarget() must fall back to null
+    // instead of throwing, and activation must still succeed and report
+    // active even with nothing to publish the marker onto.
+    const mute = vi.fn();
+    expect(activateSilentQa(mute, { search: '?muted=1' })).toBe(true);
+    expect(mute).toHaveBeenCalledOnce();
+    expect(isSilentQaActive()).toBe(true);
+  });
+
   it('recognizes the query by presence, including stale false-like values', () => {
     expect(isSilentQaRequested('?fixture=title&muted=1')).toBe(true);
     expect(isSilentQaRequested('?muted=0')).toBe(true);
