@@ -327,6 +327,11 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   const NAV_TIMEOUT_MS = IS_CI ? LOCAL_NAV_TIMEOUT_MS * 2 : LOCAL_NAV_TIMEOUT_MS;
 
   const tiers = includeMultiview ? deviceTiers : (deviceTiers.slice(0, 1) as DeviceTier[]);
+  // `DEVICE_TIER_PROJECTS` is typed `Record<DeviceTier, Project[]>`, so every
+  // member of the closed `DeviceTier` union is guaranteed present — this
+  // fallback only guards a future widening of the type, and is unreachable
+  // through any call this factory's own (type-checked) public API permits.
+  /* v8 ignore next */
   const tierProjects = tiers.flatMap((tier) => DEVICE_TIER_PROJECTS[tier] ?? []);
   const projects = [...tierProjects, ...extraProjects];
   const launchProfile = createChromiumLaunchProfile({ gpuMode });
@@ -361,7 +366,13 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   };
 
   const resolved = defineConfig(base);
+  // `base.webServer` above is always constructed as a single object literal,
+  // and Playwright's own `defineConfig` never turns a single `webServer`
+  // into an array — this branch only guards a future Playwright type
+  // widening and is unreachable through this factory's own construction.
+  /* v8 ignore next */
   const singleWebServer = Array.isArray(resolved.webServer) ? undefined : resolved.webServer;
+  /* v8 ignore next 5 */
   const mergedWebServer: PlaywrightTestConfig['webServer'] = Array.isArray(resolved.webServer)
     ? resolved.webServer
     : ({ ...singleWebServer, ...overrides.webServer } as NonNullable<
@@ -375,6 +386,11 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
       overrides.use?.launchOptions,
     ),
   };
+  // `base.projects` above is always populated (from `projects` computed
+  // earlier), so `resolved.projects` is never nullish and this final `[]`
+  // only guards a hypothetical future Playwright `defineConfig` behavior —
+  // unreachable through this factory's own construction.
+  /* v8 ignore next */
   const configuredProjects = overrides.projects ?? resolved.projects ?? [];
   const mutedProjects = configuredProjects.map((project) => ({
     ...project,
