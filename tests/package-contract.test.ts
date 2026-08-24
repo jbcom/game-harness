@@ -82,9 +82,11 @@ describe('package peer boundaries', () => {
     expect(manifest.bin['game-harness-visual-battery']).toBe(
       './bin/test-harness-visual-battery.mjs',
     );
+    expect(manifest.files).toContain('AGENTS.md');
     expect(manifest.files).toContain('bin');
     expect(manifest.files).toContain('CHANGELOG.md');
     expect(manifest.files).toContain('docs');
+    expect(manifest.files).toContain('llms.txt');
     expect(manifest.files).toContain('LICENSE');
     expect(manifest.files).toContain('README.md');
     expect(binShim).toContain('../dist/esm/bin/visual-battery.js');

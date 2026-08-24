@@ -9,10 +9,12 @@
     "url": "git+https://github.com/jbcom/game-harness.git"
   },
   "files": [
+    "AGENTS.md",
     "bin",
     "CHANGELOG.md",
     "dist",
     "docs",
+    "llms.txt",
     "maestro",
     "LICENSE",
     "README.md"

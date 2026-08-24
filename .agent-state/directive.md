@@ -39,7 +39,7 @@ Full autonomy granted; agent makes all design/implementation-detail calls.
       Also hardened repo-level Actions settings: sha_pinning_required=true,
       can_approve_pull_request_reviews=false (workflow tokens can't
       self-approve PRs — closes a fork-PR self-merge vector).
-- [ ] chore: set pnpm-workspace.yaml packages to [".", "site"] — NOT "docs".
+- [x] chore: set pnpm-workspace.yaml packages to [".", "site"] — NOT "docs".
       docs/ stays exactly as-is (architecture.md + assets/), it's packed into
       the npm tarball today via package.json "files". A new site/ workspace
       package holds the Astro+Starlight project so the tarball is never
@@ -62,8 +62,14 @@ Full autonomy granted; agent makes all design/implementation-detail calls.
       classic compiler's programmatic API, which TS7's native/Go port does
       not expose yet — this is a real current ecosystem gap, not a
       workaround to revisit later.
-- [x] ci: enable GitHub Pages (build type workflow) on jbcom/game-harness;
-      wire cd.yml docs-deploy job (update cd.yml's `pnpm --filter docs build` + `path: docs/dist` to `--filter site build` / `site/dist`)
+- [x] ci: wire cd.yml docs-deploy job (update cd.yml's `pnpm --filter docs
+build` + `path: docs/dist` to `--filter site build` / `site/dist`)
+- [x] chore: flipped GitHub Pages ON for jbcom/game-harness via `gh api`
+      (build_type: workflow, https_enforced: true). Confirmed html_url is
+      exactly https://jonbogaty.com/game-harness/ — validates the earlier
+      design call (sibling project-page repo served under the org's user
+      Pages domain automatically). Site won't actually serve content until
+      cd.yml's deploy-docs job runs on a push to main post-merge.
 - [x] chore: tooling/versioning DRY pass per user mid-turn feedback
       (2026-08-24). Boundary: mise is LOCAL-ONLY (mise.toml, .nvmrc as the
       actual node-version source via idiomatic_version_file_enable_tools,
@@ -83,11 +89,27 @@ Full autonomy granted; agent makes all design/implementation-detail calls.
       npm 10.9.8, not 11.x) — changed to a floor check (npmMajor >= 10).
       Updated the two contract-test assertions and every README/
       CONTRIBUTING/site-docs mention of the old exact pins to match.
-- [ ] docs: author AGENTS.md and llms.txt at repo root after fully reading
-      README.md + docs/architecture.md as a human developer would
-- [ ] chore: verify npm-published README has no broken links/image refs
-      (relative image paths must resolve from npm tarball context; link to
-      docs site for anything that doesn't pack)
+- [x] docs: authored AGENTS.md (two audiences: consuming the package,
+      contributing to the repo) and llms.txt (llmstxt.org format, indexes
+      every published guide page) at repo root, after fully reading
+      README.md + docs/architecture.md + src/index.ts as a human developer
+      would. Added both to package.json "files" and to the contract test's
+      files-array assertions. Linked from README's Architecture section.
+- [x] chore: verified npm-published README has no broken links/image refs.
+      Researched (not assumed) how npmjs.com actually renders READMEs: it
+      rewrites relative links/images to the GitHub repo's `main` branch via
+      `repository.url` — NOT resolved against the tarball contents. Source:
+      github.com/npm/feedback discussion #210 + devactivity.com writeup,
+      fetched via ctx_fetch_and_index 2026-08-24. So CONTRIBUTING.md /
+      SECURITY.md links (not packed in the tarball) still resolve correctly
+      on the npmjs.com page because they exist on `main`; the hero image
+      resolves via raw GitHub content the same way. The known npm limitation
+      is that this always points at current `main`, not the tag a given
+      published version was cut from — not something fixable from this repo.
+      Packing AGENTS.md/llms.txt into the tarball (done in the AGENTS.md
+      task above) is still correct/valuable independent of this — it's for
+      offline/CLI/agent consumption of the installed package, not the
+      npmjs.com web render.
 - [ ] release: publish first version manually under jbdevprimary via
       `doppler run --project gha --config ci -- npm publish --access public`
 - [ ] chore: use Claude in Chrome to configure npm trusted publishing (OIDC)

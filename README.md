@@ -483,7 +483,12 @@ composes `openSilentGame()` into a fresh-browser lifecycle; no dependency points
 back toward the root.
 
 The complete module map, safety boundaries, and runtime-verification sequence
-are documented in [docs/architecture.md](docs/architecture.md).
+are documented in [docs/architecture.md](docs/architecture.md), and the full
+guide set is published at
+[jonbogaty.com/game-harness](https://jonbogaty.com/game-harness/).
+
+An agent integrating this package should read [AGENTS.md](AGENTS.md) first;
+[llms.txt](llms.txt) indexes every published guide page.
 
 ## Development
 

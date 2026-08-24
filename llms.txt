@@ -1,0 +1,32 @@
+# Game Harness
+
+> Release-grade browser QA primitives for TypeScript games: silent Playwright/Vitest sessions, deterministic screenshots, production-runtime proof, and Lighthouse gates.
+
+Game Harness is a focused library, not a test framework. It supplies a
+reusable, fail-closed safety and orchestration layer around Playwright and
+Vitest Browser Mode; a consuming game keeps its own journeys, assertions,
+art direction, and audio engine. Install from npm as
+`@jbdevprimary/game-harness`, Node 22 or newer. Import only the subpath
+entry point a game needs — the package root stays peer-free and never loads
+Playwright or Vitest. See AGENTS.md at the repository root for an
+agent-oriented quick reference before writing code against this package.
+
+## Docs
+
+- [Getting started](https://jonbogaty.com/game-harness/getting-started/): Installation and the current release/conformance matrix.
+- [Quick start](https://jonbogaty.com/game-harness/quick-start/): Wire up the silent runtime marker and a first Playwright config.
+- [Entry points](https://jonbogaty.com/game-harness/entry-points/): The full subpath-export map and required peers.
+- [Playwright guide](https://jonbogaty.com/game-harness/guides/playwright/): Deterministic ports, strict-port preview servers, device tiers.
+- [Vitest Browser Mode guide](https://jonbogaty.com/game-harness/guides/vitest/): Headed real-Chromium Vitest projects.
+- [Chromium launch profile & Silent QA guide](https://jonbogaty.com/game-harness/guides/chromium-and-silent-qa/): The peer-free primitives behind every silent browser launch.
+- [Production runtime verification guide](https://jonbogaty.com/game-harness/guides/production-runtime/): Turning a build into fail-closed runtime evidence.
+- [Visual battery guide](https://jonbogaty.com/game-harness/guides/visual-battery/): Deterministic screenshot baseline orchestration.
+- [Lighthouse presets & release ladder guide](https://jonbogaty.com/game-harness/guides/lighthouse-and-release-ladder/): CI Lighthouse assertions and the release-step orchestrator.
+- [Architecture reference](https://jonbogaty.com/game-harness/reference/architecture/): Module boundaries, runtime evidence flow, build/distribution guarantees.
+- [Troubleshooting reference](https://jonbogaty.com/game-harness/reference/troubleshooting/): Common failure modes and releases/support.
+
+## Optional
+
+- [Repository](https://github.com/jbcom/game-harness): Source, issues, and pull requests.
+- [AGENTS.md](https://github.com/jbcom/game-harness/blob/main/AGENTS.md): Agent-facing quick reference for using this package correctly.
+- [CHANGELOG](https://github.com/jbcom/game-harness/blob/main/CHANGELOG.md): Release history, managed by release-please.
