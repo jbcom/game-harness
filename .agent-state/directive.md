@@ -140,8 +140,16 @@ build` + `path: docs/dist` to `--filter site build` / `site/dist`)
       publishing (Jan 2027) — reinforces OIDC trusted publishing (next
       queue item) as the right long-term direction, not optional polish.
 
-- [ ] chore: use Claude in Chrome to configure npm trusted publishing (OIDC)
-      for jbcom/game-harness cd.yml workflow once manual publish succeeds
+- [ ] [WAIT-USER] chore: use Claude in Chrome to configure npm trusted
+      publishing (OIDC) for jbcom/game-harness cd.yml workflow. Blocked on
+      interactive npm 2FA (security key / password) at
+      https://www.npmjs.com/package/@jbdevprimary/game-harness/access —
+      open Chrome tab is sitting on that prompt, checked repeatedly
+      (2026-08-24), still unauthenticated. This is a true blocker per
+      operating rules (interactive credential entry); cannot complete it
+      myself. Used the wait productively: reviewed all of CodeRabbit's
+      findings on the pushed commits (see the fix commit above) instead of
+      idling.
 - [ ] chore: simplify cd.yml publish job once OIDC trusted publishing verified
 - [ ] verify: pnpm verify green, CI green on extraction-src, review threads
       resolved, PR #1 squash-merged, Pages site live-checked in browser
