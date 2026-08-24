@@ -45,7 +45,17 @@ describe('runVisualBattery', () => {
     writeFileSync(join(baselinesDir, 'foo.png'), 'fake-png-bytes');
     mockedExecFileSync.mockReset();
     mockedSpawnSync.mockReset();
-    mockedSpawnSync.mockReturnValue({ status: 0 } as ReturnType<typeof spawn.sync>);
+    mockedSpawnSync.mockImplementation((command, args, options) => {
+      try {
+        mockedExecFileSync(command, args, options as never);
+        return { status: 0 } as ReturnType<typeof spawn.sync>;
+      } catch (error) {
+        return {
+          status: null,
+          error: error instanceof Error ? error : new Error(String(error)),
+        } as ReturnType<typeof spawn.sync>;
+      }
+    });
   });
 
   afterEach(() => {
