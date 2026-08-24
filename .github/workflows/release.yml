@@ -25,6 +25,11 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          # This deliberately authorized upstream-collaborator token is scoped
+          # to this repository's encrypted Actions secrets. It lets
+          # release-please create the release PR even when the organization
+          # keeps the default GITHUB_TOKEN read-only for workflow safety.
+          token: ${{ secrets.AGENTIC_GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
