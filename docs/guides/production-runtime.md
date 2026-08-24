@@ -17,7 +17,7 @@ import {
   findAvailableProductionPort,
   requireHardwareWebGL,
   verifyProductionRuntime,
-} from '@jbdevprimary/game-harness/production-runtime';
+} from 'game-harness/production-runtime';
 
 const port = await findAvailableProductionPort();
 

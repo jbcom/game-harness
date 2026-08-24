@@ -5,17 +5,17 @@ description: The full map of Game Harness subpath exports and their required pee
 
 Import only the entry point a game uses:
 
-- `@jbdevprimary/game-harness/playwright` for Playwright projects and strict
+- `game-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`.
-- `@jbdevprimary/game-harness/silent-qa` for a peer-free,
+- `game-harness/silent-qa` for a peer-free,
   audio-engine-agnostic application-side runtime mute adapter.
-- `@jbdevprimary/game-harness/production-runtime` for a fresh, silent
+- `game-harness/production-runtime` for a fresh, silent
   production-artifact or exact-live boot; install `@playwright/test`.
-- `@jbdevprimary/game-harness/chromium` for peer-free Chromium renderer and
+- `game-harness/chromium` for peer-free Chromium renderer and
   silence launch profiles.
-- `@jbdevprimary/game-harness/vitest` for Vitest Browser Mode; install
+- `game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`.
-- `@jbdevprimary/game-harness`, `/lighthouse`, `/release-ladder`, and
+- `game-harness`, `/lighthouse`, `/release-ladder`, and
   `/visual-battery` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never

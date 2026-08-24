@@ -128,7 +128,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@jbdevprimary/game-harness'); if(typeof h.verifyReleaseLadder!=='function'||'definePlaywrightConfig'in h||'defineBrowserTestConfig'in h)throw new Error('invalid CJS root')",
+      "const h=require('game-harness'); if(typeof h.verifyReleaseLadder!=='function'||'definePlaywrightConfig'in h||'defineBrowserTestConfig'in h)throw new Error('invalid CJS root')",
     ],
     rootConsumer,
   );
@@ -136,16 +136,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@jbdevprimary/game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-gl=swiftshader'))throw new Error('invalid CJS Chromium entry')",
-    ],
-    rootConsumer,
-  );
-  run(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      "const h=await import('@jbdevprimary/game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'linux-hardware-vulkan'}); if(p.env.EGL_PLATFORM!=='surfaceless'||p.args.at(-1)!=='--mute-audio')throw new Error('invalid ESM Chromium entry')",
+      "const h=require('game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-gl=swiftshader'))throw new Error('invalid CJS Chromium entry')",
     ],
     rootConsumer,
   );
@@ -154,15 +145,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@jbdevprimary/game-harness'); if(typeof h.lighthouseAssertions!=='function'||'definePlaywrightConfig'in h||'defineBrowserTestConfig'in h)throw new Error('invalid ESM root')",
-    ],
-    rootConsumer,
-  );
-  run(
-    process.execPath,
-    [
-      '-e',
-      "const h=require('@jbdevprimary/game-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid CJS silent-QA entry')",
+      "const h=await import('game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'linux-hardware-vulkan'}); if(p.env.EGL_PLATFORM!=='surfaceless'||p.args.at(-1)!=='--mute-audio')throw new Error('invalid ESM Chromium entry')",
     ],
     rootConsumer,
   );
@@ -171,7 +154,24 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@jbdevprimary/game-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid ESM silent-QA entry')",
+      "const h=await import('game-harness'); if(typeof h.lighthouseAssertions!=='function'||'definePlaywrightConfig'in h||'defineBrowserTestConfig'in h)throw new Error('invalid ESM root')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('game-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid CJS silent-QA entry')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('game-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid ESM silent-QA entry')",
     ],
     rootConsumer,
   );
@@ -196,7 +196,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@jbdevprimary/game-harness/production-runtime'); (async()=>{if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid CJS production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid CJS production-runtime port allocation')})()",
+      "const h=require('game-harness/production-runtime'); (async()=>{if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid CJS production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid CJS production-runtime port allocation')})()",
     ],
     playwrightConsumer,
   );
@@ -205,7 +205,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@jbdevprimary/game-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid ESM production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid ESM production-runtime port allocation')",
+      "const h=await import('game-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid ESM production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid ESM production-runtime port allocation')",
     ],
     playwrightConsumer,
   );
@@ -215,7 +215,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@jbdevprimary/game-harness/playwright'); const p=h.resolvePlaywrightPort({localPort:4399,environment:{CI:'1',GITHUB_REPOSITORY:'example-org/example-game',GITHUB_RUN_ID:'1955',GITHUB_JOB:'verify'}}); if(typeof h.definePlaywrightConfig!=='function'||typeof h.resolvePlaywrightPort!=='function'||!Number.isInteger(p)||p<20000||p>=30000||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid CJS Playwright entry')",
+      "const h=require('game-harness/playwright'); const p=h.resolvePlaywrightPort({localPort:4399,environment:{CI:'1',GITHUB_REPOSITORY:'example-org/example-game',GITHUB_RUN_ID:'1955',GITHUB_JOB:'verify'}}); if(typeof h.definePlaywrightConfig!=='function'||typeof h.resolvePlaywrightPort!=='function'||!Number.isInteger(p)||p<20000||p>=30000||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid CJS Playwright entry')",
     ],
     playwrightConsumer,
   );
@@ -224,7 +224,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@jbdevprimary/game-harness/playwright'); const p=h.resolvePlaywrightPort({localPort:4399,environment:{CI:'1',GITHUB_REPOSITORY:'example-org/example-game',GITHUB_RUN_ID:'1955',GITHUB_JOB:'verify'}}); if(typeof h.definePlaywrightConfig!=='function'||typeof h.resolvePlaywrightPort!=='function'||!Number.isInteger(p)||p<20000||p>=30000||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid ESM Playwright entry')",
+      "const h=await import('game-harness/playwright'); const p=h.resolvePlaywrightPort({localPort:4399,environment:{CI:'1',GITHUB_REPOSITORY:'example-org/example-game',GITHUB_RUN_ID:'1955',GITHUB_JOB:'verify'}}); if(typeof h.definePlaywrightConfig!=='function'||typeof h.resolvePlaywrightPort!=='function'||!Number.isInteger(p)||p<20000||p>=30000||typeof h.openSilentGame!=='function'||h.silentTestUrl('/game?seed=1')!=='/game?seed=1&muted=1')throw new Error('invalid ESM Playwright entry')",
     ],
     playwrightConsumer,
   );
@@ -247,7 +247,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('@jbdevprimary/game-harness/vitest'); const c=h.defineBrowserTestConfig(); const a=c.browser.provider.options.launchOptions.args; if(typeof h.defineBrowserTestConfig!=='function'||a.at(-1)!=='--mute-audio')throw new Error('invalid CJS Vitest Browser entry')",
+      "const h=require('game-harness/vitest'); const c=h.defineBrowserTestConfig(); const a=c.browser.provider.options.launchOptions.args; if(typeof h.defineBrowserTestConfig!=='function'||a.at(-1)!=='--mute-audio')throw new Error('invalid CJS Vitest Browser entry')",
     ],
     vitestConsumer,
   );
@@ -256,7 +256,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      "const h=await import('@jbdevprimary/game-harness/vitest'); const c=h.defineBrowserTestConfig(); const a=c.browser.provider.options.launchOptions.args; if(typeof h.defineBrowserTestConfig!=='function'||a.at(-1)!=='--mute-audio')throw new Error('invalid ESM Vitest Browser entry')",
+      "const h=await import('game-harness/vitest'); const c=h.defineBrowserTestConfig(); const a=c.browser.provider.options.launchOptions.args; if(typeof h.defineBrowserTestConfig!=='function'||a.at(-1)!=='--mute-audio')throw new Error('invalid ESM Vitest Browser entry')",
     ],
     vitestConsumer,
   );

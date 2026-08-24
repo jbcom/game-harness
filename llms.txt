@@ -6,7 +6,7 @@ Game Harness is a focused library, not a test framework. It supplies a
 reusable, fail-closed safety and orchestration layer around Playwright and
 Vitest Browser Mode; a consuming game keeps its own journeys, assertions,
 art direction, and audio engine. Install from npm as
-`@jbdevprimary/game-harness`, Node 22 or newer. Import only the subpath
+`game-harness`, Node 22 or newer. Import only the subpath
 entry point a game needs — the package root stays peer-free and never loads
 Playwright or Vitest. See AGENTS.md at the repository root for an
 agent-oriented quick reference before writing code against this package.

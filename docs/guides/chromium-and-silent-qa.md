@@ -5,7 +5,7 @@ description: The peer-free primitives behind every silent browser launch.
 
 ```ts
 import { chromium } from '@playwright/test';
-import { createChromiumLaunchProfile } from '@jbdevprimary/game-harness/chromium';
+import { createChromiumLaunchProfile } from 'game-harness/chromium';
 
 const { args, env } = createChromiumLaunchProfile({
   gpuMode: process.platform === 'linux' && process.env.CI ? 'linux-hardware-vulkan' : 'auto',
@@ -31,7 +31,7 @@ application must also expose a non-persistent mute mode so tests fail closed
 before interacting with it:
 
 ```ts
-import { activateSilentQa } from '@jbdevprimary/game-harness/silent-qa';
+import { activateSilentQa } from 'game-harness/silent-qa';
 import { Howler } from 'howler';
 
 // Evaluate before the rest of the application/audio graph.
@@ -49,7 +49,7 @@ synchronous function throws instead of publishing a premature readiness
 marker.
 
 ```ts
-import { openSilentGame } from '@jbdevprimary/game-harness/playwright';
+import { openSilentGame } from 'game-harness/playwright';
 
 test('starts a game without audible QA', async ({ page }) => {
   await openSilentGame(page, '/my-game/', { scenario: 'new-game' });

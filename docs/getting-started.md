@@ -8,15 +8,15 @@ for the integration you use:
 
 ```sh
 # Playwright config and production-runtime verification
-pnpm add -D @jbdevprimary/game-harness @playwright/test
+pnpm add -D game-harness @playwright/test
 pnpm exec playwright install chromium
 
 # Vitest Browser Mode instead
-pnpm add -D @jbdevprimary/game-harness vitest @vitest/browser-playwright playwright
+pnpm add -D game-harness vitest @vitest/browser-playwright playwright
 pnpm exec playwright install chromium
 
 # Peer-free Lighthouse, release-ladder, or visual-battery utilities
-pnpm add -D @jbdevprimary/game-harness
+pnpm add -D game-harness
 ```
 
 Framework peers are intentionally optional at install time and are never

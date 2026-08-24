@@ -87,7 +87,7 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * single-project setups):
  *
  * ```ts
- * import { defineBrowserTestConfig } from '@jbdevprimary/game-harness/vitest';
+ * import { defineBrowserTestConfig } from 'game-harness/vitest';
  *
  * export default defineConfig({
  *   test: {

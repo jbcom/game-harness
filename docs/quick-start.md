@@ -8,7 +8,7 @@ preferences or creates anything that can play sound:
 
 ```ts
 // src/silent-qa.ts
-import { activateSilentQa } from '@jbdevprimary/game-harness/silent-qa';
+import { activateSilentQa } from 'game-harness/silent-qa';
 import { Howler } from 'howler';
 
 export const silentQaActive = activateSilentQa(() => Howler.mute(true));
@@ -19,7 +19,7 @@ fail-closed navigation helper:
 
 ```ts
 // playwright.config.ts
-import { definePlaywrightConfig } from '@jbdevprimary/game-harness/playwright';
+import { definePlaywrightConfig } from 'game-harness/playwright';
 
 export default definePlaywrightConfig({
   port: 4391,
@@ -31,7 +31,7 @@ export default definePlaywrightConfig({
 ```ts
 // tests/e2e/boot.spec.ts
 import { expect, test } from '@playwright/test';
-import { openSilentGame } from '@jbdevprimary/game-harness/playwright';
+import { openSilentGame } from 'game-harness/playwright';
 
 test('boots the intended game silently', async ({ page }) => {
   await openSilentGame(page, '/my-game/', { scenario: 'new-game' });

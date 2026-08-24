@@ -31,7 +31,7 @@ export default defineConfig({
       {
         type: 'link',
         label: 'npm',
-        href: 'https://www.npmjs.com/package/@jbdevprimary/game-harness',
+        href: 'https://www.npmjs.com/package/game-harness',
       },
     ],
   },

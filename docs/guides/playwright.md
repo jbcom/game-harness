@@ -4,7 +4,7 @@ description: Deterministic ports, strict-port preview servers, and silent Chromi
 ---
 
 ```ts
-import { definePlaywrightConfig } from '@jbdevprimary/game-harness/playwright';
+import { definePlaywrightConfig } from 'game-harness/playwright';
 
 export default definePlaywrightConfig({
   port: 4391,
