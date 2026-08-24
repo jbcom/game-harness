@@ -123,7 +123,10 @@ const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
   desktop: [
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+      },
     },
   ],
   mobile: [{ name: 'mobile', use: { ...devices['Pixel 7'] } }],
@@ -134,17 +137,28 @@ const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
   foldable: [
     {
       name: 'foldable-portrait',
-      use: { ...devices['Pixel 7'], viewport: { width: 840, height: 2120 }, deviceScaleFactor: 3 },
+      use: {
+        ...devices['Pixel 7'],
+        viewport: { width: 840, height: 2120 },
+        deviceScaleFactor: 3,
+      },
     },
     {
       name: 'foldable-landscape',
-      use: { ...devices['Pixel 7'], viewport: { width: 2120, height: 840 }, deviceScaleFactor: 3 },
+      use: {
+        ...devices['Pixel 7'],
+        viewport: { width: 2120, height: 840 },
+        deviceScaleFactor: 3,
+      },
     },
   ],
   ultrawide: [
     {
       name: 'ultrawide',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 3440, height: 1440 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 3440, height: 1440 },
+      },
     },
   ],
 };
@@ -246,8 +260,16 @@ function normalizePlaywrightChildEnvironment(): void {
  */
 export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}): number {
   const environment = options.environment ?? process.env;
-  const configuredPort = Number(environment.PLAYWRIGHT_PORT ?? environment.PW_PORT);
-  if (validPort(configuredPort)) return configuredPort;
+  const configuredValue = environment.PLAYWRIGHT_PORT ?? environment.PW_PORT;
+  if (configuredValue !== undefined) {
+    const configuredPort = Number(configuredValue);
+    if (!validPort(configuredPort)) {
+      throw new TypeError(
+        `PLAYWRIGHT_PORT/PW_PORT must be an integer from 1 to 65535; received ${configuredValue || '<empty>'}`,
+      );
+    }
+    return configuredPort;
+  }
 
   const localPort = options.localPort ?? DEFAULT_PORT;
   if (!validPort(localPort)) {
@@ -266,6 +288,26 @@ export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}
     String(localPort),
   ].join('\0');
   return CI_PORT_START + (stableHash(identity) % CI_PORT_SPAN);
+}
+
+function normalizeBasePath(basePath: string): string {
+  const trimmed = basePath.trim();
+  if (!trimmed || trimmed === '/') return '/';
+  if (trimmed.includes('?') || trimmed.includes('#')) {
+    throw new TypeError(
+      `Playwright basePath must be a pathname without a query or fragment; received ${basePath}`,
+    );
+  }
+  const segments = trimmed
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .filter(Boolean);
+  if (segments.some((segment) => segment === '.' || segment === '..')) {
+    throw new TypeError(
+      `Playwright basePath must not contain . or .. segments; received ${basePath}`,
+    );
+  }
+  return segments.length === 0 ? '/' : `/${segments.join('/')}/`;
 }
 
 /**
@@ -304,8 +346,20 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   const CHROMIUM_CHANNEL =
     process.env.PW_CHROMIUM_CHANNEL ?? (!IS_CI && !IS_HEADLESS ? 'chrome' : undefined);
 
+  if (!Number.isFinite(ciTimeoutMultiplier) || ciTimeoutMultiplier <= 0) {
+    throw new TypeError('ciTimeoutMultiplier must be a positive finite number');
+  }
+  if (deviceTiers.length === 0) {
+    throw new TypeError('deviceTiers must contain at least one tier');
+  }
+
+  const unknownTiers = deviceTiers.filter((tier) => !(tier in DEVICE_TIER_PROJECTS));
+  if (unknownTiers.length > 0) {
+    throw new TypeError(`unknown device tier(s): ${unknownTiers.join(', ')}`);
+  }
+
   const PORT = resolvePlaywrightPort({ localPort: port ?? DEFAULT_PORT });
-  const BASE_URL = `http://127.0.0.1:${PORT}${basePath}`;
+  const BASE_URL = `http://127.0.0.1:${PORT}${normalizeBasePath(basePath)}`;
   const REUSE_SERVER = !IS_CI && process.env.PW_REUSE_SERVER === '1';
 
   const includeVisual = process.env.VISUAL === '1';
@@ -326,7 +380,10 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     : LOCAL_ACTION_TIMEOUT_MS;
   const NAV_TIMEOUT_MS = IS_CI ? LOCAL_NAV_TIMEOUT_MS * 2 : LOCAL_NAV_TIMEOUT_MS;
 
-  const tiers = includeMultiview ? deviceTiers : (deviceTiers.slice(0, 1) as DeviceTier[]);
+  const uniqueDeviceTiers = [...new Set(deviceTiers)];
+  const tiers = includeMultiview
+    ? uniqueDeviceTiers
+    : (uniqueDeviceTiers.slice(0, 1) as DeviceTier[]);
   // `DEVICE_TIER_PROJECTS` is typed `Record<DeviceTier, Project[]>`, so every
   // member of the closed `DeviceTier` union is guaranteed present — this
   // fallback only guards a future widening of the type, and is unreachable

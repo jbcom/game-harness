@@ -1,14 +1,26 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
+
+export interface VisualBatteryCommand {
+  /** Executable invoked directly, without a shell. */
+  command: string;
+  /** Fixed arguments inserted before the discovered harness paths. */
+  args?: readonly string[];
+}
 
 export interface VisualBatteryOptions {
   /** CI mode: refuses to run with a dirty baseline dir, fails on drift instead of updating. */
   ci?: boolean;
   /** Repo root the git commands run relative to. Defaults to `process.cwd()`. */
   cwd?: string;
-  /** The `pnpm test:browser`-equivalent command to shell out to (without the file args). Defaults to `'pnpm test:browser'`. */
-  testCommand?: string;
+  /**
+   * The `pnpm test:browser`-equivalent command, without harness paths.
+   * Strings are split on whitespace for backward compatibility; use the
+   * object form when an argument contains spaces. Commands execute directly,
+   * never through a shell. Defaults to `'pnpm test:browser'`.
+   */
+  testCommand?: string | VisualBatteryCommand;
   /** Baseline root relative to `cwd`. Defaults to `${harnessGlob}/__screenshots__`; `baselineProfile` is appended below it. */
   baselinesDir?: string;
   /**
@@ -99,7 +111,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   } = options;
 
   const HARNESS_DIR = resolve(cwd, harnessDir);
-  const relativeHarnessDir = harnessDir.replace(/^\.\//, '').replace(/\/$/, '');
+  const relativeHarnessDir = relative(resolve(cwd), HARNESS_DIR) || '.';
   if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
     throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
   }
@@ -115,8 +127,21 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     throw new VisualBatteryError(msg);
   };
 
+  const assertInsideCwd = (label: string, target: string): void => {
+    const pathFromCwd = relative(resolve(cwd), target);
+    if (pathFromCwd === '..' || pathFromCwd.startsWith(`..${sep}`)) {
+      die(`${label} must stay inside cwd: ${target}`);
+    }
+  };
+
+  assertInsideCwd('harness dir', HARNESS_DIR);
+  assertInsideCwd('baselines dir', BASELINES_DIR);
+
   if (!existsSync(HARNESS_DIR)) {
     die(`harness dir not found: ${HARNESS_DIR}`);
+  }
+  if (!statSync(HARNESS_DIR).isDirectory()) {
+    die(`harness path is not a directory: ${HARNESS_DIR}`);
   }
 
   const unexpectedBaselineDirectories = findUnexpectedBaselineDirectories(
@@ -133,6 +158,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   const harnessFiles = readdirSync(HARNESS_DIR)
     .filter((f) => /\.browser\.test\.(?:ts|tsx)$/.test(f))
+    .sort()
     .map((f) => `${relativeHarnessDir}/${f}`);
 
   if (harnessFiles.length === 0) {
@@ -160,7 +186,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   if (ci) {
     let beforeStatus = '';
     try {
-      beforeStatus = execSync(`git status --porcelain ${relativeBaselinesDir}/`, {
+      beforeStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
         cwd,
         encoding: 'utf-8',
       });
@@ -176,9 +202,19 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   const runHarnessFiles = (files: string[], label: string): void => {
     if (files.length === 0) return;
-    log(`running ${label}: ${testCommand} ${files.join(' ')}...`);
+    const command =
+      typeof testCommand === 'string'
+        ? (() => {
+            const parts = testCommand.trim().split(/\s+/u);
+            const executable = parts.shift() || die('test command must not be empty');
+            return { command: executable, args: parts };
+          })()
+        : testCommand;
+    if (!command.command.trim()) die('test command executable must not be empty');
+    const commandArgs = [...(command.args ?? []), ...files];
+    log(`running ${label}: ${[command.command, ...commandArgs].join(' ')}...`);
     try {
-      execSync(`${testCommand} ${files.join(' ')}`, {
+      execFileSync(command.command, commandArgs, {
         cwd,
         stdio: 'inherit',
         env: {
@@ -200,12 +236,20 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     die(`baselines dir not created: ${BASELINES_DIR}`);
   }
   const baselineCount = readdirSync(BASELINES_DIR).filter((f) => f.endsWith('.png')).length;
+  if (baselineCount === 0) {
+    die(`no PNG baselines produced in: ${BASELINES_DIR}`);
+  }
   log(`baseline screenshots produced: ${baselineCount}`);
 
-  const afterStatus = execSync(`git status --porcelain ${relativeBaselinesDir}/`, {
-    cwd,
-    encoding: 'utf-8',
-  });
+  let afterStatus = '';
+  try {
+    afterStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
+      cwd,
+      encoding: 'utf-8',
+    });
+  } catch (err) {
+    die(`git status failed after harness run: ${err}`);
+  }
 
   if (afterStatus.trim().length === 0) {
     log('baselines clean — no visual drift detected.');

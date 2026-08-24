@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,22 +19,32 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: corepack enable
+          node-version: 24.19.0
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Lockfile is in sync
-        run: |
-          pnpm install --lockfile-only
-          git diff --exit-code pnpm-lock.yaml
+      - run: pnpm verify
+
+  portability:
+    name: Node 24 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      # A published package whose types or exports are broken is worse than one
-      # that fails to build: consumers only find out at integration time.
-      - name: Package is consumable
-        run: |
-          pnpm dlx publint
-          pnpm dlx @arethetypeswrong/cli --pack .

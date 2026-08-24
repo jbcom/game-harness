@@ -8,7 +8,9 @@ describe('createChromiumLaunchProfile', () => {
 
   it('de-duplicates args and keeps mute last', () => {
     expect(
-      createChromiumLaunchProfile({ args: ['--custom', '--mute-audio', '--custom'] }).args,
+      createChromiumLaunchProfile({
+        args: ['--custom', '--mute-audio', '--custom'],
+      }).args,
     ).toEqual(['--custom', '--mute-audio']);
   });
 
@@ -18,7 +20,10 @@ describe('createChromiumLaunchProfile', () => {
       env: { EGL_PLATFORM: 'device', TEST_SENTINEL: 'retained' },
     });
     expect(profile.env).toEqual(
-      expect.objectContaining({ EGL_PLATFORM: 'device', TEST_SENTINEL: 'retained' }),
+      expect.objectContaining({
+        EGL_PLATFORM: 'device',
+        TEST_SENTINEL: 'retained',
+      }),
     );
   });
 

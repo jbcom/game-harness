@@ -48,8 +48,53 @@ describe('verifyProductionRuntime', () => {
 
   it('rejects an empty or whitespace-only runtime URL before launching anything', async () => {
     await expect(
-      verifyProductionRuntime({ url: '   ', assertReady: async () => undefined }),
+      verifyProductionRuntime({
+        url: '   ',
+        assertReady: async () => undefined,
+      }),
     ).rejects.toThrow(/runtime URL must not be empty/);
+    expect(chromium.launch).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed and non-HTTP runtime URLs before launching anything', async () => {
+    await expect(
+      verifyProductionRuntime({ url: 'not a URL', assertReady: async () => undefined }),
+    ).rejects.toThrow(/valid absolute URL/);
+    await expect(
+      verifyProductionRuntime({ url: 'file:///tmp/game.html', assertReady: async () => undefined }),
+    ).rejects.toThrow(/http or https/);
+    expect(chromium.launch).not.toHaveBeenCalled();
+  });
+
+  it('validates server identity and lifecycle durations before launching', async () => {
+    const base = {
+      url: 'http://127.0.0.1:4274/',
+      assertReady: async () => undefined,
+    };
+    await expect(verifyProductionRuntime({ ...base, server: { command: ' ' } })).rejects.toThrow(
+      /server command/,
+    );
+    await expect(
+      verifyProductionRuntime({
+        ...base,
+        server: { command: 'vite', readyUrl: 'relative/path' },
+      }),
+    ).rejects.toThrow(/readiness URL.*absolute/);
+    await expect(
+      verifyProductionRuntime({
+        ...base,
+        server: { command: 'vite', startupTimeoutMs: 0 },
+      }),
+    ).rejects.toThrow(/startupTimeoutMs.*positive/);
+    await expect(
+      verifyProductionRuntime({
+        ...base,
+        server: { command: 'vite', shutdownTimeoutMs: -1 },
+      }),
+    ).rejects.toThrow(/shutdownTimeoutMs.*non-negative/);
+    await expect(verifyProductionRuntime({ ...base, settleTimeMs: Number.NaN })).rejects.toThrow(
+      /settleTimeMs.*non-negative/,
+    );
     expect(chromium.launch).not.toHaveBeenCalled();
   });
 
@@ -88,7 +133,10 @@ describe('verifyProductionRuntime', () => {
     });
 
     expect(chromium.launch).toHaveBeenCalledWith(
-      expect.objectContaining({ args: ['--custom', '--mute-audio'], headless: false }),
+      expect.objectContaining({
+        args: ['--custom', '--mute-audio'],
+        headless: false,
+      }),
     );
     expect(page.addInitScript).toHaveBeenCalledOnce();
     expect(openSilentGame).toHaveBeenCalledWith(
@@ -138,7 +186,9 @@ describe('verifyProductionRuntime', () => {
     });
 
     expect(chromium.launch).toHaveBeenCalledWith(
-      expect.objectContaining({ env: expect.objectContaining({ GAME_SEED: 'fixed-seed' }) }),
+      expect.objectContaining({
+        env: expect.objectContaining({ GAME_SEED: 'fixed-seed' }),
+      }),
     );
   });
 
@@ -151,7 +201,9 @@ describe('verifyProductionRuntime', () => {
       assertReady: async () => undefined,
     });
 
-    expect(browser.newPage).toHaveBeenCalledWith({ viewport: { width: 1280, height: 720 } });
+    expect(browser.newPage).toHaveBeenCalledWith({
+      viewport: { width: 1280, height: 720 },
+    });
     expect(page.url).toHaveBeenCalled();
   });
 
@@ -161,7 +213,10 @@ describe('verifyProductionRuntime', () => {
     await verifyProductionRuntime({
       url: 'https://game.example/',
       assertReady: async () => {
-        handlers.get('console')?.({ type: () => 'log', text: () => 'informational' } as never);
+        handlers.get('console')?.({
+          type: () => 'log',
+          text: () => 'informational',
+        } as never);
         handlers.get('response')?.({
           status: () => 204,
           url: () => 'https://game.example/health',
@@ -208,7 +263,11 @@ describe('verifyProductionRuntime', () => {
     'rejects the software WebGL renderer %s',
     async (renderer) => {
       const { page } = createRuntime();
-      page.evaluate.mockResolvedValue({ renderer, vendor: 'software', unmasked: true });
+      page.evaluate.mockResolvedValue({
+        renderer,
+        vendor: 'software',
+        unmasked: true,
+      });
       await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/hardware WebGL required/i);
     },
   );
@@ -225,10 +284,12 @@ describe('verifyProductionRuntime', () => {
 
   it('reports <empty> when the unmasked renderer string is blank', async () => {
     const { page } = createRuntime();
-    page.evaluate.mockResolvedValue({ renderer: '', vendor: '', unmasked: true });
-    await expect(requireHardwareWebGL(page as never)).rejects.toThrow(
-      /unmasked renderer: <empty>/,
-    );
+    page.evaluate.mockResolvedValue({
+      renderer: '',
+      vendor: '',
+      unmasked: true,
+    });
+    await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/unmasked renderer: <empty>/);
   });
 
   describe('the in-page evaluate callback', () => {
@@ -264,7 +325,9 @@ describe('verifyProductionRuntime', () => {
       };
       const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
       canvas.getContext = vi.fn().mockReturnValue(context) as never;
-      vi.stubGlobal('document', { querySelector: vi.fn().mockReturnValue(canvas) });
+      vi.stubGlobal('document', {
+        querySelector: vi.fn().mockReturnValue(canvas),
+      });
 
       await readWebGLRenderer(page as never);
       const result = evaluateArgOf(page.evaluate)('canvas');
@@ -287,18 +350,26 @@ describe('verifyProductionRuntime', () => {
       };
       const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
       canvas.getContext = vi.fn().mockReturnValue(context) as never;
-      vi.stubGlobal('document', { querySelector: vi.fn().mockReturnValue(canvas) });
+      vi.stubGlobal('document', {
+        querySelector: vi.fn().mockReturnValue(canvas),
+      });
 
       await readWebGLRenderer(page as never);
       const result = evaluateArgOf(page.evaluate)('canvas');
 
-      expect(result).toEqual({ renderer: 'param:renderer', vendor: 'param:vendor', unmasked: false });
+      expect(result).toEqual({
+        renderer: 'param:renderer',
+        vendor: 'param:vendor',
+        unmasked: false,
+      });
     });
 
     it('throws in-page when the canvas selector matches nothing', async () => {
       vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
       const { page } = createRuntime();
-      vi.stubGlobal('document', { querySelector: vi.fn().mockReturnValue(null) });
+      vi.stubGlobal('document', {
+        querySelector: vi.fn().mockReturnValue(null),
+      });
 
       await readWebGLRenderer(page as never);
       const callback = evaluateArgOf(page.evaluate);
@@ -311,7 +382,9 @@ describe('verifyProductionRuntime', () => {
       const { page } = createRuntime();
       const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
       canvas.getContext = vi.fn().mockReturnValue(null) as never;
-      vi.stubGlobal('document', { querySelector: vi.fn().mockReturnValue(canvas) });
+      vi.stubGlobal('document', {
+        querySelector: vi.fn().mockReturnValue(canvas),
+      });
 
       await readWebGLRenderer(page as never);
       const callback = evaluateArgOf(page.evaluate);
@@ -329,7 +402,10 @@ describe('verifyProductionRuntime', () => {
 
       await verifyProductionRuntime({
         url: 'https://game.example/',
-        localStorageSentinels: { 'settings::muted': 'false', 'settings::seed': null },
+        localStorageSentinels: {
+          'settings::muted': 'false',
+          'settings::seed': null,
+        },
         assertReady: async () => undefined,
       });
 
@@ -348,7 +424,10 @@ describe('verifyProductionRuntime', () => {
 
     it('reads localStorage sentinels through the in-page evaluate callback', async () => {
       const { page } = createRuntime();
-      page.evaluate.mockResolvedValue({ 'settings::muted': 'false', 'settings::missing': null });
+      page.evaluate.mockResolvedValue({
+        'settings::muted': 'false',
+        'settings::missing': null,
+      });
       const store = new Map<string, string>([['settings::muted', 'false']]);
       vi.stubGlobal('localStorage', {
         getItem: (key: string) => store.get(key) ?? null,
@@ -356,14 +435,20 @@ describe('verifyProductionRuntime', () => {
 
       await verifyProductionRuntime({
         url: 'https://game.example/',
-        localStorageSentinels: { 'settings::muted': 'false', 'settings::missing': null },
+        localStorageSentinels: {
+          'settings::muted': 'false',
+          'settings::missing': null,
+        },
         assertReady: async () => undefined,
       });
 
       const readCallback = page.evaluate.mock.calls.at(-1)?.[0] as (keys: string[]) => unknown;
       const result = readCallback(['settings::muted', 'settings::missing']);
 
-      expect(result).toEqual({ 'settings::muted': 'false', 'settings::missing': null });
+      expect(result).toEqual({
+        'settings::muted': 'false',
+        'settings::missing': null,
+      });
     });
   });
 
@@ -514,11 +599,7 @@ describe('verifyProductionRuntime', () => {
       assertReady: async () => undefined,
     });
 
-    expect(spawn).toHaveBeenCalledWith(
-      'vite',
-      [],
-      expect.objectContaining({ cwd: '/srv/game' }),
-    );
+    expect(spawn).toHaveBeenCalledWith('vite', [], expect.objectContaining({ cwd: '/srv/game' }));
     vi.unstubAllGlobals();
   });
 

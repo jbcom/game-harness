@@ -57,7 +57,6 @@ describe('verifyReleaseLadder', () => {
     expect(result.error).toBe('a plain string failure');
   });
 
-
   it('runs all steps in order and reports ok on full success', async () => {
     const ran: string[] = [];
     const result = await verifyReleaseLadder(

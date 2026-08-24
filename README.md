@@ -1,6 +1,100 @@
 # @jbdevprimary/game-harness
 
-Shared browser and release-evidence primitives for TypeScript browser games.
+![A browser-game diorama passing through a precision test gantry, with device previews, a muted-audio control, and a lighthouse verification beam](docs/assets/game-harness-hero.webp)
+
+[![CI](https://github.com/jbcom/game-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/jbcom/game-harness/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/jbcom/game-harness/actions/workflows/codeql.yml/badge.svg)](https://github.com/jbcom/game-harness/actions/workflows/codeql.yml)
+[![Node 24+](https://img.shields.io/badge/Node.js-24%2B-417e38)](package.json)
+[![MIT license](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
+
+Release-grade browser QA primitives for TypeScript games. Game Harness turns a
+successful build into evidence: fresh silent browser sessions, deterministic
+device tiers, byte-exact screenshot gates, production-runtime assertions,
+Lighthouse policy, and an ordered release ladder.
+
+It is intentionally a focused library rather than a test framework. Your game
+keeps its own journeys, assertions, art direction, and audio engine; Game
+Harness supplies the reusable safety and orchestration layer around Playwright
+and Vitest Browser Mode.
+
+## Why use it?
+
+- **Silent by construction.** Chromium is launched with `--mute-audio`, and
+  tests wait for an application-owned runtime mute marker before interacting.
+- **No accidental server reuse.** CI ports are deterministic per job, preview
+  commands use strict-port semantics, and production verification refuses an
+  already-reachable readiness URL.
+- **Visual evidence that fails closed.** Screenshot baselines are scoped,
+  profile-aware, and checked through Git without fuzzy thresholds or shell
+  interpolation.
+- **Real package boundaries.** Framework peers stay optional and isolated to
+  subpath exports, with clean ESM, CommonJS, type, CLI, and install smoke tests.
+- **Useful defaults with escape hatches.** Headed Chromium, device tiers,
+  timeouts, renderer profiles, and Lighthouse assertions are explicit and
+  composable.
+
+## Installation
+
+Node 24 or newer is required. Install the package plus only the peer family for
+the integration you use:
+
+```sh
+# Playwright config and production-runtime verification
+pnpm add -D @jbdevprimary/game-harness @playwright/test
+pnpm exec playwright install chromium
+
+# Vitest Browser Mode instead
+pnpm add -D @jbdevprimary/game-harness vitest @vitest/browser-playwright playwright
+pnpm exec playwright install chromium
+
+# Peer-free Lighthouse, release-ladder, or visual-battery utilities
+pnpm add -D @jbdevprimary/game-harness
+```
+
+## Quick start
+
+Activate the runtime-only mute before the application restores saved audio
+preferences or creates anything that can play sound:
+
+```ts
+// src/silent-qa.ts
+import { activateSilentQa } from '@jbdevprimary/game-harness/silent-qa';
+import { Howler } from 'howler';
+
+export const silentQaActive = activateSilentQa(() => Howler.mute(true));
+```
+
+Then use the shared Playwright config and open the game through the fail-closed
+navigation helper:
+
+```ts
+// playwright.config.ts
+import { definePlaywrightConfig } from '@jbdevprimary/game-harness/playwright';
+
+export default definePlaywrightConfig({
+  port: 4391,
+  webServerCommand: (port) =>
+    `pnpm build && pnpm exec vite preview --host 127.0.0.1 --port ${port} --strictPort`,
+});
+```
+
+```ts
+// tests/e2e/boot.spec.ts
+import { expect, test } from '@playwright/test';
+import { openSilentGame } from '@jbdevprimary/game-harness/playwright';
+
+test('boots the intended game silently', async ({ page }) => {
+  await openSilentGame(page, '/my-game/', { scenario: 'new-game' });
+  await expect(page.getByRole('heading', { name: 'My Game' })).toBeVisible();
+  await expect(page.locator('canvas')).toBeVisible();
+});
+```
+
+The application marker is part of the contract: `openSilentGame()` does not
+return until `<html data-audio-mode="muted-test">` exists.
+
+## Entry points
+
 Import only the entry point a game uses:
 
 - `@jbdevprimary/game-harness/playwright` for Playwright projects and strict
@@ -23,15 +117,15 @@ framework entry point it imports. A Playwright-only game, for example, installs
 
 ## Current release matrix
 
-The package is built and packed with Node 24.19.0, pnpm 11.21.0, and Node's
-bundled npm 11.17.0. Its current conformance matrix is Playwright 1.62.1 and
-Vitest Browser 4.1.10. Package-boundary consumers run with a credential-free
-HOME and npm configuration, install only the peer family needed by each entry
-point, and exercise ESM, CommonJS, types, the CLI, silent runtime markers, and
-headed Chromium launch profiles. A metadata-only dependency bump is not
-release evidence.
+CI and release builds use Node 24.19.0 and pnpm 11.21.0. The current conformance
+matrix is Playwright 1.62.1 and Vitest Browser 4.1.10. Package-boundary consumers
+run with a credential-free home directory and npm configuration, install only
+the peer family needed by each entry point, and exercise ESM, CommonJS, the CLI,
+silent runtime markers, and Chromium launch profiles. `publint` and
+`@arethetypeswrong/cli` independently validate package metadata and declarations.
 
-Every packed release carries this README and the package-local MIT license.
+Every packed release carries this README, the architecture guide, changelog,
+hero artwork, and the package-local MIT license.
 
 ## Playwright example
 
@@ -102,7 +196,10 @@ import { defineBrowserTestConfig } from '@jbdevprimary/game-harness/vitest';
 export default defineConfig({
   test: {
     projects: [
-      { extends: true, test: { name: 'unit', environment: 'node', include: ['tests/unit/**'] } },
+      {
+        extends: true,
+        test: { name: 'unit', environment: 'node', include: ['tests/unit/**'] },
+      },
       {
         extends: true,
         test: defineBrowserTestConfig({
@@ -171,6 +268,9 @@ audio-engine callback, and only then publishes
 `<html data-audio-mode="muted-test">`. It never reads or writes saved audio
 preferences. Consumers use its boolean return value or `isSilentQaActive()` to
 prevent later preference restoration from overriding the page-lifetime mute.
+If the audio engine mutes asynchronously, await `activateSilentQaAsync()`;
+passing a promise-returning callback to the synchronous function throws instead
+of publishing a premature readiness marker.
 
 ```ts
 import { openSilentGame } from '@jbdevprimary/game-harness/playwright';
@@ -191,24 +291,16 @@ adapters, but new games use these defaults. There is no audible-debug
 exception: verify audio behavior through programmatic state, mocks, or analyser
 assertions while agent-controlled playback remains muted.
 
-Keep `reuseExistingServer` false for release evidence and assert the game identity
-before exercising a journey. A process from another repository on a familiar
-port must never be accepted as proof.
+Keep `reuseExistingServer` false for release evidence and assert the game
+identity before exercising a journey. A process from another repository on a
+familiar port must never be accepted as proof.
 
-Before publishing the package, run `pnpm test:package` under the exact release
-toolchain. The verifier rejects any npm other than the bundled npm 11.17.0 and
-uses that packer directly from the package directory to verify the peer-free
-root, Playwright/production-runtime, and Vitest Browser consumer boundaries in
-clean temporary installs. The guarded publication workflow repeats that exact
-source pack twice and requires byte identity before publishing. It also
-generates and compares three independent normalized SBOMs through the pnpm
-11.21.0 CycloneDX 1.7
-`--lockfile-only --prod --exclude-peers --no-optional` SBOM for the shipped
-runtime: one component and the root dependency edge to `get-port`. Required
-Playwright and optional Vitest Browser peers remain manifest and clean-consumer
-contracts rather than being mislabeled as bundled components. Source epoch,
-lockfile, package-tree, release-input, and archive provenance make the canonical
-SBOM and checksum set reproducible on retries.
+Before publishing, run `pnpm verify` under the pinned release toolchain. The
+package verifier uses npm 11.17.0 directly from the package directory, packs a
+tarball, and installs it into credential-free temporary consumers for the
+peer-free root, Playwright/production-runtime, and Vitest Browser boundaries.
+The release workflow repeats the full gate before publishing with npm
+provenance.
 
 ## Production runtime verification
 
@@ -267,6 +359,18 @@ against parallel calls in the current process, and still requires the owned
 server to bind with strict-port semantics so an external race fails closed.
 
 ## Visual battery contract
+
+Run the default harness directory in update mode, or enforce committed
+baselines in CI:
+
+```sh
+pnpm exec game-harness-visual-battery tests/harness
+pnpm exec game-harness-visual-battery tests/harness --ci
+```
+
+`test-harness-visual-battery` remains as a compatibility alias. Programmatic
+callers can pass `testCommand: { command, args }`; the executable and discovered
+harness paths are invoked directly rather than interpolated through a shell.
 
 `runVisualBattery()` owns one canonical `__screenshots__` tree directly under
 the configured harness directory. Vitest screenshot paths are relative to the
@@ -343,7 +447,10 @@ import { execSync } from 'node:child_process';
 
 const result = await verifyReleaseLadder([
   { name: 'lint', run: () => execSync('pnpm lint', { stdio: 'inherit' }) },
-  { name: 'typecheck', run: () => execSync('pnpm typecheck', { stdio: 'inherit' }) },
+  {
+    name: 'typecheck',
+    run: () => execSync('pnpm typecheck', { stdio: 'inherit' }),
+  },
   { name: 'test', run: () => execSync('pnpm test', { stdio: 'inherit' }) },
   { name: 'build', run: () => execSync('pnpm build', { stdio: 'inherit' }) },
 ]);
@@ -361,3 +468,75 @@ it returns a `ReleaseLadderResult` (`{ ok, ranSteps, failedStep?, error? }`) so
 the caller decides how to report or exit; `process.exit(result.ok ? 0 : 1)` is
 the CLI convention. Pass `{ log, error }` to redirect the default
 `console.log`/`console.error` output (both prefixed with `[verify]`).
+
+## Architecture
+
+The package root contains only peer-free orchestration utilities. Framework
+integrations live behind explicit subpath exports, so importing Lighthouse or
+the release ladder cannot accidentally load Playwright or Vitest. The
+production-runtime entry point depends on the Playwright entry point because it
+composes `openSilentGame()` into a fresh-browser lifecycle; no dependency points
+back toward the root.
+
+The complete module map, safety boundaries, and runtime-verification sequence
+are documented in [docs/architecture.md](docs/architecture.md).
+
+## Development
+
+Use the pinned Node and pnpm versions so the local gate matches CI:
+
+```sh
+nvm use
+corepack enable
+pnpm install --frozen-lockfile
+pnpm verify
+```
+
+`pnpm verify` runs formatting, Oxlint, strict TypeScript checking, the full test
+suite with 100% line/branch/function/statement coverage, both module builds,
+`publint`, `@arethetypeswrong/cli`, and clean packed-consumer smoke tests. CI
+repeats the full gate on Ubuntu and the code/build subset on macOS and Windows.
+
+Useful focused commands:
+
+```sh
+pnpm test          # unit and contract tests
+pnpm coverage      # tests plus the 100% coverage gate
+pnpm build         # ESM, CommonJS, and declarations
+pnpm package:check # publint and declaration/export analysis
+pnpm test:package  # clean tarball consumer installs
+pnpm format        # apply repository formatting
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and commit guidance.
+
+## Troubleshooting
+
+- **A headed browser cannot start on Linux CI:** install Chromium dependencies
+  and run the browser command with `xvfb-run --auto-servernum`; do not silently
+  switch release evidence to headless mode.
+- **`PLAYWRIGHT_PORT` or `PW_PORT` is rejected:** overrides must be integer TCP
+  ports from 1 through 65535. Invalid explicit values fail instead of falling
+  back to another port.
+- **The visual battery reports zero PNGs:** each harness must write into its
+  canonical `__screenshots__` directory. An existing but empty directory is not
+  release evidence.
+- **`test:package` reports an npm version mismatch:** use Node 24.19.0 from
+  `.nvmrc`; the package-boundary test deliberately uses its bundled npm 11.17.0.
+- **A local Chrome channel is unavailable:** leave `PW_CHROMIUM_CHANNEL` unset
+  on CI to use Playwright's bundled Chromium, or set it explicitly to an
+  installed supported channel for a local branded-browser run.
+
+## Releases and support
+
+Conventional commits on `main` are collected into a release pull request by
+release-please. Merging that pull request creates the GitHub release and
+publishes the exact tag to npm with provenance after `pnpm verify` passes.
+Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+Report defects and feature requests through the repository issue forms. Report
+vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Jon Bogaty.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { lighthouseAssertions } from '../src/lighthouse.js';
 
 describe('lighthouseAssertions', () => {
-  it("returns the game-default preset matching production lighthouserc.json", () => {
+  it('returns the game-default preset matching production lighthouserc.json', () => {
     const config = lighthouseAssertions('game-default');
     expect(config.ci.collect.staticDistDir).toBe('./dist');
     expect(config.ci.collect.url).toEqual(['http://localhost/index.html']);
@@ -59,5 +59,34 @@ describe('lighthouseAssertions', () => {
     expect(config.ci.collect.staticDistDir).toBe('./build');
     expect(config.ci.collect.url).toEqual(['http://localhost/game.html']);
     expect(config.ci.collect.numberOfRuns).toBe(5);
+  });
+
+  it('returns independent preset data on every call', () => {
+    const first = lighthouseAssertions();
+    first.ci.collect.url.push('http://localhost/mutated');
+    first.ci.collect.settings.chromeFlags = '--mutated';
+    (first.ci.assert.assertions['categories:performance'] as unknown[]).push('mutated');
+    first.ci.upload.target = 'mutated';
+
+    const second = lighthouseAssertions();
+    expect(second.ci.collect.url).toEqual(['http://localhost/index.html']);
+    expect(second.ci.collect.settings.chromeFlags).not.toBe('--mutated');
+    expect(second.ci.assert.assertions['categories:performance']).toEqual([
+      'warn',
+      { minScore: 0.6 },
+    ]);
+    expect(second.ci.upload.target).toBe('temporary-public-storage');
+  });
+
+  it('rejects configurations that cannot collect a meaningful run', () => {
+    expect(() => lighthouseAssertions('game-default', { staticDistDir: '  ' })).toThrow(
+      /staticDistDir/,
+    );
+    expect(() => lighthouseAssertions('game-default', { url: [] })).toThrow(/url/);
+    expect(() => lighthouseAssertions('game-default', { url: [''] })).toThrow(/url/);
+    expect(() => lighthouseAssertions('game-default', { numberOfRuns: 0 })).toThrow(/numberOfRuns/);
+    expect(() => lighthouseAssertions('game-default', { numberOfRuns: 1.5 })).toThrow(
+      /numberOfRuns/,
+    );
   });
 });

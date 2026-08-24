@@ -121,6 +121,14 @@ export function defineBrowserTestConfig(
     fileParallelism = false,
   } = opts;
 
+  if (!name.trim()) throw new TypeError('browser project name must not be empty');
+  if (instances.length === 0) {
+    throw new TypeError('browser instances must contain at least one Playwright browser');
+  }
+  if (include.length === 0 || include.some((pattern) => !pattern.trim())) {
+    throw new TypeError('browser include must contain at least one non-empty test glob');
+  }
+
   const resolvedHeadless = resolveHeadless(headless);
   const launchProfile = createChromiumLaunchProfile({ gpuMode, args: gpuArgs });
   if (ui && contextOptions.deviceScaleFactor !== undefined) {
@@ -147,14 +155,14 @@ export function defineBrowserTestConfig(
   };
 
   if (setupFiles) {
-    test.setupFiles = setupFiles;
+    test.setupFiles = [...setupFiles];
   }
 
   if (optimizeDeps.length > 0) {
     // Vitest's `test` fragment has no `optimizeDeps` field (that lives at
     // the top-level Vite config) — surface the caller's list here so a
     // single options object can drive both without duplicating it.
-    test.__optimizeDepsInclude = optimizeDeps;
+    test.__optimizeDepsInclude = [...new Set(optimizeDeps)];
   }
 
   return test;

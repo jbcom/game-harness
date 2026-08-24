@@ -49,7 +49,9 @@ describe('definePlaywrightConfig', () => {
 
   it('expands to every requested device tier under MULTIVIEW=1', () => {
     process.env.MULTIVIEW = '1';
-    const config = definePlaywrightConfig({ deviceTiers: ['desktop', 'mobile', 'tablet'] });
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'mobile', 'tablet'],
+    });
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop', 'mobile', 'tablet']);
   });
 
@@ -64,12 +66,16 @@ describe('definePlaywrightConfig', () => {
 
   it('VISUAL=1 implies MULTIVIEW expansion', () => {
     process.env.VISUAL = '1';
-    const config = definePlaywrightConfig({ deviceTiers: ['desktop', 'ultrawide'] });
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'ultrawide'],
+    });
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop', 'ultrawide']);
   });
 
   it('stays single-tier without MULTIVIEW even if multiple tiers requested', () => {
-    const config = definePlaywrightConfig({ deviceTiers: ['desktop', 'mobile', 'tablet'] });
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'mobile', 'tablet'],
+    });
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop']);
   });
 
@@ -160,6 +166,13 @@ describe('definePlaywrightConfig', () => {
     expect(config.use?.baseURL).toBe('http://127.0.0.1:9999/');
   });
 
+  it('rejects malformed explicit port overrides instead of silently falling back', () => {
+    expect(() => resolvePlaywrightPort({ environment: { PLAYWRIGHT_PORT: 'not-a-port' } })).toThrow(
+      /PLAYWRIGHT_PORT\/PW_PORT/,
+    );
+    expect(() => resolvePlaywrightPort({ environment: { PW_PORT: '' } })).toThrow(/<empty>/);
+  });
+
   it('derives one stable CI port across parent and worker config reloads', () => {
     process.env.CI = '1';
     process.env.GITHUB_REPOSITORY = 'example-org/example-game';
@@ -242,6 +255,40 @@ describe('definePlaywrightConfig', () => {
     expect(config.use?.baseURL).toBe('http://127.0.0.1:4173/kuroga/');
   });
 
+  it('normalizes a base path for reliable relative navigation', () => {
+    expect(definePlaywrightConfig({ basePath: 'kuroga' }).use?.baseURL).toBe(
+      'http://127.0.0.1:4173/kuroga/',
+    );
+    expect(definePlaywrightConfig({ basePath: '  ' }).use?.baseURL).toBe('http://127.0.0.1:4173/');
+    expect(definePlaywrightConfig({ basePath: '///' }).use?.baseURL).toBe('http://127.0.0.1:4173/');
+    expect(definePlaywrightConfig({ basePath: '//games//kuroga//' }).use?.baseURL).toBe(
+      'http://127.0.0.1:4173/games/kuroga/',
+    );
+  });
+
+  it('rejects a base path containing URL state', () => {
+    expect(() => definePlaywrightConfig({ basePath: '/game?mode=test' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/game#ready' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/../admin' })).toThrow(/basePath/);
+  });
+
+  it('validates and de-duplicates the device and timeout matrix', () => {
+    expect(() => definePlaywrightConfig({ deviceTiers: [] })).toThrow(/deviceTiers/);
+    expect(() => definePlaywrightConfig({ deviceTiers: ['desktop', 'unknown' as never] })).toThrow(
+      /unknown device tier/,
+    );
+    expect(() => definePlaywrightConfig({ ciTimeoutMultiplier: 0 })).toThrow(/ciTimeoutMultiplier/);
+    expect(() => definePlaywrightConfig({ ciTimeoutMultiplier: Number.NaN })).toThrow(
+      /ciTimeoutMultiplier/,
+    );
+
+    process.env.MULTIVIEW = '1';
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'desktop', 'mobile'],
+    });
+    expect(config.projects?.map((project) => project.name)).toEqual(['desktop', 'mobile']);
+  });
+
   it('applies caller overrides last', () => {
     const config = definePlaywrightConfig({ overrides: { timeout: 999 } });
     expect(config.timeout).toBe(999);
@@ -298,7 +345,9 @@ describe('definePlaywrightConfig', () => {
   it('preserves custom launch arguments while enforcing one mute argument', () => {
     const config = definePlaywrightConfig({
       overrides: {
-        use: { launchOptions: { args: ['--use-angle=swiftshader', '--mute-audio'] } },
+        use: {
+          launchOptions: { args: ['--use-angle=swiftshader', '--mute-audio'] },
+        },
         projects: [
           {
             name: 'custom',
@@ -321,7 +370,10 @@ describe('definePlaywrightConfig', () => {
       port: 4173,
       overrides: { webServer: { env: { VITE_E2E: '1' } } },
     });
-    const webServer = config.webServer as { env?: Record<string, string>; command?: string };
+    const webServer = config.webServer as {
+      env?: Record<string, string>;
+      command?: string;
+    };
     expect(webServer.env).toEqual({ VITE_E2E: '1' });
     // command survives — proves this is a merge, not a wholesale replace.
     expect(webServer.command).toContain('vite');

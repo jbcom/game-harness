@@ -30,21 +30,20 @@ function createAnonymousEnvironment({ home, userConfig }) {
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
+const packageName = packageManifest.name;
+const packagePathSegments = packageName.split('/');
+const escapedPackageName = packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const scratchPrefix = join(tmpdir(), 'game-harness-');
 const scratchDir = mkdtempSync(scratchPrefix);
 if (!scratchDir.startsWith(scratchPrefix)) {
   throw new Error(`refusing to clean unexpected scratch path: ${scratchDir}`);
 }
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const binSuffix = process.platform === 'win32' ? '.cmd' : '';
 const anonymousConfig = join(scratchDir, 'anonymous.npmrc');
 writeFileSync(
   anonymousConfig,
-  [
-    'registry=https://registry.npmjs.org/',
-    'audit=false',
-    'fund=false',
-    '',
-  ].join('\n'),
+  ['registry=https://registry.npmjs.org/', 'audit=false', 'fund=false', ''].join('\n'),
 );
 const npmEnvironment = createAnonymousEnvironment({
   home: join(scratchDir, 'home'),
@@ -100,20 +99,18 @@ try {
   const registryConsumerSource = process.env.TEST_HARNESS_CONSUMER_SOURCE;
   if (
     registryConsumerSource &&
-    !/^@jbcom\/game-harness@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(
+    !new RegExp(`^${escapedPackageName}@\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$`).test(
       registryConsumerSource,
     )
   ) {
-    throw new Error(
-      'TEST_HARNESS_CONSUMER_SOURCE must be an exact @jbdevprimary/game-harness package spec',
-    );
+    throw new Error(`TEST_HARNESS_CONSUMER_SOURCE must be an exact ${packageName} package spec`);
   }
   const consumerSource = registryConsumerSource ?? tarballPath;
 
   const rootConsumer = createConsumer('peer-free-root-consumer');
   run(npmCommand, ['install', consumerSource, '--ignore-scripts'], rootConsumer);
   const installedLicense = readFileSync(
-    join(rootConsumer, 'node_modules', '@jbcom', 'game-harness', 'LICENSE'),
+    join(rootConsumer, 'node_modules', ...packagePathSegments, 'LICENSE'),
     'utf8',
   );
   if (!installedLicense.includes('Copyright (c) 2026 Jon Bogaty')) {
@@ -174,7 +171,12 @@ try {
     rootConsumer,
   );
   run(
-    join(rootConsumer, 'node_modules', '.bin', 'test-harness-visual-battery'),
+    join(rootConsumer, 'node_modules', '.bin', `game-harness-visual-battery${binSuffix}`),
+    ['--help'],
+    rootConsumer,
+  );
+  run(
+    join(rootConsumer, 'node_modules', '.bin', `test-harness-visual-battery${binSuffix}`),
     ['--help'],
     rootConsumer,
   );

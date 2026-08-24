@@ -53,7 +53,10 @@ describe('defineBrowserTestConfig', () => {
 
   it('rejects a device scale that Playwright cannot combine with Vitest UI', () => {
     expect(() =>
-      defineBrowserTestConfig({ ui: true, contextOptions: { deviceScaleFactor: 2 } }),
+      defineBrowserTestConfig({
+        ui: true,
+        contextOptions: { deviceScaleFactor: 2 },
+      }),
     ).toThrow(/deviceScaleFactor is not supported when ui is true/);
   });
 
@@ -105,9 +108,14 @@ describe('defineBrowserTestConfig', () => {
       contextOptions: { deviceScaleFactor: 2, locale: 'en-US' },
     });
     const provider = config.browser?.provider as {
-      options?: { contextOptions?: { deviceScaleFactor?: number; locale?: string } };
+      options?: {
+        contextOptions?: { deviceScaleFactor?: number; locale?: string };
+      };
     };
-    expect(provider.options?.contextOptions).toEqual({ deviceScaleFactor: 2, locale: 'en-US' });
+    expect(provider.options?.contextOptions).toEqual({
+      deviceScaleFactor: 2,
+      locale: 'en-US',
+    });
   });
 
   it('makes the software renderer an explicit profile', () => {
@@ -124,10 +132,15 @@ describe('defineBrowserTestConfig', () => {
   });
 
   it('provides the proven Linux Intel Vulkan profile', () => {
-    const config = defineBrowserTestConfig({ gpuMode: 'linux-hardware-vulkan' });
+    const config = defineBrowserTestConfig({
+      gpuMode: 'linux-hardware-vulkan',
+    });
     const provider = config.browser?.provider as {
       options?: {
-        launchOptions?: { args?: string[]; env?: Record<string, string | undefined> };
+        launchOptions?: {
+          args?: string[];
+          env?: Record<string, string | undefined>;
+        };
       };
     };
     expect(provider.options?.launchOptions?.args).toEqual([
@@ -141,7 +154,9 @@ describe('defineBrowserTestConfig', () => {
   });
 
   it('deduplicates a caller-supplied mute argument and keeps it last', () => {
-    const config = defineBrowserTestConfig({ gpuArgs: ['--mute-audio', '--custom-flag'] });
+    const config = defineBrowserTestConfig({
+      gpuArgs: ['--mute-audio', '--custom-flag'],
+    });
     const provider = config.browser?.provider as {
       options?: { launchOptions?: { args?: string[] } };
     };
@@ -179,7 +194,9 @@ describe('defineBrowserTestConfig', () => {
   });
 
   it('respects a custom include glob', () => {
-    const config = defineBrowserTestConfig({ include: ['tests/harness/**/*.browser.test.tsx'] });
+    const config = defineBrowserTestConfig({
+      include: ['tests/harness/**/*.browser.test.tsx'],
+    });
     expect(config.include).toEqual(['tests/harness/**/*.browser.test.tsx']);
   });
 
@@ -188,6 +205,24 @@ describe('defineBrowserTestConfig', () => {
       instances: [{ browser: 'chromium' }, { browser: 'webkit' }],
     });
     expect(config.browser?.instances).toEqual([{ browser: 'chromium' }, { browser: 'webkit' }]);
+  });
+
+  it('rejects empty project identity, browser matrices, and include globs', () => {
+    expect(() => defineBrowserTestConfig({ name: '  ' })).toThrow(/project name/);
+    expect(() => defineBrowserTestConfig({ instances: [] })).toThrow(/browser instances/);
+    expect(() => defineBrowserTestConfig({ include: [] })).toThrow(/browser include/);
+    expect(() => defineBrowserTestConfig({ include: [''] })).toThrow(/browser include/);
+  });
+
+  it('returns independent, de-duplicated consumer arrays', () => {
+    const setupFiles = ['tests/setup.ts'];
+    const optimizeDeps = ['three', 'three'];
+    const config = defineBrowserTestConfig({ setupFiles, optimizeDeps });
+
+    setupFiles.push('tests/late.ts');
+    optimizeDeps.push('late');
+    expect(config.setupFiles).toEqual(['tests/setup.ts']);
+    expect(config.__optimizeDepsInclude).toEqual(['three']);
   });
 
   it('always enables browser mode', () => {
