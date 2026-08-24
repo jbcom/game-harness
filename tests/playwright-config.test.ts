@@ -162,7 +162,7 @@ describe('definePlaywrightConfig', () => {
 
   it('derives one stable CI port across parent and worker config reloads', () => {
     process.env.CI = '1';
-    process.env.GITHUB_REPOSITORY = 'arcade-cabinet/quest-for-the-crown';
+    process.env.GITHUB_REPOSITORY = 'example-org/example-game';
     process.env.GITHUB_RUN_ID = '1955';
     process.env.GITHUB_JOB = 'verify';
 
@@ -179,7 +179,7 @@ describe('definePlaywrightConfig', () => {
   it('isolates concurrent CI runs and jobs while preserving explicit overrides', () => {
     const environment = {
       CI: '1',
-      GITHUB_REPOSITORY: 'arcade-cabinet/quest-for-the-crown',
+      GITHUB_REPOSITORY: 'example-org/example-game',
       GITHUB_RUN_ID: '1955',
       GITHUB_JOB: 'verify',
     };
@@ -203,7 +203,7 @@ describe('definePlaywrightConfig', () => {
 
   it('passes the resolved port to a custom web-server command', () => {
     process.env.CI = '1';
-    process.env.GITHUB_REPOSITORY = 'arcade-cabinet/quest-for-the-crown';
+    process.env.GITHUB_REPOSITORY = 'example-org/example-game';
     process.env.GITHUB_RUN_ID = '1955';
     process.env.GITHUB_JOB = 'verify';
     const config = definePlaywrightConfig({

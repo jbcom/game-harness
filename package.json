@@ -110,7 +110,7 @@
     "vitest": "4.1.10"
   },
   "engines": {
-    "node": ">=24.19.0 <25"
+    "node": ">=24"
   },
   "publishConfig": {
     "access": "public",
@@ -120,5 +120,16 @@
     "url": "https://github.com/jbcom/game-harness/issues"
   },
   "homepage": "https://github.com/jbcom/game-harness#readme",
-  "sideEffects": false
+  "sideEffects": false,
+  "author": "Jon Bogaty <jon@jonbogaty.com>",
+  "keywords": [
+    "vitest",
+    "playwright",
+    "testing",
+    "browser-testing",
+    "visual-regression",
+    "lighthouse",
+    "ci",
+    "game-dev"
+  ]
 }

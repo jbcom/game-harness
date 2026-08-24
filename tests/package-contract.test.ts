@@ -30,7 +30,7 @@ describe('package peer boundaries', () => {
   it('pins the current Node 24 browser-tool matrix', () => {
     expect(manifest).toMatchObject({
       version: '0.4.3',
-      engines: { node: '>=24.19.0 <25' },
+      engines: { node: '>=24' },
       devDependencies: {
         '@playwright/test': '1.62.1',
         '@types/node': '24.13.3',
@@ -79,14 +79,14 @@ describe('package peer boundaries', () => {
     expect(manifest.files).toContain('LICENSE');
     expect(manifest.files).toContain('README.md');
     expect(binShim).toContain('../dist/esm/bin/visual-battery.js');
-    expect(license).toContain('Copyright (c) 2026 arcade-cabinet');
+    expect(license).toContain('Copyright (c) 2026 Jon Bogaty');
   });
 
   it('uses the exact npm publish packer from the package directory', () => {
     expect(packageVerifier).toContain("npmVersion !== '11.17.0'");
     expect(packageVerifier).toContain("['pack', '--pack-destination', scratchDir]");
     expect(packageVerifier).toMatch(
-      /arcade-cabinet-test-harness-\$\{packageManifest\.version\}\.tgz/u,
+      /\$\{tarballStem\}-\$\{packageManifest\.version\}\.tgz/u,
     );
     expect(packageVerifier).not.toContain("['pack', packageDir");
     expect(packageVerifier).not.toMatch(/pnpm[^\n]*\bpack\b/);
