@@ -20,8 +20,8 @@
     "README.md"
   ],
   "bin": {
-    "game-harness-visual-battery": "./bin/test-harness-visual-battery.mjs",
-    "test-harness-visual-battery": "./bin/test-harness-visual-battery.mjs"
+    "game-harness-visual-battery": "bin/test-harness-visual-battery.mjs",
+    "test-harness-visual-battery": "bin/test-harness-visual-battery.mjs"
   },
   "exports": {
     ".": {

@@ -110,8 +110,28 @@ build` + `path: docs/dist` to `--filter site build` / `site/dist`)
       task above) is still correct/valuable independent of this — it's for
       offline/CLI/agent consumption of the installed package, not the
       npmjs.com web render.
-- [ ] release: publish first version manually under jbdevprimary via
-      `doppler run --project gha --config ci -- npm publish --access public`
+- [x] release: published @jbdevprimary/game-harness@0.4.3 manually. Findings:
+      local npm publish needs the Doppler token wired explicitly into npm's
+      user-level config as an authToken for registry.npmjs.org (not
+      committed), plus a no-provenance flag, since provenance needs a
+      recognized CI OIDC provider that cd.yml gets for free on GitHub
+      Actions but a local machine doesn't have — without both, publish
+      falls back to browser-session auth and demands OTP even with the
+      token in env. Separately, npm auto-corrected and stripped the `bin`
+      field during that publish ("script name ... was invalid and
+      removed") because the paths had a leading `./`, and silently
+      rewrote package.json on disk to match — fixed forward (removed the
+      leading `./` from both bin entries, updated the contract test)
+      before the next publish, since a stripped `bin` breaks the CLI for
+      installers. The registry PUT returned 200 and the npmjs.com page
+      confirmed "0.4.3 • Public • Published"; the registry GET/install
+      endpoint lagged behind that (known propagation delay on a package's
+      first-ever publish under a new scope) and resolved on its own.
+      npmjs.com is also showing a real banner: tokens that bypass 2FA are
+      being restricted for account changes (Aug 2026) and direct
+      publishing (Jan 2027) — reinforces OIDC trusted publishing (next
+      queue item) as the right long-term direction, not optional polish.
+
 - [ ] chore: use Claude in Chrome to configure npm trusted publishing (OIDC)
       for jbcom/game-harness cd.yml workflow once manual publish succeeds
 - [ ] chore: simplify cd.yml publish job once OIDC trusted publishing verified

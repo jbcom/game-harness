@@ -76,12 +76,12 @@ describe('package peer boundaries', () => {
   });
 
   it('ships a stable executable shim before generated dist files exist', () => {
-    expect(manifest.bin['test-harness-visual-battery']).toBe(
-      './bin/test-harness-visual-battery.mjs',
-    );
-    expect(manifest.bin['game-harness-visual-battery']).toBe(
-      './bin/test-harness-visual-battery.mjs',
-    );
+    // No leading "./" -- npm publish rejects that form as invalid and
+    // silently strips the bin entry from the published tarball (confirmed
+    // by publishing 0.4.3 with it and finding an empty bin field on the
+    // registry). `npm pkg fix` is the authority on the corrected form.
+    expect(manifest.bin['test-harness-visual-battery']).toBe('bin/test-harness-visual-battery.mjs');
+    expect(manifest.bin['game-harness-visual-battery']).toBe('bin/test-harness-visual-battery.mjs');
     expect(manifest.files).toContain('AGENTS.md');
     expect(manifest.files).toContain('bin');
     expect(manifest.files).toContain('CHANGELOG.md');
