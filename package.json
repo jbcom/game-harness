@@ -1,7 +1,7 @@
 {
   "name": "@jbcom/game-harness",
   "version": "0.4.3",
-  "description": "vitest-browser config + playwright config/preset + release verification ladder — extracted from Aethelgard-Chronicles-of-Strata's four-pillar test harness (tiered Playwright, deterministic visual-regression battery, Lighthouse CI presets, release-ladder orchestrator).",
+  "description": "vitest-browser config + playwright config/preset + release verification ladder for TypeScript browser games — tiered Playwright, deterministic visual-regression battery, Lighthouse CI presets, and a release-ladder orchestrator.",
   "type": "module",
   "license": "MIT",
   "repository": {

@@ -1,19 +1,19 @@
-# @arcade-cabinet/test-harness
+# @jbcom/game-harness
 
-Shared browser and release evidence primitives for the standalone arcade fleet.
+Shared browser and release-evidence primitives for TypeScript browser games.
 Import only the entry point a game uses:
 
-- `@arcade-cabinet/test-harness/playwright` for Playwright projects and strict
+- `@jbcom/game-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`;
-- `@arcade-cabinet/test-harness/silent-qa` for a peer-free,
+- `@jbcom/game-harness/silent-qa` for a peer-free,
   audio-engine-agnostic application-side runtime mute adapter;
-- `@arcade-cabinet/test-harness/production-runtime` for a fresh, silent
+- `@jbcom/game-harness/production-runtime` for a fresh, silent
   production-artifact or exact-live boot; install `@playwright/test`;
-- `@arcade-cabinet/test-harness/chromium` for peer-free Chromium renderer and
+- `@jbcom/game-harness/chromium` for peer-free Chromium renderer and
   silence launch profiles;
-- `@arcade-cabinet/test-harness/vitest` for Vitest Browser Mode; install
+- `@jbcom/game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
-- `@arcade-cabinet/test-harness`, `/lighthouse`, `/release-ladder`, and
+- `@jbcom/game-harness`, `/lighthouse`, `/release-ladder`, and
   `/visual-battery` for peer-free fleet verification utilities.
 
 Framework peers are intentionally optional at install time and are never loaded
@@ -36,7 +36,7 @@ Every packed release carries this README and the package-local MIT license.
 ## Playwright example
 
 ```ts
-import { definePlaywrightConfig } from '@arcade-cabinet/test-harness/playwright';
+import { definePlaywrightConfig } from '@jbcom/game-harness/playwright';
 
 export default definePlaywrightConfig({
   port: 4391,
@@ -100,7 +100,7 @@ application must also expose a non-persistent mute mode so tests fail closed
 before interacting with it:
 
 ```ts
-import { activateSilentQa } from '@arcade-cabinet/test-harness/silent-qa';
+import { activateSilentQa } from '@jbcom/game-harness/silent-qa';
 import { Howler } from 'howler';
 
 // Evaluate before the rest of the application/audio graph.
@@ -114,7 +114,7 @@ preferences. Consumers use its boolean return value or `isSilentQaActive()` to
 prevent later preference restoration from overriding the page-lifetime mute.
 
 ```ts
-import { openSilentGame } from '@arcade-cabinet/test-harness/playwright';
+import { openSilentGame } from '@jbcom/game-harness/playwright';
 
 test('starts a game without audible QA', async ({ page }) => {
   await openSilentGame(page, '/my-game/', { scenario: 'new-game' });
@@ -165,7 +165,7 @@ import {
   findAvailableProductionPort,
   requireHardwareWebGL,
   verifyProductionRuntime,
-} from '@arcade-cabinet/test-harness/production-runtime';
+} from '@jbcom/game-harness/production-runtime';
 
 const port = await findAvailableProductionPort();
 
@@ -184,10 +184,10 @@ await verifyProductionRuntime({
   },
   localStorageSentinels: { 'settings::muted': 'false' },
   assertReady: async (page) => {
-    await page.getByRole('heading', { name: 'Aethelgard' }).waitFor();
+    await page.getByRole('heading', { name: 'My Game' }).waitFor();
     await page.locator('canvas').waitFor({ state: 'visible' });
     const { renderer } = await requireHardwareWebGL(page);
-    console.log(`Aethelgard WebGL renderer: ${renderer}`);
+    console.log(`WebGL renderer: ${renderer}`);
   },
 });
 ```
