@@ -9,8 +9,8 @@ permissions:
   pull-requests: read
 
 jobs:
-  gate:
-    name: gate
+  repository-policy:
+    name: repository-policy
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:

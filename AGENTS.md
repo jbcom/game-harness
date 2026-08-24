@@ -133,7 +133,8 @@ game-harness-docs dev` — build or preview the Sourcey docs site in isolation.
   `gh api repos/<owner>/<repo>/releases/latest`, never guessed from
   training data), with a `# vX.Y.Z` comment. The repository also requires
   SHA pinning (`sha_pinning_required: true`) at the Actions-settings level.
-- Branch protection on `main` requires automated policy checks and resolved
-  review threads, but no human approval. Merge commits preserve the topic
-  branch history; squash, rebase, direct default-branch pushes, and force
-  pushes are not part of the trusted-agent path.
+- Branch protection on `main` requires the named `dependency-review` and
+  `repository-policy` checks, automated quality checks, and resolved review
+  threads, but no human approval. Merge commits preserve the topic branch
+  history; squash, rebase, direct default-branch pushes, and force pushes are
+  not part of the trusted-agent path.
