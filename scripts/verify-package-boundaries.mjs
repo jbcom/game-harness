@@ -81,8 +81,13 @@ try {
     encoding: 'utf8',
     env: npmEnvironment,
   }).trim();
-  if (npmVersion !== '11.17.0') {
-    throw new Error(`package verifier requires npm 11.17.0, got ${npmVersion}`);
+  const npmMajor = Number.parseInt(npmVersion.split('.')[0], 10);
+  // A floor, not an exact pin: the supported Node range (engines.node)
+  // spans several LTS lines, each bundling a different npm. What this test
+  // actually protects is modern, workspace-safe `npm pack`/`npm install`
+  // behavior, which npm 10+ (Node 22's bundled version) already provides.
+  if (!Number.isInteger(npmMajor) || npmMajor < 10) {
+    throw new Error(`package verifier requires npm >=10, got ${npmVersion}`);
   }
 
   run(npmCommand, ['pack', '--pack-destination', scratchDir], packageDir);

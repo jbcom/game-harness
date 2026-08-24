@@ -5,14 +5,17 @@ Thanks for taking the time to contribute.
 ## Getting set up
 
 ```sh
-corepack enable
+mise install   # or: nvm use && corepack enable
 pnpm install
 pnpm verify   # formatting, lint, types, coverage, build, and package checks
 ```
 
-Node and pnpm versions are pinned in `package.json` under `engines` and
-`packageManager`. Use `corepack` rather than a globally installed pnpm so your
-version matches CI.
+The pnpm version comes from `package.json`'s `packageManager` field; the Node
+version comes from `.nvmrc`. [mise](https://mise.jdx.dev) reads both
+automatically. Without mise, use `corepack` rather than a globally installed
+pnpm so your version matches CI. `engines.node` (`>=22`) is the floor CI
+proves against on Linux; day-to-day development and every macOS/Windows CI
+row use the version pinned in `.nvmrc`.
 
 ## Making a change
 

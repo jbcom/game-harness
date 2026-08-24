@@ -3,7 +3,7 @@
 ![A browser-game diorama passing through a precision test gantry, with device previews, a muted-audio control, and a lighthouse verification beam](docs/assets/game-harness-hero.webp)
 
 [![CI](https://github.com/jbcom/game-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/jbcom/game-harness/actions/workflows/ci.yml)
-[![Node 24+](https://img.shields.io/badge/Node.js-24%2B-417e38)](package.json)
+[![Node 22+](https://img.shields.io/badge/Node.js-22%2B-417e38)](package.json)
 [![MIT license](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
 
 Release-grade browser QA primitives for TypeScript games. Game Harness turns a
@@ -34,7 +34,7 @@ and Vitest Browser Mode.
 
 ## Installation
 
-Node 24 or newer is required. Install the package plus only the peer family for
+Node 22 or newer is required. Install the package plus only the peer family for
 the integration you use:
 
 ```sh
@@ -116,12 +116,17 @@ framework entry point it imports. A Playwright-only game, for example, installs
 
 ## Current release matrix
 
-CI and release builds use Node 24.19.0 and pnpm 11.21.0. The current conformance
-matrix is Playwright 1.62.1 and Vitest Browser 4.1.10. Package-boundary consumers
-run with a credential-free home directory and npm configuration, install only
-the peer family needed by each entry point, and exercise ESM, CommonJS, the CLI,
-silent runtime markers, and Chromium launch profiles. `publint` and
-`@arethetypeswrong/cli` independently validate package metadata and declarations.
+`engines.node` declares `>=22`, the earliest Node LTS line still actively
+supported. CI pins the primary gate to the version in `.nvmrc` (currently
+24.19.0, the latest Node 24 LTS patch) and additionally runs the full test
+and build suite against Node 22 on Linux to prove the floor of that range,
+alongside macOS and Windows portability on the pinned version. The current
+conformance matrix is Playwright 1.62.1 and Vitest Browser 4.1.10.
+Package-boundary consumers run with a credential-free home directory and npm
+configuration, install only the peer family needed by each entry point, and
+exercise ESM, CommonJS, the CLI, silent runtime markers, and Chromium launch
+profiles. `publint` and `@arethetypeswrong/cli` independently validate
+package metadata and declarations.
 
 Every packed release carries this README, the architecture guide, changelog,
 hero artwork, and the package-local MIT license.
@@ -482,7 +487,17 @@ are documented in [docs/architecture.md](docs/architecture.md).
 
 ## Development
 
-Use the pinned Node and pnpm versions so the local gate matches CI:
+Use the pinned Node and pnpm versions so the local gate matches CI. With
+[mise](https://mise.jdx.dev) (recommended — it also reads `.nvmrc` and keeps
+pnpm current via `mise.toml`):
+
+```sh
+mise install
+pnpm install --frozen-lockfile
+pnpm verify
+```
+
+Without mise, `nvm` plus Corepack works the same way:
 
 ```sh
 nvm use
@@ -520,8 +535,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and commit guidance.
 - **The visual battery reports zero PNGs:** each harness must write into its
   canonical `__screenshots__` directory. An existing but empty directory is not
   release evidence.
-- **`test:package` reports an npm version mismatch:** use Node 24.19.0 from
-  `.nvmrc`; the package-boundary test deliberately uses its bundled npm 11.17.0.
+- **`test:package` reports an npm version too old:** the package-boundary test
+  requires npm 10 or newer (bundled with every Node version in the supported
+  `>=22` range); use the Node version from `.nvmrc` or any newer supported LTS.
 - **A local Chrome channel is unavailable:** leave `PW_CHROMIUM_CHANNEL` unset
   on CI to use Playwright's bundled Chromium, or set it explicitly to an
   installed supported channel for a local branded-browser run.

@@ -29,12 +29,12 @@ const packageVerifier = readFileSync(
 );
 
 describe('package peer boundaries', () => {
-  it('pins the current Node 24 browser-tool matrix', () => {
+  it('pins the current browser-tool matrix and declares the widest supported Node range', () => {
     expect(manifest).toMatchObject({
       name: '@jbdevprimary/game-harness',
       version: '0.4.3',
-      engines: { node: '>=24' },
-      packageManager: 'pnpm@11.21.0',
+      engines: { node: '>=22' },
+      packageManager: 'pnpm@11.23.0',
       devDependencies: {
         '@playwright/test': '1.62.1',
         '@types/node': '24.13.3',
@@ -92,7 +92,7 @@ describe('package peer boundaries', () => {
   });
 
   it('uses the exact npm publish packer from the package directory', () => {
-    expect(packageVerifier).toContain("npmVersion !== '11.17.0'");
+    expect(packageVerifier).toContain('npmMajor < 10');
     expect(packageVerifier).toContain("['pack', '--pack-destination', scratchDir]");
     expect(packageVerifier).toMatch(/\$\{tarballStem\}-\$\{packageManifest\.version\}\.tgz/u);
     expect(packageVerifier).not.toContain("['pack', packageDir");
