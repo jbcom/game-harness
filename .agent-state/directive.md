@@ -32,9 +32,12 @@ Full autonomy granted; agent makes all design/implementation-detail calls.
       `gh api` — no training-data SHAs
 - [x] ci: add dependabot.yml (npm root+docs, github-actions, weekly, grouped)
 - [x] chore: add .pre-commit-config.yaml mirroring CI gates (prettier, oxlint)
-- [ ] chore: configure branch protection on main (required checks: verify,
+- [x] chore: configure branch protection on main (required checks: verify,
       both portability jobs, CodeQL; require up-to-date branch; block
-      force-push/deletion; no min-approval count since solo+bots merge)
+      force-push/deletion; no min-approval count since solo+bots merge).
+      Also hardened repo-level Actions settings: sha_pinning_required=true,
+      can_approve_pull_request_reviews=false (workflow tokens can't
+      self-approve PRs — closes a fork-PR self-merge vector).
 - [ ] chore: set pnpm-workspace.yaml packages to [".", "docs"]
 - [ ] feat(docs): scaffold Astro + Starlight site under docs/, migrate
       architecture.md content, brand with hero-image-derived palette/fonts
