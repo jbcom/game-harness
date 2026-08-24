@@ -23,8 +23,9 @@ description: Common failure modes and their causes.
 ## Releases and support
 
 Conventional commits on `main` are collected into a release pull request by
-release-please. Merging that pull request creates the GitHub release and
-publishes the exact tag to npm with provenance after `pnpm verify` passes.
+release-please. Merging that pull request creates the GitHub release; its
+published-release event starts `cd.yml`, which verifies and publishes the exact
+tag to npm through OIDC with provenance.
 Changes are recorded in the [CHANGELOG](https://github.com/jbcom/game-harness/blob/main/CHANGELOG.md).
 
 Report defects and feature requests through the

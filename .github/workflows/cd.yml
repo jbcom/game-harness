@@ -1,6 +1,8 @@
 name: CD
 
 on:
+  release:
+    types: [published]
   push:
     branches: [main]
     paths:
@@ -12,11 +14,38 @@ permissions:
   contents: read
 
 concurrency:
-  group: cd-${{ github.ref }}
+  group: cd-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: false
 
 jobs:
+  publish-npm:
+    # Release Please creates releases with the deliberately authorized
+    # upstream-collaborator token in release.yml, so this independent release
+    # event is not suppressed by GitHub's recursive-run guard. npm verifies
+    # this exact tagged source through its cd.yml trusted-publisher binding.
+    if: github.event_name == 'release'
+    name: Publish npm package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm verify
+      - run: pnpm publish --access public --provenance --no-git-checks
+
   deploy-docs:
+    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
     permissions:
       contents: read

@@ -309,8 +309,8 @@ Before publishing, run `pnpm verify` under the pinned release toolchain. The
 package verifier uses npm 11.17.0 directly from the package directory, packs a
 tarball, and installs it into credential-free temporary consumers for the
 peer-free root, Playwright/production-runtime, and Vitest Browser boundaries.
-The release workflow repeats the full gate before publishing with npm
-provenance.
+The tagged-release job in `cd.yml` repeats the full gate before publishing
+with npm provenance through npm trusted publishing (OIDC).
 
 ## Production runtime verification
 
@@ -556,8 +556,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and commit guidance.
 ## Releases and support
 
 Conventional commits on `main` are collected into a release pull request by
-release-please. Merging that pull request creates the GitHub release and
-publishes the exact tag to npm with provenance after `pnpm verify` passes.
+release-please. Merging that pull request creates the GitHub release; its
+published-release event starts `cd.yml`, which verifies and publishes the exact
+tag to npm through OIDC with provenance.
 Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 Report defects and feature requests through the repository issue forms. Report
