@@ -6,8 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://redacted-private-registry.example/arcade-cabinet/Aethelgard-Chronicles-of-Strata",
-    "directory": "packages/test-harness"
+    "url": "https://redacted-private-registry.example/arcade-cabinet/test-harness"
   },
   "files": [
     "bin",
