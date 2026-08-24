@@ -30,9 +30,11 @@ const packageVerifier = readFileSync(
 
 describe('package peer boundaries', () => {
   it('pins the current browser-tool matrix and declares the widest supported Node range', () => {
+    // version is release-please's to manage -- assert shape, not an exact
+    // value, so a routine release doesn't break this contract test.
+    expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(manifest).toMatchObject({
       name: '@jbdevprimary/game-harness',
-      version: '0.4.3',
       engines: { node: '>=22' },
       packageManager: 'pnpm@11.23.0',
       devDependencies: {
