@@ -22,16 +22,16 @@ Full autonomy granted; agent makes all design/implementation-detail calls.
 
 ## Queue
 
-- [ ] fix: correct release.yml secret name NPM_TOKEN -> AGENTIC_NPM_TOKEN
-- [ ] refactor: split release.yml into release.yml (release-please only) + new
+- [x] fix: correct release.yml secret name NPM_TOKEN -> AGENTIC_NPM_TOKEN
+- [x] refactor: split release.yml into release.yml (release-please only) + new
       cd.yml (npm publish on release:published, docs deploy on push to
       docs/** or workflow_dispatch)
-- [ ] ci: pin every workflow action (checkout, pnpm/action-setup,
+- [x] ci: pin every workflow action (checkout, pnpm/action-setup,
       setup-node, googleapis/release-please-action, configure-pages,
       upload-pages-artifact, deploy-pages) to exact commit SHAs resolved via
       `gh api` — no training-data SHAs
-- [ ] ci: add dependabot.yml (npm root+docs, github-actions, weekly, grouped)
-- [ ] chore: add .pre-commit-config.yaml mirroring CI gates (prettier, oxlint)
+- [x] ci: add dependabot.yml (npm root+docs, github-actions, weekly, grouped)
+- [x] chore: add .pre-commit-config.yaml mirroring CI gates (prettier, oxlint)
 - [ ] chore: configure branch protection on main (required checks: verify,
       both portability jobs, CodeQL; require up-to-date branch; block
       force-push/deletion; no min-approval count since solo+bots merge)
