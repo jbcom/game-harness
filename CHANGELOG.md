@@ -4,6 +4,22 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.0.0](https://github.com/jbcom/game-harness/compare/game-harness-v0.5.0...game-harness-v1.0.0) (2026-08-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* publish unscoped game-harness package
+
+### Features
+
+* publish unscoped game-harness package ([db71974](https://github.com/jbcom/game-harness/commit/db71974fb5082ae6fb8870016f004338d85a3bc9))
+
+
+### Bug Fixes
+
+* use bound SonarQube Cloud analysis ([914a271](https://github.com/jbcom/game-harness/commit/914a271d70b95df816fca3f8366a8670a39a6f7d))
+
 ## [0.5.0](https://github.com/jbcom/game-harness/compare/game-harness-v0.4.3...game-harness-v0.5.0) (2026-08-24)
 
 
