@@ -117,13 +117,21 @@ build` + `path: docs/dist` to `--filter site build` / `site/dist`)
       recognized CI OIDC provider that cd.yml gets for free on GitHub
       Actions but a local machine doesn't have — without both, publish
       falls back to browser-session auth and demands OTP even with the
-      token in env. Separately, npm auto-corrected and stripped the `bin`
-      field during that publish ("script name ... was invalid and
-      removed") because the paths had a leading `./`, and silently
-      rewrote package.json on disk to match — fixed forward (removed the
-      leading `./` from both bin entries, updated the contract test)
-      before the next publish, since a stripped `bin` breaks the CLI for
-      installers. The registry PUT returned 200 and the npmjs.com page
+      token in env. Separately, npm warned during that publish that the
+      `bin` field's leading `./` was "invalid and removed", and silently
+      rewrote package.json on disk to match npm pkg fix's corrected form —
+      verified by downloading the actual published tarball
+      (npm pack @jbdevprimary/game-harness) and installing it into a clean
+      consumer: the tarball's package.json kept the `./` prefix, and both
+      CLI bin symlinks (game-harness-visual-battery,
+      test-harness-visual-battery) installed and ran correctly, so 0.4.3
+      was never actually broken — the warning only concerns a separate
+      registry metadata summary, not the tarball's real bin field or
+      install-time symlink creation. Removed the `./` prefix anyway to
+      match npm's own corrected form and stop the warning going forward
+      (forward commit, contract test updated); no republish was needed
+      since nothing was actually defective. The registry PUT returned 200
+      and the npmjs.com page
       confirmed "0.4.3 • Public • Published"; the registry GET/install
       endpoint lagged behind that (known propagation delay on a package's
       first-ever publish under a new scope) and resolved on its own.
