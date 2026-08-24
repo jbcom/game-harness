@@ -1,12 +1,12 @@
 {
-  "name": "@arcade-cabinet/test-harness",
+  "name": "@jbcom/game-harness",
   "version": "0.4.3",
   "description": "vitest-browser config + playwright config/preset + release verification ladder — extracted from Aethelgard-Chronicles-of-Strata's four-pillar test harness (tiered Playwright, deterministic visual-regression battery, Lighthouse CI presets, release-ladder orchestrator).",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://redacted-private-registry.example/arcade-cabinet/test-harness"
+    "url": "git+https://github.com/jbcom/game-harness.git"
   },
   "files": [
     "bin",
@@ -79,7 +79,8 @@
     "prepack": "pnpm run build",
     "test": "vitest run",
     "test:package": "node scripts/verify-package-boundaries.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "get-port": "7.2.0"
@@ -112,7 +113,12 @@
     "node": ">=24.19.0 <25"
   },
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://redacted-private-registry.example/api/packages/arcade-cabinet/npm/"
-  }
+    "access": "public",
+    "provenance": true
+  },
+  "bugs": {
+    "url": "https://github.com/jbcom/game-harness/issues"
+  },
+  "homepage": "https://github.com/jbcom/game-harness#readme",
+  "sideEffects": false
 }
