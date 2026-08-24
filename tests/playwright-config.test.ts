@@ -272,6 +272,7 @@ describe('definePlaywrightConfig', () => {
     expect(() => definePlaywrightConfig({ basePath: '/games/../admin' })).toThrow(/basePath/);
     expect(() => definePlaywrightConfig({ basePath: '/games/%2e%2e/admin' })).toThrow(/basePath/);
     expect(() => definePlaywrightConfig({ basePath: '/games/%2f..%2fadmin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/%invalid' })).toThrow(/basePath/);
     expect(() => definePlaywrightConfig({ basePath: '/games/\\..\\admin' })).toThrow(/basePath/);
   });
 

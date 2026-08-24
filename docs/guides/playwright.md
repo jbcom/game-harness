@@ -9,7 +9,7 @@ import { definePlaywrightConfig } from '@jbdevprimary/game-harness/playwright';
 export default definePlaywrightConfig({
   port: 4391,
   deviceTiers: ['desktop', 'mobile'],
-  gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
+  gpuMode: process.platform === 'linux' && process.env.CI ? 'linux-hardware-vulkan' : 'auto',
   webServerCommand: (port) =>
     `pnpm build && pnpm exec vite preview --host 127.0.0.1 --port ${port} --strictPort`,
 });

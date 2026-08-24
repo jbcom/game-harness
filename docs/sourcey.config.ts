@@ -2,6 +2,8 @@ import { defineConfig, markdown } from 'sourcey';
 
 export default defineConfig({
   name: 'Game Harness',
+  siteUrl: 'https://jonbogaty.com',
+  baseUrl: '/game-harness',
   theme: {
     preset: 'default',
     colors: {
@@ -18,7 +20,11 @@ export default defineConfig({
     },
   },
   prettyUrls: 'slash',
+  favicon: './assets/game-harness-hero.webp',
+  ogImage: './assets/game-harness-hero.webp',
   repo: 'https://github.com/jbcom/game-harness',
+  editBranch: 'main',
+  editBasePath: 'docs',
   navbar: {
     links: [
       { type: 'github', href: 'https://github.com/jbcom/game-harness' },

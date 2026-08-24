@@ -127,12 +127,13 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   };
 
   const resolvedCwd = resolve(cwd);
-  let canonicalCwd: string;
-  try {
-    canonicalCwd = realpathSync(resolvedCwd);
-  } catch {
-    die(`cwd not found or not reachable: ${cwd}`);
-  }
+  const canonicalCwd = (() => {
+    try {
+      return realpathSync(resolvedCwd);
+    } catch {
+      return die(`cwd not found or not reachable: ${cwd}`);
+    }
+  })();
 
   const HARNESS_DIR = resolve(canonicalCwd, harnessDir);
   const relativeHarnessDir = relative(canonicalCwd, HARNESS_DIR).split(sep).join('/') || '.';
