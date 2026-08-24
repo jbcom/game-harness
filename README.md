@@ -1,19 +1,19 @@
-# @jbcom/game-harness
+# @jbdevprimary/game-harness
 
 Shared browser and release-evidence primitives for TypeScript browser games.
 Import only the entry point a game uses:
 
-- `@jbcom/game-harness/playwright` for Playwright projects and strict
+- `@jbdevprimary/game-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`;
-- `@jbcom/game-harness/silent-qa` for a peer-free,
+- `@jbdevprimary/game-harness/silent-qa` for a peer-free,
   audio-engine-agnostic application-side runtime mute adapter;
-- `@jbcom/game-harness/production-runtime` for a fresh, silent
+- `@jbdevprimary/game-harness/production-runtime` for a fresh, silent
   production-artifact or exact-live boot; install `@playwright/test`;
-- `@jbcom/game-harness/chromium` for peer-free Chromium renderer and
+- `@jbdevprimary/game-harness/chromium` for peer-free Chromium renderer and
   silence launch profiles;
-- `@jbcom/game-harness/vitest` for Vitest Browser Mode; install
+- `@jbdevprimary/game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
-- `@jbcom/game-harness`, `/lighthouse`, `/release-ladder`, and
+- `@jbdevprimary/game-harness`, `/lighthouse`, `/release-ladder`, and
   `/visual-battery` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never loaded
@@ -36,7 +36,7 @@ Every packed release carries this README and the package-local MIT license.
 ## Playwright example
 
 ```ts
-import { definePlaywrightConfig } from '@jbcom/game-harness/playwright';
+import { definePlaywrightConfig } from '@jbdevprimary/game-harness/playwright';
 
 export default definePlaywrightConfig({
   port: 4391,
@@ -97,7 +97,7 @@ only its first tier. Run `MULTIVIEW=1 pnpm exec playwright test` (or
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import { defineBrowserTestConfig } from '@jbcom/game-harness/vitest';
+import { defineBrowserTestConfig } from '@jbdevprimary/game-harness/vitest';
 
 export default defineConfig({
   test: {
@@ -133,7 +133,7 @@ fragment's `__optimizeDepsInclude` field, since Vitest's `test` block has no
 
 ```ts
 import { chromium } from '@playwright/test';
-import { createChromiumLaunchProfile } from '@jbcom/game-harness/chromium';
+import { createChromiumLaunchProfile } from '@jbdevprimary/game-harness/chromium';
 
 const { args, env } = createChromiumLaunchProfile({
   gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
@@ -159,7 +159,7 @@ application must also expose a non-persistent mute mode so tests fail closed
 before interacting with it:
 
 ```ts
-import { activateSilentQa } from '@jbcom/game-harness/silent-qa';
+import { activateSilentQa } from '@jbdevprimary/game-harness/silent-qa';
 import { Howler } from 'howler';
 
 // Evaluate before the rest of the application/audio graph.
@@ -173,7 +173,7 @@ preferences. Consumers use its boolean return value or `isSilentQaActive()` to
 prevent later preference restoration from overriding the page-lifetime mute.
 
 ```ts
-import { openSilentGame } from '@jbcom/game-harness/playwright';
+import { openSilentGame } from '@jbdevprimary/game-harness/playwright';
 
 test('starts a game without audible QA', async ({ page }) => {
   await openSilentGame(page, '/my-game/', { scenario: 'new-game' });
@@ -224,7 +224,7 @@ import {
   findAvailableProductionPort,
   requireHardwareWebGL,
   verifyProductionRuntime,
-} from '@jbcom/game-harness/production-runtime';
+} from '@jbdevprimary/game-harness/production-runtime';
 
 const port = await findAvailableProductionPort();
 
@@ -314,7 +314,7 @@ runVisualBattery('tests/harness', {
 
 ```ts
 // lighthouserc.mjs
-import { lighthouseAssertions } from '@jbcom/game-harness/lighthouse';
+import { lighthouseAssertions } from '@jbdevprimary/game-harness/lighthouse';
 
 export default lighthouseAssertions('game-default', {
   url: ['http://localhost/index.html', 'http://localhost/settings/index.html'],
@@ -338,7 +338,7 @@ beyond the `overrides` you pass.
 ## Release ladder orchestrator
 
 ```ts
-import { verifyReleaseLadder } from '@jbcom/game-harness/release-ladder';
+import { verifyReleaseLadder } from '@jbdevprimary/game-harness/release-ladder';
 import { execSync } from 'node:child_process';
 
 const result = await verifyReleaseLadder([

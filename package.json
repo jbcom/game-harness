@@ -1,5 +1,5 @@
 {
-  "name": "@jbcom/game-harness",
+  "name": "@jbdevprimary/game-harness",
   "version": "0.4.3",
   "description": "vitest-browser config + playwright config/preset + release verification ladder for TypeScript browser games — tiered Playwright, deterministic visual-regression battery, Lighthouse CI presets, and a release-ladder orchestrator.",
   "type": "module",
