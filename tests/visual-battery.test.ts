@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,10 +23,7 @@ describe('runVisualBattery', () => {
   let baselinesDir: string;
 
   beforeEach(() => {
-    cwd = join(
-      tmpdir(),
-      `visual-battery-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
+    cwd = mkdtempSync(join(tmpdir(), 'visual-battery-test-'));
     harnessDir = join(cwd, 'tests/harness');
     baselinesDir = join(harnessDir, '__screenshots__');
     mkdirSync(harnessDir, { recursive: true });

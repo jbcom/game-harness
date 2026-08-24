@@ -111,7 +111,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   } = options;
 
   const HARNESS_DIR = resolve(cwd, harnessDir);
-  const relativeHarnessDir = relative(resolve(cwd), HARNESS_DIR) || '.';
+  const relativeHarnessDir = relative(resolve(cwd), HARNESS_DIR).split(sep).join('/') || '.';
   if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
     throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
   }

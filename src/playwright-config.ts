@@ -298,10 +298,7 @@ function normalizeBasePath(basePath: string): string {
       `Playwright basePath must be a pathname without a query or fragment; received ${basePath}`,
     );
   }
-  const segments = trimmed
-    .replace(/^\/+|\/+$/g, '')
-    .split('/')
-    .filter(Boolean);
+  const segments = trimmed.split('/').filter(Boolean);
   if (segments.some((segment) => segment === '.' || segment === '..')) {
     throw new TypeError(
       `Playwright basePath must not contain . or .. segments; received ${basePath}`,
