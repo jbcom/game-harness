@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
-import { relative, resolve, sep } from 'node:path';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import spawn from 'cross-spawn';
 
 export interface VisualBatteryCommand {
   /** Executable invoked directly, without a shell. */
@@ -78,6 +79,16 @@ function defaultError(msg: string): void {
   console.error(`[visual-battery] ERROR: ${msg}`);
 }
 
+function canonicalizePath(target: string): string {
+  const missingSegments: string[] = [];
+  let existingAncestor = target;
+  while (!existsSync(existingAncestor)) {
+    missingSegments.unshift(basename(existingAncestor));
+    existingAncestor = dirname(existingAncestor);
+  }
+  return resolve(realpathSync(existingAncestor), ...missingSegments);
+}
+
 /**
  * Deterministic git-diff-based visual-regression gate.
  *
@@ -121,6 +132,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     ? `${relativeBaselinesRoot.replace(/\/$/, '')}/${baselineProfile}`
     : relativeBaselinesRoot;
   const BASELINES_DIR = resolve(cwd, relativeBaselinesDir);
+  const canonicalCwd = realpathSync(resolve(cwd));
 
   const die = (msg: string): never => {
     error(msg);
@@ -128,8 +140,8 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   };
 
   const assertInsideCwd = (label: string, target: string): void => {
-    const pathFromCwd = relative(resolve(cwd), target);
-    if (pathFromCwd === '..' || pathFromCwd.startsWith(`..${sep}`)) {
+    const pathFromCwd = relative(canonicalCwd, canonicalizePath(target));
+    if (pathFromCwd === '..' || pathFromCwd.startsWith(`..${sep}`) || isAbsolute(pathFromCwd)) {
       die(`${label} must stay inside cwd: ${target}`);
     }
   };
@@ -213,15 +225,28 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     if (!command.command.trim()) die('test command executable must not be empty');
     const commandArgs = [...(command.args ?? []), ...files];
     log(`running ${label}: ${[command.command, ...commandArgs].join(' ')}...`);
+    const environment = {
+      ...process.env,
+      ...(baselineProfile ? { VITE_VISUAL_BASELINE_PROFILE: baselineProfile } : {}),
+    };
     try {
-      execFileSync(command.command, commandArgs, {
-        cwd,
-        stdio: 'inherit',
-        env: {
-          ...process.env,
-          ...(baselineProfile ? { VITE_VISUAL_BASELINE_PROFILE: baselineProfile } : {}),
-        },
-      });
+      if (process.platform === 'win32') {
+        // Package managers are commonly exposed as .cmd shims on Windows.
+        // cross-spawn resolves those shims without opting into shell: true.
+        const result = spawn.sync(command.command, commandArgs, {
+          cwd,
+          stdio: 'inherit',
+          env: environment,
+        });
+        if (result.error) throw result.error;
+        if (result.status !== 0) throw new Error(`test command exited with ${result.status}`);
+      } else {
+        execFileSync(command.command, commandArgs, {
+          cwd,
+          stdio: 'inherit',
+          env: environment,
+        });
+      }
     } catch {
       die('one or more harnesses failed — fix the failing test before re-running visual battery');
     }

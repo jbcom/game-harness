@@ -36,9 +36,11 @@ describe('lighthouseAssertions', () => {
   });
 
   it('merges assertion overrides on top of the preset', () => {
+    const performanceOverride = ['error', { minScore: 0.9 }];
     const config = lighthouseAssertions('game-default', {
-      assertions: { 'categories:performance': ['error', { minScore: 0.9 }] },
+      assertions: { 'categories:performance': performanceOverride },
     });
+    performanceOverride.push('mutated after configuration');
     expect(config.ci.assert.assertions['categories:performance']).toEqual([
       'error',
       { minScore: 0.9 },

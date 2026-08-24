@@ -71,7 +71,8 @@ TypeScript emits independent ESM, CommonJS, and declaration trees. A nested
 top-level ESM identity. Optional peers keep install boundaries narrow. Release
 validation then checks:
 
-- formatting, linting, strict types, and 100% source coverage;
+- formatting, linting, strict types, and 100% reusable-library source coverage
+  (the two-line executable adapter is exercised through packed CLI smoke tests);
 - both JavaScript module formats and declarations;
 - package metadata and resolution through `publint` and
   `@arethetypeswrong/cli`;

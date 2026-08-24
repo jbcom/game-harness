@@ -350,7 +350,7 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     throw new TypeError('deviceTiers must contain at least one tier');
   }
 
-  const unknownTiers = deviceTiers.filter((tier) => !(tier in DEVICE_TIER_PROJECTS));
+  const unknownTiers = deviceTiers.filter((tier) => !Object.hasOwn(DEVICE_TIER_PROJECTS, tier));
   if (unknownTiers.length > 0) {
     throw new TypeError(`unknown device tier(s): ${unknownTiers.join(', ')}`);
   }

@@ -111,10 +111,10 @@ export function lighthouseAssertions(
       },
       assert: {
         ...base.ci.assert,
-        assertions: {
-          ...structuredClone(base.ci.assert.assertions),
+        assertions: structuredClone({
+          ...base.ci.assert.assertions,
           ...overrides.assertions,
-        },
+        }),
       },
       upload: { ...base.ci.upload },
     },

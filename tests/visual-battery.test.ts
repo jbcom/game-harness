@@ -1,15 +1,28 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import spawn from 'cross-spawn';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runVisualBattery, VisualBatteryError } from '../src/visual-battery.js';
 
 vi.mock('node:child_process', () => ({
   execFileSync: vi.fn(),
 }));
+vi.mock('cross-spawn', () => ({
+  default: Object.assign(vi.fn(), { sync: vi.fn() }),
+}));
 
 const mockedExecFileSync = vi.mocked(execFileSync);
+const mockedSpawnSync = vi.mocked(spawn.sync);
 const noop = (): void => undefined;
 const quiet = { log: noop, error: noop };
 
@@ -31,6 +44,7 @@ describe('runVisualBattery', () => {
     writeFileSync(join(harnessDir, 'foo.browser.test.tsx'), '// harness');
     writeFileSync(join(baselinesDir, 'foo.png'), 'fake-png-bytes');
     mockedExecFileSync.mockReset();
+    mockedSpawnSync.mockReset();
   });
 
   afterEach(() => {
@@ -54,6 +68,42 @@ describe('runVisualBattery', () => {
         ...quiet,
       }),
     ).toThrow(/baselines dir must stay inside cwd/);
+  });
+
+  it('rejects a harness symlink that resolves outside cwd', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'visual-battery-outside-'));
+    const link = join(cwd, 'linked-harness');
+    try {
+      const externalHarness = join(outside, 'harness');
+      mkdirSync(externalHarness);
+      symlinkSync(externalHarness, link, process.platform === 'win32' ? 'junction' : 'dir');
+
+      expect(() => runVisualBattery('linked-harness', { cwd, ...quiet })).toThrow(
+        /harness dir must stay inside cwd/,
+      );
+    } finally {
+      if (existsSync(link)) unlinkSync(link);
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a baseline symlink that resolves outside cwd', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'visual-battery-outside-'));
+    const link = join(harnessDir, 'linked-baselines');
+    try {
+      symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
+
+      expect(() =>
+        runVisualBattery('tests/harness', {
+          cwd,
+          baselinesDir: 'tests/harness/linked-baselines',
+          ...quiet,
+        }),
+      ).toThrow(/baselines dir must stay inside cwd/);
+    } finally {
+      if (existsSync(link)) unlinkSync(link);
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it('rejects a harness path that is a file', () => {
@@ -222,6 +272,49 @@ describe('runVisualBattery', () => {
     });
 
     expect(invocationArgs).toEqual(['tests/harness/foo.browser.test.tsx']);
+  });
+
+  it('resolves Windows command shims without enabling shell interpolation', () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+    if (!platformDescriptor) throw new Error('process.platform descriptor unavailable');
+    Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'win32' });
+    mockedExecFileSync.mockReturnValue('');
+    mockedSpawnSync.mockReturnValue({ status: 0 } as ReturnType<typeof spawn.sync>);
+
+    try {
+      runVisualBattery('tests/harness', { cwd, ...quiet });
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor);
+    }
+
+    expect(mockedSpawnSync).toHaveBeenCalledWith(
+      'pnpm',
+      ['test:browser', 'tests/harness/foo.browser.test.tsx'],
+      expect.objectContaining({ cwd, stdio: 'inherit' }),
+    );
+  });
+
+  it('fails closed when a Windows command shim errors or exits non-zero', () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+    if (!platformDescriptor) throw new Error('process.platform descriptor unavailable');
+    Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'win32' });
+    mockedExecFileSync.mockReturnValue('');
+
+    try {
+      mockedSpawnSync.mockReturnValueOnce({
+        error: new Error('spawn failed'),
+      } as ReturnType<typeof spawn.sync>);
+      expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
+        /one or more harnesses failed/,
+      );
+
+      mockedSpawnSync.mockReturnValueOnce({ status: 1 } as ReturnType<typeof spawn.sync>);
+      expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
+        /one or more harnesses failed/,
+      );
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor);
+    }
   });
 
   it('rejects empty string and object commands', () => {

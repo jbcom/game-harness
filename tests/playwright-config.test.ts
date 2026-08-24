@@ -277,6 +277,11 @@ describe('definePlaywrightConfig', () => {
     expect(() => definePlaywrightConfig({ deviceTiers: ['desktop', 'unknown' as never] })).toThrow(
       /unknown device tier/,
     );
+    for (const inheritedKey of ['constructor', 'toString', '__proto__']) {
+      expect(() => definePlaywrightConfig({ deviceTiers: [inheritedKey as never] })).toThrow(
+        /unknown device tier/,
+      );
+    }
     expect(() => definePlaywrightConfig({ ciTimeoutMultiplier: 0 })).toThrow(/ciTimeoutMultiplier/);
     expect(() => definePlaywrightConfig({ ciTimeoutMultiplier: Number.NaN })).toThrow(
       /ciTimeoutMultiplier/,
