@@ -54,14 +54,24 @@ export interface ProductionRuntimeOptions {
   settleTimeMs?: number;
 }
 
+/** Evidence returned by a successful `verifyProductionRuntime()` call. */
 export interface ProductionRuntimeResult {
+  /** The page's URL after navigation, including the applied silent-QA query parameters. */
   finalUrl: string;
+  /** Every requested `localStorageSentinels` key, read back after the boot completed. */
   localStorage: Record<string, string | null>;
 }
 
+/**
+ * One runtime failure captured while the game booted: an uncaught page
+ * error, a `console.error` call, a network request that failed outright, or
+ * an HTTP response with a 4xx/5xx status. `verifyProductionRuntime()`
+ * accumulates these and fails closed if any were recorded.
+ */
 export interface ProductionRuntimeIssue {
   kind: 'console' | 'http' | 'pageerror' | 'requestfailed';
   message: string;
+  /** The request/response URL, present for `'http'` and `'requestfailed'` issues. */
   url?: string;
 }
 
@@ -70,13 +80,51 @@ export interface AvailableProductionPortOptions {
   host?: string;
 }
 
+/**
+ * Thrown by every failure path in this module — an unreachable/occupied
+ * readiness URL, a server that never became ready, a masked or
+ * software-rendered WebGL context, a changed localStorage sentinel, or one
+ * or more recorded {@link ProductionRuntimeIssue}s. Callers can inspect
+ * `.issues` for the underlying runtime errors instead of parsing `.message`.
+ */
 export class ProductionRuntimeVerificationError extends Error {
+  /** Runtime issues recorded before this error was thrown, if any. Empty for pure validation failures. */
   readonly issues: readonly ProductionRuntimeIssue[];
 
   constructor(message: string, issues: readonly ProductionRuntimeIssue[] = [], cause?: unknown) {
     super(message, cause === undefined ? undefined : { cause });
     this.name = 'ProductionRuntimeVerificationError';
     this.issues = issues;
+  }
+}
+
+function validateHttpUrl(label: string, value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new ProductionRuntimeVerificationError(`${label} must not be empty`);
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch (error) {
+    throw new ProductionRuntimeVerificationError(
+      `${label} must be a valid absolute URL`,
+      [],
+      error,
+    );
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new ProductionRuntimeVerificationError(`${label} must use http or https`);
+  }
+  return trimmed;
+}
+
+function validateDuration(label: string, value: number | undefined, allowZero: boolean): void {
+  if (value === undefined) return;
+  if (!Number.isFinite(value) || (allowZero ? value < 0 : value <= 0)) {
+    throw new ProductionRuntimeVerificationError(
+      `${label} must be a ${allowZero ? 'non-negative' : 'positive'} finite number`,
+    );
   }
 }
 
@@ -101,7 +149,11 @@ interface ProbeResult {
 async function probe(url: string): Promise<ProbeResult> {
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
-    const result = { reachable: true, ok: response.ok, status: response.status };
+    const result = {
+      reachable: true,
+      ok: response.ok,
+      status: response.status,
+    };
     try {
       await response.body?.cancel();
     } catch {
@@ -219,7 +271,9 @@ function mutedLaunchOptions(
 }
 
 export interface WebGLRendererInfo {
+  /** `UNMASKED_RENDERER_WEBGL` when available, otherwise the generic (often masked) `RENDERER` parameter. */
   renderer: string;
+  /** `UNMASKED_VENDOR_WEBGL` when available, otherwise the generic (often masked) `VENDOR` parameter. */
   vendor: string;
   /** True only when Chromium exposed `WEBGL_debug_renderer_info`. */
   unmasked: boolean;
@@ -310,18 +364,27 @@ async function readLocalStorage(
 export async function verifyProductionRuntime(
   options: ProductionRuntimeOptions,
 ): Promise<ProductionRuntimeResult> {
-  if (!options.url.trim()) {
-    throw new ProductionRuntimeVerificationError('runtime URL must not be empty');
-  }
+  const runtimeUrl = validateHttpUrl('runtime URL', options.url);
   if (typeof options.assertReady !== 'function') {
     throw new ProductionRuntimeVerificationError('assertReady must be a function');
+  }
+  validateDuration('settleTimeMs', options.settleTimeMs, true);
+  if (options.server) {
+    if (!options.server.command.trim()) {
+      throw new ProductionRuntimeVerificationError('runtime server command must not be empty');
+    }
+    if (options.server.readyUrl !== undefined) {
+      validateHttpUrl('runtime readiness URL', options.server.readyUrl);
+    }
+    validateDuration('startupTimeoutMs', options.server.startupTimeoutMs, false);
+    validateDuration('shutdownTimeoutMs', options.server.shutdownTimeoutMs, true);
   }
 
   let child: ChildProcess | undefined;
   let browser: Browser | undefined;
   const issues: ProductionRuntimeIssue[] = [];
   try {
-    if (options.server) child = await startServer(options.server, options.url);
+    if (options.server) child = await startServer(options.server, runtimeUrl);
 
     browser = await chromium.launch(
       mutedLaunchOptions(options.browserLaunchOptions, options.gpuMode),
@@ -346,7 +409,11 @@ export async function verifyProductionRuntime(
     });
     page.on('response', (response) => {
       if (response.status() >= 400) {
-        issues.push({ kind: 'http', message: `HTTP ${response.status()}`, url: response.url() });
+        issues.push({
+          kind: 'http',
+          message: `HTTP ${response.status()}`,
+          url: response.url(),
+        });
       }
     });
 
@@ -354,7 +421,7 @@ export async function verifyProductionRuntime(
     await seedLocalStorage(page, sentinels);
 
     try {
-      await openSilentGame(page, options.url, options.silentParameters ?? {}, {
+      await openSilentGame(page, runtimeUrl, options.silentParameters ?? {}, {
         markerTimeout: 15_000,
         ...options.silentOptions,
       });

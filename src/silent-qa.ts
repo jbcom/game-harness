@@ -10,7 +10,7 @@ export interface SilentQaMarkerTarget {
 export interface ActivateSilentQaOptions {
   /** Query string to inspect. Defaults to `window.location.search` in a browser. */
   search?: string;
-  /** Runtime-only mute parameter. Defaults to the fleet-standard `muted`. */
+  /** Runtime-only mute parameter. Defaults to `muted`. */
   queryParameter?: string;
   /**
    * Element that owns the mute-ready marker. Defaults to `document.documentElement`.
@@ -25,6 +25,13 @@ export interface ActivateSilentQaOptions {
 
 let silentQaActive = false;
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    ((typeof value === 'object' && value !== null) || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
 function browserSearch(): string {
   return typeof window === 'undefined' ? '' : window.location.search;
 }
@@ -34,7 +41,7 @@ function browserMarkerTarget(): SilentQaMarkerTarget | null {
 }
 
 /**
- * Detects the fleet's page-lifetime mute request by parameter presence.
+ * Detects a page-lifetime mute request by parameter presence.
  *
  * The value is intentionally ignored so stale links such as `?muted=0` cannot
  * make an agent-controlled session audible.
@@ -64,14 +71,47 @@ export function activateSilentQa(mute: () => void, options: ActivateSilentQaOpti
     return false;
   }
 
-  mute();
-  silentQaActive = true;
+  const result: unknown = mute();
+  if (isPromiseLike(result)) {
+    throw new TypeError(
+      'activateSilentQa received an asynchronous mute callback; await activateSilentQaAsync instead',
+    );
+  }
   const markerTarget =
     options.markerTarget === undefined ? browserMarkerTarget() : options.markerTarget;
   markerTarget?.setAttribute(
     options.markerAttribute ?? SILENT_QA_MARKER_ATTRIBUTE,
     options.markerValue ?? SILENT_QA_MARKER_VALUE,
   );
+  silentQaActive = true;
+  return true;
+}
+
+/**
+ * Asynchronous counterpart to {@link activateSilentQa}. The readiness marker
+ * is not published until the consumer's mute promise fulfills.
+ */
+export async function activateSilentQaAsync(
+  mute: () => void | PromiseLike<void>,
+  options: ActivateSilentQaOptions = {},
+): Promise<boolean> {
+  if (
+    !isSilentQaRequested(
+      options.search ?? browserSearch(),
+      options.queryParameter ?? SILENT_QA_QUERY_PARAMETER,
+    )
+  ) {
+    return false;
+  }
+
+  await mute();
+  const markerTarget =
+    options.markerTarget === undefined ? browserMarkerTarget() : options.markerTarget;
+  markerTarget?.setAttribute(
+    options.markerAttribute ?? SILENT_QA_MARKER_ATTRIBUTE,
+    options.markerValue ?? SILENT_QA_MARKER_VALUE,
+  );
+  silentQaActive = true;
   return true;
 }
 

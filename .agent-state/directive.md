@@ -1,0 +1,155 @@
+# Directive: finish extraction-src / PR #1 — OSS release infrastructure
+
+Origin: user request 2026-08-24. Branch `extraction-src`, PR #1 (→ main), CI green.
+Full autonomy granted; agent makes all design/implementation-detail calls.
+
+## Confirmed facts (do not re-derive)
+
+- Doppler `gha`/`ci` holds `AGENTIC_NPM_TOKEN` (npm publish token) — release.yml
+  currently references the wrong secret name `NPM_TOKEN`. Must fix.
+- npm identity: `jbdevprimary` (already `npm whoami`-authenticated locally).
+- `@jbdevprimary/game-harness` is unpublished on the public npm registry (404).
+- `jbcom` org's user Pages site (`jbcom.github.io`) is bound to `jonbogaty.com`
+  and is explicitly documented as no-build/static-only — never push generated
+  docs output into that repo. Project Pages sites for sibling repos in the same
+  account are served at `<domain>/<repo>/` automatically — enabling Pages on
+  `jbcom/game-harness` itself is sufficient to reach `jonbogaty.com/game-harness/`.
+  No DNS change, no `jbcom.github.io` repo change.
+- No `.pre-commit-config.yaml`, no `dependabot.yml`, no branch protection on
+  `main` (404), no AGENTS.md/llms.txt anywhere in this repo yet.
+- `pnpm-workspace.yaml` exists but lists no packages.
+- Existing docs: `docs/architecture.md`, `docs/assets/game-harness-hero.webp`
+  (1800x600 webp) — migrate content into Astro, don't delete.
+
+## Queue
+
+- [x] fix: correct release.yml secret name NPM_TOKEN -> AGENTIC_NPM_TOKEN
+- [x] refactor: split release.yml into release.yml (release-please only) + new
+      cd.yml (npm publish on release:published, docs deploy on push to
+      docs/** or workflow_dispatch)
+- [x] ci: pin every workflow action (checkout, pnpm/action-setup,
+      setup-node, googleapis/release-please-action, configure-pages,
+      upload-pages-artifact, deploy-pages) to exact commit SHAs resolved via
+      `gh api` — no training-data SHAs
+- [x] ci: add dependabot.yml (npm root+docs, github-actions, weekly, grouped)
+- [x] chore: add .pre-commit-config.yaml mirroring CI gates (prettier, oxlint)
+- [x] chore: configure branch protection on main (required checks: verify,
+      both portability jobs, CodeQL; require up-to-date branch; block
+      force-push/deletion; no min-approval count since solo+bots merge).
+      Also hardened repo-level Actions settings: sha_pinning_required=true,
+      can_approve_pull_request_reviews=false (workflow tokens can't
+      self-approve PRs — closes a fork-PR self-merge vector).
+- [x] chore: set pnpm-workspace.yaml packages to [".", "site"] — NOT "docs".
+      docs/ stays exactly as-is (architecture.md + assets/), it's packed into
+      the npm tarball today via package.json "files". A new site/ workspace
+      package holds the Astro+Starlight project so the tarball is never
+      polluted with Astro source/node_modules/build cache. site/ pulls
+      docs/architecture.md in as content (single source of truth, no fork).
+- [x] design: derive brand palette from hero image — sampled saturated,
+      mid-lightness pixels (excludes shadow/highlight noise): warm amber
+      hue~~30-34 (e.g. #d8a878) and cool teal hue~~192-200 (e.g. #84b4c0),
+      the teal matching the existing README badge #0f766e. Built an 11-step
+      Tailwind/Starlight accent scale anchored on that teal (950 #0b2627 ...
+      50 #eff9fa). Astro 7.2.4, @astrojs/starlight 0.41.7,
+      @astrojs/starlight-tailwind 5.0.0, tailwindcss 4.3.3 confirmed latest
+      via npm view (not training data).
+- [x] feat(docs): scaffold Astro + Starlight site under site/, pull in
+      docs/architecture.md content, brand with hero-image-derived palette/fonts.
+      Astro check + build verified 0 errors; visually verified in Chrome
+      (teal accent, Inter/JetBrains Mono fonts, sidebar nav, hero image all
+      render correctly in dark theme). site/'s own TypeScript devDependency
+      pinned to 6.0.3 (not the root's 7.0.2) because `astro check` needs the
+      classic compiler's programmatic API, which TS7's native/Go port does
+      not expose yet — this is a real current ecosystem gap, not a
+      workaround to revisit later.
+- [x] ci: wire cd.yml docs-deploy job (update cd.yml's `pnpm --filter docs
+build` + `path: docs/dist` to `--filter site build` / `site/dist`)
+- [x] chore: flipped GitHub Pages ON for jbcom/game-harness via `gh api`
+      (build_type: workflow, https_enforced: true). Confirmed html_url is
+      exactly https://jonbogaty.com/game-harness/ — validates the earlier
+      design call (sibling project-page repo served under the org's user
+      Pages domain automatically). Site won't actually serve content until
+      cd.yml's deploy-docs job runs on a push to main post-merge.
+- [x] chore: tooling/versioning DRY pass per user mid-turn feedback
+      (2026-08-24). Boundary: mise is LOCAL-ONLY (mise.toml, .nvmrc as the
+      actual node-version source via idiomatic_version_file_enable_tools,
+      pnpm = "latest"); CI uses the OFFICIAL pnpm/action-setup +
+      actions/setup-node actions, reading node-version-file: .nvmrc and
+      packageManager from package.json — no hardcoded version strings in
+      workflows. Widened engines.node from >=24 to >=22 (earliest active
+      Node LTS per nodejs.org/dist/index.json + release schedule checked
+      2026-08-24: 20 EOL 2026-04-30, 22 Jod active to 2027-04-30, 24 Krypton
+      active to 2028-04-30, 26 current). Added a Node-22-on-Linux row to
+      ci.yml's portability matrix to actually prove the floor, not just
+      declare it. Restored packageManager: pnpm@11.23.0 in package.json
+      (this IS the idiomatic mechanism pnpm/action-setup reads — dropping it
+      was wrong, corrected after user clarified mise is local-only).
+      scripts/verify-package-boundaries.mjs's exact npm-version pin
+      ('11.17.0') was already broken by the widened range (Node 22 bundles
+      npm 10.9.8, not 11.x) — changed to a floor check (npmMajor >= 10).
+      Updated the two contract-test assertions and every README/
+      CONTRIBUTING/site-docs mention of the old exact pins to match.
+- [x] docs: authored AGENTS.md (two audiences: consuming the package,
+      contributing to the repo) and llms.txt (llmstxt.org format, indexes
+      every published guide page) at repo root, after fully reading
+      README.md + docs/architecture.md + src/index.ts as a human developer
+      would. Added both to package.json "files" and to the contract test's
+      files-array assertions. Linked from README's Architecture section.
+- [x] chore: verified npm-published README has no broken links/image refs.
+      Researched (not assumed) how npmjs.com actually renders READMEs: it
+      rewrites relative links/images to the GitHub repo's `main` branch via
+      `repository.url` — NOT resolved against the tarball contents. Source:
+      github.com/npm/feedback discussion #210 + devactivity.com writeup,
+      fetched via ctx_fetch_and_index 2026-08-24. So CONTRIBUTING.md /
+      SECURITY.md links (not packed in the tarball) still resolve correctly
+      on the npmjs.com page because they exist on `main`; the hero image
+      resolves via raw GitHub content the same way. The known npm limitation
+      is that this always points at current `main`, not the tag a given
+      published version was cut from — not something fixable from this repo.
+      Packing AGENTS.md/llms.txt into the tarball (done in the AGENTS.md
+      task above) is still correct/valuable independent of this — it's for
+      offline/CLI/agent consumption of the installed package, not the
+      npmjs.com web render.
+- [x] release: published @jbdevprimary/game-harness@0.4.3 manually. Findings:
+      local npm publish needs the Doppler token wired explicitly into npm's
+      user-level config as an authToken for registry.npmjs.org (not
+      committed), plus a no-provenance flag, since provenance needs a
+      recognized CI OIDC provider that cd.yml gets for free on GitHub
+      Actions but a local machine doesn't have — without both, publish
+      falls back to browser-session auth and demands OTP even with the
+      token in env. Separately, npm warned during that publish that the
+      `bin` field's leading `./` was "invalid and removed", and silently
+      rewrote package.json on disk to match npm pkg fix's corrected form —
+      verified by downloading the actual published tarball
+      (npm pack @jbdevprimary/game-harness) and installing it into a clean
+      consumer: the tarball's package.json kept the `./` prefix, and both
+      CLI bin symlinks (game-harness-visual-battery,
+      test-harness-visual-battery) installed and ran correctly, so 0.4.3
+      was never actually broken — the warning only concerns a separate
+      registry metadata summary, not the tarball's real bin field or
+      install-time symlink creation. Removed the `./` prefix anyway to
+      match npm's own corrected form and stop the warning going forward
+      (forward commit, contract test updated); no republish was needed
+      since nothing was actually defective. The registry PUT returned 200
+      and the npmjs.com page
+      confirmed "0.4.3 • Public • Published"; the registry GET/install
+      endpoint lagged behind that (known propagation delay on a package's
+      first-ever publish under a new scope) and resolved on its own.
+      npmjs.com is also showing a real banner: tokens that bypass 2FA are
+      being restricted for account changes (Aug 2026) and direct
+      publishing (Jan 2027) — reinforces OIDC trusted publishing (next
+      queue item) as the right long-term direction, not optional polish.
+
+- [ ] [WAIT-USER] chore: use Claude in Chrome to configure npm trusted
+      publishing (OIDC) for jbcom/game-harness cd.yml workflow. Blocked on
+      interactive npm 2FA (security key / password) at
+      https://www.npmjs.com/package/@jbdevprimary/game-harness/access —
+      open Chrome tab is sitting on that prompt, checked repeatedly
+      (2026-08-24), still unauthenticated. This is a true blocker per
+      operating rules (interactive credential entry); cannot complete it
+      myself. Used the wait productively: reviewed all of CodeRabbit's
+      findings on the pushed commits (see the fix commit above) instead of
+      idling.
+- [ ] chore: simplify cd.yml publish job once OIDC trusted publishing verified
+- [ ] verify: pnpm verify green, CI green on extraction-src, review threads
+      resolved, PR #1 squash-merged, Pages site live-checked in browser

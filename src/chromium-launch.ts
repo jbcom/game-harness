@@ -6,7 +6,7 @@ export interface ChromiumLaunchProfileOptions {
   /**
    * `auto` leaves renderer selection to Chromium (Metal on macOS, the native
    * desktop stack elsewhere). `software` opts into SwiftShader explicitly.
-   * `linux-hardware-vulkan` is the fleet's proven Mesa/ANGLE profile for a
+   * `linux-hardware-vulkan` is a proven Mesa/ANGLE profile for a
    * Linux runner with `/dev/dri/renderD128` passed through.
    */
   gpuMode?: ChromiumGpuMode;
@@ -17,7 +17,9 @@ export interface ChromiumLaunchProfileOptions {
 }
 
 export interface ChromiumLaunchProfile {
+  /** De-duplicated Chromium launch arguments for the selected `gpuMode`, always ending in `--mute-audio`. */
   args: string[];
+  /** Present when `env` overrides were supplied or `gpuMode` is `linux-hardware-vulkan` (which also sets `EGL_PLATFORM`); merged on top of `process.env`. */
   env?: ChromiumEnvironment;
 }
 

@@ -1,7 +1,7 @@
 export interface LighthouseCiConfig {
   ci: {
     collect: {
-      staticDistDir?: string;
+      staticDistDir: string;
       url: string[];
       numberOfRuns: number;
       settings: {
@@ -27,7 +27,7 @@ export interface LighthouseAssertionsOverrides {
 }
 
 const PRESETS: Record<string, LighthouseCiConfig> = {
-  // Aethelgard's lighthouserc.json, verbatim: perf 0.6 / a11y 0.85 /
+  // A production lighthouserc.json, verbatim: perf 0.6 / a11y 0.85 /
   // best-practices 0.7 (warn-level, not error — a score dip surfaces in CI
   // logs without hard-blocking a merge on Lighthouse's inherent run-to-run
   // variance), SEO/PWA assertions off since these are single-page game
@@ -66,7 +66,7 @@ const PRESETS: Record<string, LighthouseCiConfig> = {
  *
  * ```ts
  * // lighthouserc.mjs
- * import { lighthouseAssertions } from '@arcade-cabinet/test-harness';
+ * import { lighthouseAssertions } from '@jbdevprimary/game-harness';
  * export default lighthouseAssertions('game-default');
  * ```
  *
@@ -87,19 +87,36 @@ export function lighthouseAssertions(
     );
   }
 
+  const staticDistDir = overrides.staticDistDir ?? base.ci.collect.staticDistDir;
+  if (staticDistDir !== undefined && !staticDistDir.trim()) {
+    throw new TypeError('Lighthouse staticDistDir must not be empty');
+  }
+  const url = overrides.url ?? base.ci.collect.url;
+  if (url.length === 0 || url.some((entry) => !entry.trim())) {
+    throw new TypeError('Lighthouse url must contain at least one non-empty URL');
+  }
+  const numberOfRuns = overrides.numberOfRuns ?? base.ci.collect.numberOfRuns;
+  if (!Number.isInteger(numberOfRuns) || numberOfRuns < 1) {
+    throw new TypeError('Lighthouse numberOfRuns must be a positive integer');
+  }
+
   return {
     ci: {
       collect: {
         ...base.ci.collect,
-        ...(overrides.staticDistDir !== undefined && { staticDistDir: overrides.staticDistDir }),
-        ...(overrides.url !== undefined && { url: overrides.url }),
-        ...(overrides.numberOfRuns !== undefined && { numberOfRuns: overrides.numberOfRuns }),
+        staticDistDir,
+        url: [...url],
+        numberOfRuns,
+        settings: { ...base.ci.collect.settings },
       },
       assert: {
         ...base.ci.assert,
-        assertions: { ...base.ci.assert.assertions, ...overrides.assertions },
+        assertions: structuredClone({
+          ...base.ci.assert.assertions,
+          ...overrides.assertions,
+        }),
       },
-      upload: base.ci.upload,
+      upload: { ...base.ci.upload },
     },
   };
 }

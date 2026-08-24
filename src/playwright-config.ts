@@ -29,7 +29,7 @@ type LaunchOptions = NonNullable<NonNullable<PlaywrightTestConfig['use']>['launc
 export type SilentQueryValue = string | number | boolean;
 
 export interface SilentTestUrlOptions {
-  /** Runtime-only mute query parameter. Defaults to the fleet-standard `muted`. */
+  /** Runtime-only mute query parameter. Defaults to `muted`. */
   muteQueryParameter?: string;
   /** Runtime-only mute query value. Defaults to `1`. */
   muteQueryValue?: string;
@@ -56,7 +56,7 @@ export interface ResolvePlaywrightPortOptions {
 }
 
 /**
- * Adds the fleet's non-persistent mute mode to a relative or absolute URL.
+ * Adds a non-persistent mute mode to a relative or absolute URL.
  * Explicit caller parameters replace existing values, and the mute value is
  * applied last so a stale `muted=0` can never make an agent run audible.
  */
@@ -123,7 +123,10 @@ const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
   desktop: [
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+      },
     },
   ],
   mobile: [{ name: 'mobile', use: { ...devices['Pixel 7'] } }],
@@ -134,17 +137,28 @@ const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
   foldable: [
     {
       name: 'foldable-portrait',
-      use: { ...devices['Pixel 7'], viewport: { width: 840, height: 2120 }, deviceScaleFactor: 3 },
+      use: {
+        ...devices['Pixel 7'],
+        viewport: { width: 840, height: 2120 },
+        deviceScaleFactor: 3,
+      },
     },
     {
       name: 'foldable-landscape',
-      use: { ...devices['Pixel 7'], viewport: { width: 2120, height: 840 }, deviceScaleFactor: 3 },
+      use: {
+        ...devices['Pixel 7'],
+        viewport: { width: 2120, height: 840 },
+        deviceScaleFactor: 3,
+      },
     },
   ],
   ultrawide: [
     {
       name: 'ultrawide',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 3440, height: 1440 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 3440, height: 1440 },
+      },
     },
   ],
 };
@@ -173,7 +187,7 @@ export interface PlaywrightConfigOptions {
   /**
    * Which device-tier Playwright projects to include. `desktop` is always
    * present as the tier-1 CI gate; passing more tiers here is equivalent to
-   * the fleet's `MULTIVIEW=1` convention already wired below — you don't
+   * the `MULTIVIEW=1` convention already wired below — you don't
    * need to also request `desktop` explicitly.
    * Defaults to `['desktop']` (single project, matching the fast CI gate),
    * expanding to all requested tiers when `MULTIVIEW=1` or `VISUAL=1` is set.
@@ -242,12 +256,20 @@ function normalizePlaywrightChildEnvironment(): void {
  * Resolves one stable Playwright preview port for every config reload in an
  * Actions job. Explicit `PLAYWRIGHT_PORT`/`PW_PORT` values win; local runs use
  * `localPort`; GitHub/Gitea CI hashes repository, run, job, and local port into
- * the fleet's isolated port range.
+ * an isolated port range.
  */
 export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}): number {
   const environment = options.environment ?? process.env;
-  const configuredPort = Number(environment.PLAYWRIGHT_PORT ?? environment.PW_PORT);
-  if (validPort(configuredPort)) return configuredPort;
+  const configuredValue = environment.PLAYWRIGHT_PORT ?? environment.PW_PORT;
+  if (configuredValue !== undefined) {
+    const configuredPort = Number(configuredValue);
+    if (!validPort(configuredPort)) {
+      throw new TypeError(
+        `PLAYWRIGHT_PORT/PW_PORT must be an integer from 1 to 65535; received ${configuredValue || '<empty>'}`,
+      );
+    }
+    return configuredPort;
+  }
 
   const localPort = options.localPort ?? DEFAULT_PORT;
   if (!validPort(localPort)) {
@@ -268,8 +290,36 @@ export function resolvePlaywrightPort(options: ResolvePlaywrightPortOptions = {}
   return CI_PORT_START + (stableHash(identity) % CI_PORT_SPAN);
 }
 
+function normalizeBasePath(basePath: string): string {
+  const trimmed = basePath.trim();
+  if (!trimmed || trimmed === '/') return '/';
+  if (trimmed.includes('?') || trimmed.includes('#')) {
+    throw new TypeError(
+      `Playwright basePath must be a pathname without a query or fragment; received ${basePath}`,
+    );
+  }
+  const segments = trimmed
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        throw new TypeError(
+          `Playwright basePath contains invalid URL encoding; received ${basePath}`,
+        );
+      }
+    });
+  if (segments.some((segment) => segment === '.' || segment === '..' || /[\\/]/u.test(segment))) {
+    throw new TypeError(
+      `Playwright basePath must not contain traversal or encoded separators; received ${basePath}`,
+    );
+  }
+  return segments.length === 0 ? '/' : `/${segments.join('/')}/`;
+}
+
 /**
- * Builds a full Playwright config, encoding the Aethelgard tiered-device +
+ * Builds a full Playwright config, encoding a tiered-device +
  * env-gated-suite convention:
  *
  * - `desktop` project always runs; `MULTIVIEW=1` (or `VISUAL=1`) expands to
@@ -304,16 +354,27 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   const CHROMIUM_CHANNEL =
     process.env.PW_CHROMIUM_CHANNEL ?? (!IS_CI && !IS_HEADLESS ? 'chrome' : undefined);
 
+  if (!Number.isFinite(ciTimeoutMultiplier) || ciTimeoutMultiplier <= 0) {
+    throw new TypeError('ciTimeoutMultiplier must be a positive finite number');
+  }
+  if (deviceTiers.length === 0) {
+    throw new TypeError('deviceTiers must contain at least one tier');
+  }
+
+  const unknownTiers = deviceTiers.filter((tier) => !Object.hasOwn(DEVICE_TIER_PROJECTS, tier));
+  if (unknownTiers.length > 0) {
+    throw new TypeError(`unknown device tier(s): ${unknownTiers.join(', ')}`);
+  }
+
   const PORT = resolvePlaywrightPort({ localPort: port ?? DEFAULT_PORT });
-  const BASE_URL = `http://127.0.0.1:${PORT}${basePath}`;
+  const BASE_URL = `http://127.0.0.1:${PORT}${normalizeBasePath(basePath)}`;
   const REUSE_SERVER = !IS_CI && process.env.PW_REUSE_SERVER === '1';
 
   const includeVisual = process.env.VISUAL === '1';
   const includeMultiview = process.env.MULTIVIEW === '1' || includeVisual;
   const includeJourney = process.env.JOURNEY === '1' || includeVisual;
 
-  // Specs live under e2e/ (+ visual/ when VISUAL=1) relative to testDir —
-  // the Aethelgard convention.
+  // Specs live under e2e/ (+ visual/ when VISUAL=1) relative to testDir.
   const testMatch = includeVisual
     ? ['e2e/**/*.spec.ts', 'visual/**/*.spec.ts']
     : 'e2e/**/*.spec.ts';
@@ -327,7 +388,15 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
     : LOCAL_ACTION_TIMEOUT_MS;
   const NAV_TIMEOUT_MS = IS_CI ? LOCAL_NAV_TIMEOUT_MS * 2 : LOCAL_NAV_TIMEOUT_MS;
 
-  const tiers = includeMultiview ? deviceTiers : (deviceTiers.slice(0, 1) as DeviceTier[]);
+  const uniqueDeviceTiers = [...new Set(deviceTiers)];
+  const tiers = includeMultiview
+    ? uniqueDeviceTiers
+    : (uniqueDeviceTiers.slice(0, 1) as DeviceTier[]);
+  // `DEVICE_TIER_PROJECTS` is typed `Record<DeviceTier, Project[]>`, so every
+  // member of the closed `DeviceTier` union is guaranteed present — this
+  // fallback only guards a future widening of the type, and is unreachable
+  // through any call this factory's own (type-checked) public API permits.
+  /* v8 ignore next */
   const tierProjects = tiers.flatMap((tier) => DEVICE_TIER_PROJECTS[tier] ?? []);
   const projects = [...tierProjects, ...extraProjects];
   const launchProfile = createChromiumLaunchProfile({ gpuMode });
@@ -362,7 +431,13 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
   };
 
   const resolved = defineConfig(base);
+  // `base.webServer` above is always constructed as a single object literal,
+  // and Playwright's own `defineConfig` never turns a single `webServer`
+  // into an array — this branch only guards a future Playwright type
+  // widening and is unreachable through this factory's own construction.
+  /* v8 ignore next */
   const singleWebServer = Array.isArray(resolved.webServer) ? undefined : resolved.webServer;
+  /* v8 ignore next 5 */
   const mergedWebServer: PlaywrightTestConfig['webServer'] = Array.isArray(resolved.webServer)
     ? resolved.webServer
     : ({ ...singleWebServer, ...overrides.webServer } as NonNullable<
@@ -376,6 +451,11 @@ export function definePlaywrightConfig(opts: PlaywrightConfigOptions = {}): Play
       overrides.use?.launchOptions,
     ),
   };
+  // `base.projects` above is always populated (from `projects` computed
+  // earlier), so `resolved.projects` is never nullish and this final `[]`
+  // only guards a hypothetical future Playwright `defineConfig` behavior —
+  // unreachable through this factory's own construction.
+  /* v8 ignore next */
   const configuredProjects = overrides.projects ?? resolved.projects ?? [];
   const mutedProjects = configuredProjects.map((project) => ({
     ...project,

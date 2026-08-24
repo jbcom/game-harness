@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  auto_review:
+    enabled: true
+    drafts: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+  path_filters:
+    - '!pnpm-lock.yaml'
+    - '!docs/dist/**'
+  path_instructions:
+    - path: 'src/**'
+      instructions: |
+        Preserve the peer-free package root and fail-closed browser-silence contract.
+        Flag shell execution, path traversal, secret exposure, and public API changes without coverage.
+    - path: '.github/**'
+      instructions: |
+        Require least-privilege permissions, immutable 40-character action SHAs,
+        and no privileged execution of fork-controlled code or artifacts.
+    - path: 'docs/**'
+      instructions: |
+        Keep Sourcey as the only documentation renderer. Check links, commands,
+        and public API examples against the implementation.

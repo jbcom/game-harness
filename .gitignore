@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+.DS_Store
+.astro/
+.agent-state/digest.md
+.agent-state/cursor.md
+.agent-state/.indexed-sha
+.agent-state/.last-stop-sha
+.agent-state/.last-stop-fingerprint
+.agent-state/.last-compaction
+.agent-state/batch.json

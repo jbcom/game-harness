@@ -1,0 +1,9 @@
+# Local development only. CI reads .nvmrc (actions/setup-node) and
+# package.json's packageManager field (pnpm/action-setup) directly through
+# the official GitHub Actions instead of mise — see .github/workflows/.
+[tools]
+# node version comes from .nvmrc (idiomatic_version_file_enable_tools below)
+pnpm = "latest"
+
+[settings]
+idiomatic_version_file_enable_tools = ["node"]

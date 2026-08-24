@@ -29,7 +29,7 @@ export interface BrowserTestConfigOptions {
   /**
    * `true` — always headless. `false` (default) — always headed.
    * `'ci-only'` — headed locally, headless when `process.env.CI` is set.
-   * Fleet CI should normally retain the headed default and supply Xvfb.
+   * CI should normally retain the headed default and supply Xvfb.
    */
   headless?: boolean | 'ci-only';
   /**
@@ -59,10 +59,10 @@ export interface BrowserTestConfigOptions {
   /** Test file glob(s). Defaults to `['tests/browser/**\/*.browser.test.{ts,tsx}']`. */
   include?: string[];
   /**
-   * Disable file-level parallelism. The Aethelgard fleet found that a
-   * shared Playwright Chromium pool flakes under parallel browser-test
-   * load (independent specs racing for the same browser context can time
-   * out). Defaults to `true` (serialized) — flip off only once you've
+   * Disable file-level parallelism. A shared Playwright Chromium pool
+   * flakes under parallel browser-test load (independent specs racing for
+   * the same browser context can time out). Defaults to `true` (serialized)
+   * — flip off only once you've
    * verified your suite tolerates concurrent browser contexts.
    */
   fileParallelism?: boolean;
@@ -78,7 +78,7 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * Builds a `test` fragment for a Vitest Browser Mode project, wired for
  * real-Chromium (or other Playwright-driven browser) test execution.
  *
- * Encodes the reviewed fleet pattern: headed by default both locally and in
+ * Encodes a reviewed pattern: headed by default both locally and in
  * CI, silent at the Chromium boundary, and native renderer selection unless a
  * consumer explicitly requests software or the proven Linux Vulkan profile.
  *
@@ -87,7 +87,7 @@ function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolea
  * single-project setups):
  *
  * ```ts
- * import { defineBrowserTestConfig } from '@arcade-cabinet/test-harness/vitest';
+ * import { defineBrowserTestConfig } from '@jbdevprimary/game-harness/vitest';
  *
  * export default defineConfig({
  *   test: {
@@ -121,6 +121,14 @@ export function defineBrowserTestConfig(
     fileParallelism = false,
   } = opts;
 
+  if (!name.trim()) throw new TypeError('browser project name must not be empty');
+  if (instances.length === 0) {
+    throw new TypeError('browser instances must contain at least one Playwright browser');
+  }
+  if (include.length === 0 || include.some((pattern) => !pattern.trim())) {
+    throw new TypeError('browser include must contain at least one non-empty test glob');
+  }
+
   const resolvedHeadless = resolveHeadless(headless);
   const launchProfile = createChromiumLaunchProfile({ gpuMode, args: gpuArgs });
   if (ui && contextOptions.deviceScaleFactor !== undefined) {
@@ -147,14 +155,14 @@ export function defineBrowserTestConfig(
   };
 
   if (setupFiles) {
-    test.setupFiles = setupFiles;
+    test.setupFiles = [...setupFiles];
   }
 
   if (optimizeDeps.length > 0) {
     // Vitest's `test` fragment has no `optimizeDeps` field (that lives at
     // the top-level Vite config) — surface the caller's list here so a
     // single options object can drive both without duplicating it.
-    test.__optimizeDepsInclude = optimizeDeps;
+    test.__optimizeDepsInclude = [...new Set(optimizeDeps)];
   }
 
   return test;

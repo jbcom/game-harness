@@ -1,14 +1,27 @@
-import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import spawn from 'cross-spawn';
+
+export interface VisualBatteryCommand {
+  /** Executable invoked directly, without a shell. */
+  command: string;
+  /** Fixed arguments inserted before the discovered harness paths. */
+  args?: readonly string[];
+}
 
 export interface VisualBatteryOptions {
   /** CI mode: refuses to run with a dirty baseline dir, fails on drift instead of updating. */
   ci?: boolean;
   /** Repo root the git commands run relative to. Defaults to `process.cwd()`. */
   cwd?: string;
-  /** The `pnpm test:browser`-equivalent command to shell out to (without the file args). Defaults to `'pnpm test:browser'`. */
-  testCommand?: string;
+  /**
+   * The `pnpm test:browser`-equivalent command, without harness paths.
+   * Strings are split on whitespace for backward compatibility; use the
+   * object form when an argument contains spaces. Commands execute directly,
+   * never through a shell. Defaults to `'pnpm test:browser'`.
+   */
+  testCommand?: string | VisualBatteryCommand;
   /** Baseline root relative to `cwd`. Defaults to `${harnessGlob}/__screenshots__`; `baselineProfile` is appended below it. */
   baselinesDir?: string;
   /**
@@ -29,6 +42,14 @@ export interface VisualBatteryOptions {
   error?: (msg: string) => void;
 }
 
+/**
+ * Thrown by every `runVisualBattery()` failure path — a missing harness dir,
+ * no discovered `.browser.test.ts(x)` files, a misplaced `__screenshots__`
+ * directory, a dirty baseline dir in `--ci` mode, a failing harness run, or
+ * detected drift while `ci: true`. Callers (tests, other tooling) can catch
+ * this specific type instead of `process.exit`, which only the CLI entry
+ * point (`bin/test-harness-visual-battery`) calls.
+ */
 export class VisualBatteryError extends Error {}
 
 function findUnexpectedBaselineDirectories(root: string, canonical: string): string[] {
@@ -56,6 +77,16 @@ function defaultLog(msg: string): void {
 }
 function defaultError(msg: string): void {
   console.error(`[visual-battery] ERROR: ${msg}`);
+}
+
+function canonicalizePath(target: string): string {
+  const missingSegments: string[] = [];
+  let existingAncestor = target;
+  while (!existsSync(existingAncestor)) {
+    missingSegments.unshift(basename(existingAncestor));
+    existingAncestor = dirname(existingAncestor);
+  }
+  return resolve(realpathSync(existingAncestor), ...missingSegments);
 }
 
 /**
@@ -90,25 +121,50 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     error = defaultError,
   } = options;
 
-  const HARNESS_DIR = resolve(cwd, harnessDir);
-  const relativeHarnessDir = harnessDir.replace(/^\.\//, '').replace(/\/$/, '');
-  if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
-    throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
-  }
-  const relativeBaselinesRoot = options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`;
-  const canonicalBaselinesDir = resolve(cwd, relativeBaselinesRoot);
-  const relativeBaselinesDir = baselineProfile
-    ? `${relativeBaselinesRoot.replace(/\/$/, '')}/${baselineProfile}`
-    : relativeBaselinesRoot;
-  const BASELINES_DIR = resolve(cwd, relativeBaselinesDir);
-
   const die = (msg: string): never => {
     error(msg);
     throw new VisualBatteryError(msg);
   };
 
+  const resolvedCwd = resolve(cwd);
+  const canonicalCwd = (() => {
+    try {
+      return realpathSync(resolvedCwd);
+    } catch {
+      return die(`cwd not found or not reachable: ${cwd}`);
+    }
+  })();
+
+  const HARNESS_DIR = resolve(canonicalCwd, harnessDir);
+  const relativeHarnessDir = relative(canonicalCwd, HARNESS_DIR).split(sep).join('/') || '.';
+  if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
+    throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
+  }
+  if (options.baselinesDir && isAbsolute(options.baselinesDir)) {
+    die(`baselines dir must be relative to cwd: ${options.baselinesDir}`);
+  }
+  const relativeBaselinesRoot = options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`;
+  const canonicalBaselinesDir = resolve(canonicalCwd, relativeBaselinesRoot);
+  const relativeBaselinesDir = baselineProfile
+    ? `${relativeBaselinesRoot.replace(/\/$/, '')}/${baselineProfile}`
+    : relativeBaselinesRoot;
+  const BASELINES_DIR = resolve(canonicalCwd, relativeBaselinesDir);
+
+  const assertInsideCwd = (label: string, target: string): void => {
+    const pathFromCwd = relative(canonicalCwd, canonicalizePath(target));
+    if (pathFromCwd === '..' || pathFromCwd.startsWith(`..${sep}`) || isAbsolute(pathFromCwd)) {
+      die(`${label} must stay inside cwd: ${target}`);
+    }
+  };
+
+  assertInsideCwd('harness dir', HARNESS_DIR);
+  assertInsideCwd('baselines dir', BASELINES_DIR);
+
   if (!existsSync(HARNESS_DIR)) {
     die(`harness dir not found: ${HARNESS_DIR}`);
+  }
+  if (!statSync(HARNESS_DIR).isDirectory()) {
+    die(`harness path is not a directory: ${HARNESS_DIR}`);
   }
 
   const unexpectedBaselineDirectories = findUnexpectedBaselineDirectories(
@@ -125,6 +181,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   const harnessFiles = readdirSync(HARNESS_DIR)
     .filter((f) => /\.browser\.test\.(?:ts|tsx)$/.test(f))
+    .sort()
     .map((f) => `${relativeHarnessDir}/${f}`);
 
   if (harnessFiles.length === 0) {
@@ -152,7 +209,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   if (ci) {
     let beforeStatus = '';
     try {
-      beforeStatus = execSync(`git status --porcelain ${relativeBaselinesDir}/`, {
+      beforeStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
         cwd,
         encoding: 'utf-8',
       });
@@ -168,16 +225,39 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   const runHarnessFiles = (files: string[], label: string): void => {
     if (files.length === 0) return;
-    log(`running ${label}: ${testCommand} ${files.join(' ')}...`);
+    const command =
+      typeof testCommand === 'string'
+        ? (() => {
+            const parts = testCommand.trim().split(/\s+/u);
+            const executable = parts.shift() || die('test command must not be empty');
+            return { command: executable, args: parts };
+          })()
+        : testCommand;
+    if (!command.command.trim()) die('test command executable must not be empty');
+    const commandArgs = [...(command.args ?? []), ...files];
+    log(`running ${label}: ${[command.command, ...commandArgs].join(' ')}...`);
+    const environment = {
+      ...process.env,
+      ...(baselineProfile ? { VITE_VISUAL_BASELINE_PROFILE: baselineProfile } : {}),
+    };
     try {
-      execSync(`${testCommand} ${files.join(' ')}`, {
-        cwd,
-        stdio: 'inherit',
-        env: {
-          ...process.env,
-          ...(baselineProfile ? { VITE_VISUAL_BASELINE_PROFILE: baselineProfile } : {}),
-        },
-      });
+      if (process.platform === 'win32') {
+        // Package managers are commonly exposed as .cmd shims on Windows.
+        // cross-spawn resolves those shims without opting into shell: true.
+        const result = spawn.sync(command.command, commandArgs, {
+          cwd,
+          stdio: 'inherit',
+          env: environment,
+        });
+        if (result.error) throw result.error;
+        if (result.status !== 0) throw new Error(`test command exited with ${result.status}`);
+      } else {
+        execFileSync(command.command, commandArgs, {
+          cwd,
+          stdio: 'inherit',
+          env: environment,
+        });
+      }
     } catch {
       die('one or more harnesses failed — fix the failing test before re-running visual battery');
     }
@@ -192,12 +272,20 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     die(`baselines dir not created: ${BASELINES_DIR}`);
   }
   const baselineCount = readdirSync(BASELINES_DIR).filter((f) => f.endsWith('.png')).length;
+  if (baselineCount === 0) {
+    die(`no PNG baselines produced in: ${BASELINES_DIR}`);
+  }
   log(`baseline screenshots produced: ${baselineCount}`);
 
-  const afterStatus = execSync(`git status --porcelain ${relativeBaselinesDir}/`, {
-    cwd,
-    encoding: 'utf-8',
-  });
+  let afterStatus = '';
+  try {
+    afterStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
+      cwd,
+      encoding: 'utf-8',
+    });
+  } catch (err) {
+    die(`git status failed after harness run: ${err}`);
+  }
 
   if (afterStatus.trim().length === 0) {
     log('baselines clean — no visual drift detected.');

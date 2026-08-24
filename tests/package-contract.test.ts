@@ -9,6 +9,8 @@ interface PackageManifest {
   files: string[];
   peerDependencies: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+  name: string;
+  packageManager: string;
   version: string;
 }
 
@@ -27,10 +29,14 @@ const packageVerifier = readFileSync(
 );
 
 describe('package peer boundaries', () => {
-  it('pins the current Node 24 browser-tool matrix', () => {
+  it('pins the current browser-tool matrix and declares the widest supported Node range', () => {
+    // version is release-please's to manage -- assert shape, not an exact
+    // value, so a routine release doesn't break this contract test.
+    expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(manifest).toMatchObject({
-      version: '0.4.3',
-      engines: { node: '>=24.19.0 <25' },
+      name: '@jbdevprimary/game-harness',
+      engines: { node: '>=22' },
+      packageManager: 'pnpm@11.23.0',
       devDependencies: {
         '@playwright/test': '1.62.1',
         '@types/node': '24.13.3',
@@ -72,23 +78,44 @@ describe('package peer boundaries', () => {
   });
 
   it('ships a stable executable shim before generated dist files exist', () => {
-    expect(manifest.bin['test-harness-visual-battery']).toBe(
-      './bin/test-harness-visual-battery.mjs',
-    );
+    // No leading "./" -- npm publish rejects that form as invalid and
+    // silently strips the bin entry from the published tarball (confirmed
+    // by publishing 0.4.3 with it and finding an empty bin field on the
+    // registry). `npm pkg fix` is the authority on the corrected form.
+    expect(manifest.bin['test-harness-visual-battery']).toBe('bin/test-harness-visual-battery.mjs');
+    expect(manifest.bin['game-harness-visual-battery']).toBe('bin/test-harness-visual-battery.mjs');
+    expect(manifest.files).toContain('AGENTS.md');
     expect(manifest.files).toContain('bin');
+    expect(manifest.files).toContain('CHANGELOG.md');
+    expect(manifest.files).toContain('docs');
+    expect(manifest.files).toContain('llms.txt');
     expect(manifest.files).toContain('LICENSE');
     expect(manifest.files).toContain('README.md');
     expect(binShim).toContain('../dist/esm/bin/visual-battery.js');
-    expect(license).toContain('Copyright (c) 2026 arcade-cabinet');
+    expect(license).toContain('Copyright (c) 2026 Jon Bogaty');
   });
 
   it('uses the exact npm publish packer from the package directory', () => {
-    expect(packageVerifier).toContain("npmVersion !== '11.17.0'");
+    expect(packageVerifier).toContain('npmMajor < 10');
     expect(packageVerifier).toContain("['pack', '--pack-destination', scratchDir]");
-    expect(packageVerifier).toMatch(
-      /arcade-cabinet-test-harness-\$\{packageManifest\.version\}\.tgz/u,
-    );
+    expect(packageVerifier).toMatch(/\$\{tarballStem\}-\$\{packageManifest\.version\}\.tgz/u);
     expect(packageVerifier).not.toContain("['pack', packageDir");
     expect(packageVerifier).not.toMatch(/pnpm[^\n]*\bpack\b/);
+    expect(packageVerifier).not.toContain("'@jbcom'");
+    expect(packageVerifier).toContain('packagePathSegments');
+  });
+
+  it('provides matching ESM and CommonJS declaration conditions', () => {
+    for (const [subpath, definition] of Object.entries(manifest.exports)) {
+      if (subpath === './package.json') continue;
+      const conditional = definition as {
+        import?: { types?: string; default?: string };
+        require?: { types?: string; default?: string };
+      };
+      expect(conditional.import?.types, subpath).toMatch(/\.d\.ts$/);
+      expect(conditional.import?.default, subpath).toMatch(/dist\/esm\/.*\.js$/);
+      expect(conditional.require?.types, subpath).toMatch(/\.d\.cts$/);
+      expect(conditional.require?.default, subpath).toMatch(/dist\/cjs\/.*\.js$/);
+    }
   });
 });

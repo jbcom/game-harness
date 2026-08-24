@@ -49,7 +49,9 @@ describe('definePlaywrightConfig', () => {
 
   it('expands to every requested device tier under MULTIVIEW=1', () => {
     process.env.MULTIVIEW = '1';
-    const config = definePlaywrightConfig({ deviceTiers: ['desktop', 'mobile', 'tablet'] });
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'mobile', 'tablet'],
+    });
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop', 'mobile', 'tablet']);
   });
 
@@ -64,12 +66,16 @@ describe('definePlaywrightConfig', () => {
 
   it('VISUAL=1 implies MULTIVIEW expansion', () => {
     process.env.VISUAL = '1';
-    const config = definePlaywrightConfig({ deviceTiers: ['desktop', 'ultrawide'] });
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'ultrawide'],
+    });
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop', 'ultrawide']);
   });
 
   it('stays single-tier without MULTIVIEW even if multiple tiers requested', () => {
-    const config = definePlaywrightConfig({ deviceTiers: ['desktop', 'mobile', 'tablet'] });
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'mobile', 'tablet'],
+    });
     expect(config.projects?.map((p) => p.name)).toEqual(['desktop']);
   });
 
@@ -160,9 +166,16 @@ describe('definePlaywrightConfig', () => {
     expect(config.use?.baseURL).toBe('http://127.0.0.1:9999/');
   });
 
+  it('rejects malformed explicit port overrides instead of silently falling back', () => {
+    expect(() => resolvePlaywrightPort({ environment: { PLAYWRIGHT_PORT: 'not-a-port' } })).toThrow(
+      /PLAYWRIGHT_PORT\/PW_PORT/,
+    );
+    expect(() => resolvePlaywrightPort({ environment: { PW_PORT: '' } })).toThrow(/<empty>/);
+  });
+
   it('derives one stable CI port across parent and worker config reloads', () => {
     process.env.CI = '1';
-    process.env.GITHUB_REPOSITORY = 'arcade-cabinet/quest-for-the-crown';
+    process.env.GITHUB_REPOSITORY = 'example-org/example-game';
     process.env.GITHUB_RUN_ID = '1955';
     process.env.GITHUB_JOB = 'verify';
 
@@ -179,7 +192,7 @@ describe('definePlaywrightConfig', () => {
   it('isolates concurrent CI runs and jobs while preserving explicit overrides', () => {
     const environment = {
       CI: '1',
-      GITHUB_REPOSITORY: 'arcade-cabinet/quest-for-the-crown',
+      GITHUB_REPOSITORY: 'example-org/example-game',
       GITHUB_RUN_ID: '1955',
       GITHUB_JOB: 'verify',
     };
@@ -201,9 +214,30 @@ describe('definePlaywrightConfig', () => {
     expect(explicit).toBe(5444);
   });
 
+  it('rejects a localPort outside the valid TCP range', () => {
+    expect(() => resolvePlaywrightPort({ localPort: 70_000 })).toThrow(
+      /Playwright port must be an integer from 1 to 65535/,
+    );
+    expect(() => resolvePlaywrightPort({ localPort: 0 })).toThrow(TypeError);
+    expect(() => resolvePlaywrightPort({ localPort: 1.5 })).toThrow(TypeError);
+  });
+
+  it('falls back to the package default port when localPort is not provided', () => {
+    expect(resolvePlaywrightPort({})).toBe(4173);
+  });
+
+  it('hashes a stable CI port even when GITHUB_REPOSITORY and GITHUB_JOB are unset', () => {
+    const environment = { CI: '1', GITHUB_RUN_ID: '1955' };
+    const port = resolvePlaywrightPort({ localPort: 4399, environment });
+    expect(port).toBeGreaterThanOrEqual(20_000);
+    expect(port).toBeLessThan(30_000);
+    // Same identity inputs (both missing) must hash identically across calls.
+    expect(resolvePlaywrightPort({ localPort: 4399, environment })).toBe(port);
+  });
+
   it('passes the resolved port to a custom web-server command', () => {
     process.env.CI = '1';
-    process.env.GITHUB_REPOSITORY = 'arcade-cabinet/quest-for-the-crown';
+    process.env.GITHUB_REPOSITORY = 'example-org/example-game';
     process.env.GITHUB_RUN_ID = '1955';
     process.env.GITHUB_JOB = 'verify';
     const config = definePlaywrightConfig({
@@ -221,9 +255,63 @@ describe('definePlaywrightConfig', () => {
     expect(config.use?.baseURL).toBe('http://127.0.0.1:4173/kuroga/');
   });
 
+  it('normalizes a base path for reliable relative navigation', () => {
+    expect(definePlaywrightConfig({ basePath: 'kuroga' }).use?.baseURL).toBe(
+      'http://127.0.0.1:4173/kuroga/',
+    );
+    expect(definePlaywrightConfig({ basePath: '  ' }).use?.baseURL).toBe('http://127.0.0.1:4173/');
+    expect(definePlaywrightConfig({ basePath: '///' }).use?.baseURL).toBe('http://127.0.0.1:4173/');
+    expect(definePlaywrightConfig({ basePath: '//games//kuroga//' }).use?.baseURL).toBe(
+      'http://127.0.0.1:4173/games/kuroga/',
+    );
+  });
+
+  it('rejects a base path containing URL state', () => {
+    expect(() => definePlaywrightConfig({ basePath: '/game?mode=test' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/game#ready' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/../admin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/%2e%2e/admin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/%2f..%2fadmin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/%invalid' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/\\..\\admin' })).toThrow(/basePath/);
+  });
+
+  it('validates and de-duplicates the device and timeout matrix', () => {
+    expect(() => definePlaywrightConfig({ deviceTiers: [] })).toThrow(/deviceTiers/);
+    expect(() => definePlaywrightConfig({ deviceTiers: ['desktop', 'unknown' as never] })).toThrow(
+      /unknown device tier/,
+    );
+    for (const inheritedKey of ['constructor', 'toString', '__proto__']) {
+      expect(() => definePlaywrightConfig({ deviceTiers: [inheritedKey as never] })).toThrow(
+        /unknown device tier/,
+      );
+    }
+    expect(() => definePlaywrightConfig({ ciTimeoutMultiplier: 0 })).toThrow(/ciTimeoutMultiplier/);
+    expect(() => definePlaywrightConfig({ ciTimeoutMultiplier: Number.NaN })).toThrow(
+      /ciTimeoutMultiplier/,
+    );
+
+    process.env.MULTIVIEW = '1';
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'desktop', 'mobile'],
+    });
+    expect(config.projects?.map((project) => project.name)).toEqual(['desktop', 'mobile']);
+  });
+
   it('applies caller overrides last', () => {
     const config = definePlaywrightConfig({ overrides: { timeout: 999 } });
     expect(config.timeout).toBe(999);
+  });
+
+  it('fully replaces the computed projects list when overrides.projects is set', () => {
+    const config = definePlaywrightConfig({
+      deviceTiers: ['desktop', 'mobile'],
+      overrides: { projects: [{ name: 'custom-only' }] },
+    });
+    // Wholesale replacement (unlike `use`/`webServer`, which merge): only the
+    // one caller-supplied project survives, each still muted by default.
+    expect(config.projects).toHaveLength(1);
+    expect(config.projects?.[0]?.name).toBe('custom-only');
   });
 
   it('merges overrides.use on top of the computed use block instead of replacing it', () => {
@@ -266,7 +354,9 @@ describe('definePlaywrightConfig', () => {
   it('preserves custom launch arguments while enforcing one mute argument', () => {
     const config = definePlaywrightConfig({
       overrides: {
-        use: { launchOptions: { args: ['--use-angle=swiftshader', '--mute-audio'] } },
+        use: {
+          launchOptions: { args: ['--use-angle=swiftshader', '--mute-audio'] },
+        },
         projects: [
           {
             name: 'custom',
@@ -289,7 +379,10 @@ describe('definePlaywrightConfig', () => {
       port: 4173,
       overrides: { webServer: { env: { VITE_E2E: '1' } } },
     });
-    const webServer = config.webServer as { env?: Record<string, string>; command?: string };
+    const webServer = config.webServer as {
+      env?: Record<string, string>;
+      command?: string;
+    };
     expect(webServer.env).toEqual({ VITE_E2E: '1' });
     // command survives — proves this is a merge, not a wholesale replace.
     expect(webServer.command).toContain('vite');

@@ -1,10 +1,62 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { verifyReleaseLadder } from '../src/release-ladder.js';
 
 const noop = (): void => undefined;
 const quiet = { log: noop, error: noop };
 
 describe('verifyReleaseLadder', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('falls back to console.log/console.error when no logger is supplied', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const result = await verifyReleaseLadder([{ name: 'lint', run: () => undefined }]);
+
+    expect(result.ok).toBe(true);
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('lint'));
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('logs a failure through the default console.error when no logger is supplied', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    const result = await verifyReleaseLadder([
+      {
+        name: 'test',
+        run: () => {
+          throw new Error('boom');
+        },
+      },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('test'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('boom'));
+  });
+
+  it('reports a failed step even when the thrown value is not an Error instance', async () => {
+    const result = await verifyReleaseLadder(
+      [
+        {
+          name: 'lint',
+          run: () => {
+            // eslint-disable-next-line @typescript-eslint/only-throw-error
+            throw 'a plain string failure';
+          },
+        },
+      ],
+      quiet,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failedStep).toBe('lint');
+    expect(result.error).toBe('a plain string failure');
+  });
+
   it('runs all steps in order and reports ok on full success', async () => {
     const ran: string[] = [];
     const result = await verifyReleaseLadder(
