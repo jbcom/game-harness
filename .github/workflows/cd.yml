@@ -1,12 +1,9 @@
 name: CD
 
 on:
-  release:
-    types: [published]
   push:
     branches: [main]
     paths:
-      - 'site/**'
       - 'docs/**'
       - '.github/workflows/cd.yml'
   workflow_dispatch:
@@ -19,36 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish-npm:
-    if: github.event_name == 'release'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      # id-token is what lets npm verify build provenance and, once trusted
-      # publishing is configured for this repository, publish without a
-      # long-lived token at all.
-      id-token: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.release.tag_name }}
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-          registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
-      - name: Publish
-        # AGENTIC_NPM_TOKEN bootstraps releases until npm trusted publishing
-        # (OIDC) is configured for this repository, after which this secret
-        # can be removed while id-token continues to provide provenance.
-        run: pnpm publish --access public --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.AGENTIC_NPM_TOKEN }}
-
   deploy-docs:
-    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -65,10 +33,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter site build
+      - run: pnpm --filter game-harness-docs build
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: site/dist
+          path: docs/dist
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -92,9 +92,10 @@ with a broken export or a headless-mode regression is not release evidence.
 ## Contributing to this repository
 
 This is a pnpm workspace: the library at the repo root
-(`@jbdevprimary/game-harness`) and its documentation site under `site/`
-(`@jbdevprimary/game-harness-docs`, Astro + Starlight, private, never
-published).
+(`@jbdevprimary/game-harness`) and its private Sourcey documentation workspace
+under `docs/` (`game-harness-docs`, never published). Sourcey is the only
+documentation renderer. Its Markdown source and `sourcey.config.ts` live in
+that directory; `docs/dist/` is generated and ignored.
 
 ### Setup
 
@@ -116,8 +117,8 @@ hardcoded version string into a workflow file.
   clean-tarball consumer smoke tests. This is what CI runs; run it before
   every commit.
 - `pnpm test` — unit and contract tests only, for fast iteration.
-- `pnpm --filter site build` / `pnpm --filter site dev` — build or preview
-  the docs site in isolation.
+- `pnpm --filter game-harness-docs validate` / `pnpm --filter
+game-harness-docs dev` — build or preview the Sourcey docs site in isolation.
 - `pnpm format` — apply Prettier.
 
 ### Conventions
@@ -126,15 +127,13 @@ hardcoded version string into a workflow file.
   `chore:`). release-please derives the changelog and next version from
   these — never hand-edit `CHANGELOG.md` or the version field.
 - `docs/architecture.md` is packed into the npm tarball (see `package.json`
-  `files`) and is the architecture doc a package consumer sees. `site/`'s
-  `reference/architecture.md` is a parallel copy rendered on the docs site —
-  keep both in sync by hand when the architecture changes; there is no
-  build-time link between them.
+  `files`) and is also the Sourcey architecture page. Do not create a parallel
+  documentation renderer or a second architecture copy.
 - Every GitHub Actions step is pinned to an exact commit SHA (resolved via
   `gh api repos/<owner>/<repo>/releases/latest`, never guessed from
   training data), with a `# vX.Y.Z` comment. The repository also requires
   SHA pinning (`sha_pinning_required: true`) at the Actions-settings level.
-- Branch protection on `main` requires the `verify` and portability checks,
-  linear history, and resolved review threads; there is no minimum
-  approval count, since this repo is merged by a solo maintainer plus
-  review bots.
+- Branch protection on `main` requires automated policy checks and resolved
+  review threads, but no human approval. Merge commits preserve the topic
+  branch history; squash, rebase, direct default-branch pushes, and force
+  pushes are not part of the trusted-agent path.

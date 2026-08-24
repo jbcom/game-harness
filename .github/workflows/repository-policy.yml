@@ -1,0 +1,41 @@
+name: Repository Policy
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+    steps:
+      - name: Reject control-plane edits from external forks
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$HEAD_REPOSITORY" == "$GH_REPOSITORY" ]]; then
+            echo "Trusted same-upstream branch; control-plane edits are eligible for review."
+            exit 0
+          fi
+
+          changed_files="$(gh api --paginate "repos/$GH_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')"
+          while IFS= read -r changed_file; do
+            case "$changed_file" in
+              .github/workflows/*|.github/actions/*|.github/dependabot.yml|.coderabbit.yaml|sonar-project.properties|release-please-config.json|.release-please-manifest.json|docs/sourcey.config.ts)
+                echo "External forks cannot modify protected control-plane file: $changed_file" >&2
+                exit 1
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          echo "External fork does not modify a protected control-plane file."

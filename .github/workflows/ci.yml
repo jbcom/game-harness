@@ -39,9 +39,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # astro check + astro build -- catches a broken docs site before merge
-      # instead of only discovering it in cd.yml's post-merge deploy job.
-      - run: pnpm --filter site build
+      - run: pnpm --filter game-harness-docs validate
 
   portability:
     name: Node ${{ matrix.node || 'pinned' }} / ${{ matrix.os }}
