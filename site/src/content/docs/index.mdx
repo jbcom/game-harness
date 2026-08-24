@@ -1,0 +1,46 @@
+---
+title: Game Harness
+description: Release-grade browser QA primitives for TypeScript games.
+template: splash
+hero:
+  tagline: Turn a successful build into evidence — silent browser sessions, deterministic device tiers, byte-exact screenshots, production-runtime proof, and Lighthouse gates.
+  image:
+    file: ../../assets/game-harness-hero.webp
+  actions:
+    - text: Get started
+      link: /game-harness/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/jbcom/game-harness
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why Game Harness
+
+<CardGrid stagger>
+  <Card title="Silent by construction" icon="approve-check">
+    Chromium launches with `--mute-audio`, and tests wait for an application-owned runtime mute
+    marker before interacting.
+  </Card>
+  <Card title="No accidental server reuse" icon="rocket">
+    CI ports are deterministic per job, preview commands use strict-port semantics, and production
+    verification refuses an already-reachable readiness URL.
+  </Card>
+  <Card title="Visual evidence that fails closed" icon="magnifier">
+    Screenshot baselines are scoped, profile-aware, and checked through Git without fuzzy thresholds
+    or shell interpolation.
+  </Card>
+  <Card title="Real package boundaries" icon="puzzle">
+    Framework peers stay optional and isolated to subpath exports, with clean ESM, CommonJS, type,
+    CLI, and install smoke tests.
+  </Card>
+</CardGrid>
+
+Game Harness is intentionally a focused library rather than a test framework.
+Your game keeps its own journeys, assertions, art direction, and audio engine;
+Game Harness supplies the reusable safety and orchestration layer around
+Playwright and Vitest Browser Mode.
