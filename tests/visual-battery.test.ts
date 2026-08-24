@@ -45,6 +45,7 @@ describe('runVisualBattery', () => {
     writeFileSync(join(baselinesDir, 'foo.png'), 'fake-png-bytes');
     mockedExecFileSync.mockReset();
     mockedSpawnSync.mockReset();
+    mockedSpawnSync.mockReturnValue({ status: 0 } as ReturnType<typeof spawn.sync>);
   });
 
   afterEach(() => {
