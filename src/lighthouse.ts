@@ -66,7 +66,7 @@ const PRESETS: Record<string, LighthouseCiConfig> = {
  *
  * ```ts
  * // lighthouserc.mjs
- * import { lighthouseAssertions } from '@jbdevprimary/game-harness';
+ * import { lighthouseAssertions } from 'game-harness';
  * export default lighthouseAssertions('game-default');
  * ```
  *

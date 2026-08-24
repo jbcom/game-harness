@@ -5,7 +5,7 @@ description: A real-Chromium Vitest Browser Mode project, headed by default and 
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import { defineBrowserTestConfig } from '@jbdevprimary/game-harness/vitest';
+import { defineBrowserTestConfig } from 'game-harness/vitest';
 
 export default defineConfig({
   test: {

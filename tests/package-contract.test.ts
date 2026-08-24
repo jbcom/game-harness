@@ -34,7 +34,7 @@ describe('package peer boundaries', () => {
     // value, so a routine release doesn't break this contract test.
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(manifest).toMatchObject({
-      name: '@jbdevprimary/game-harness',
+      name: 'game-harness',
       engines: { node: '>=22' },
       packageManager: 'pnpm@11.23.0',
       devDependencies: {

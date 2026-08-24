@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file has two audiences: an agent **consuming** `@jbdevprimary/game-harness`
+This file has two audiences: an agent **consuming** `game-harness`
 as a dependency in a game repository, and an agent **contributing** to this
 repository itself. Read the section that matches your task.
 
@@ -22,15 +22,15 @@ only the peer family for the entry point you import:
 
 ```sh
 # Playwright config and production-runtime verification
-pnpm add -D @jbdevprimary/game-harness @playwright/test
+pnpm add -D game-harness @playwright/test
 pnpm exec playwright install chromium
 
 # Vitest Browser Mode instead
-pnpm add -D @jbdevprimary/game-harness vitest @vitest/browser-playwright playwright
+pnpm add -D game-harness vitest @vitest/browser-playwright playwright
 pnpm exec playwright install chromium
 
 # Peer-free Lighthouse, release-ladder, or visual-battery utilities only
-pnpm add -D @jbdevprimary/game-harness
+pnpm add -D game-harness
 ```
 
 Node 22 or newer is required.
@@ -40,14 +40,14 @@ Node 22 or newer is required.
 Import only the subpath a task needs — never import a framework subpath from
 code that must stay peer-free.
 
-| Entry point                         | Use for                                                      | Requires                               |
-| ----------------------------------- | ------------------------------------------------------------ | -------------------------------------- |
-| `@jbdevprimary/game-harness` (root) | Lighthouse presets, release ladder, visual battery           | nothing                                |
-| `/chromium`                         | Renderer + mandatory `--mute-audio` launch profile           | nothing                                |
-| `/silent-qa`                        | Application-side runtime mute adapter and readiness marker   | nothing                                |
-| `/playwright`                       | Device tiers, isolated ports, strict-port preview server     | `@playwright/test`                     |
-| `/production-runtime`               | Fresh server/browser lifecycle, fail-closed runtime evidence | `@playwright/test`                     |
-| `/vitest`                           | Vitest Browser Mode config fragment                          | `vitest`, `@vitest/browser-playwright` |
+| Entry point           | Use for                                                      | Requires                               |
+| --------------------- | ------------------------------------------------------------ | -------------------------------------- |
+| `game-harness` (root) | Lighthouse presets, release ladder, visual battery           | nothing                                |
+| `/chromium`           | Renderer + mandatory `--mute-audio` launch profile           | nothing                                |
+| `/silent-qa`          | Application-side runtime mute adapter and readiness marker   | nothing                                |
+| `/playwright`         | Device tiers, isolated ports, strict-port preview server     | `@playwright/test`                     |
+| `/production-runtime` | Fresh server/browser lifecycle, fail-closed runtime evidence | `@playwright/test`                     |
+| `/vitest`             | Vitest Browser Mode config fragment                          | `vitest`, `@vitest/browser-playwright` |
 
 Full detail: [Entry points](https://jonbogaty.com/game-harness/entry-points/).
 
@@ -92,7 +92,7 @@ with a broken export or a headless-mode regression is not release evidence.
 ## Contributing to this repository
 
 This is a pnpm workspace: the library at the repo root
-(`@jbdevprimary/game-harness`) and its private Sourcey documentation workspace
+(`game-harness`) and its private Sourcey documentation workspace
 under `docs/` (`game-harness-docs`, never published). Sourcey is the only
 documentation renderer. Its Markdown source and `sourcey.config.ts` live in
 that directory; `docs/dist/` is generated and ignored.

@@ -3,7 +3,7 @@
   "packages": {
     ".": {
       "changelog-path": "CHANGELOG.md",
-      "package-name": "@jbdevprimary/game-harness",
+      "package-name": "game-harness",
       "release-type": "node"
     }
   }

@@ -7,7 +7,7 @@ description: Immutable Lighthouse CI assertions and a thin ordered-step release 
 
 ```ts
 // lighthouserc.mjs
-import { lighthouseAssertions } from '@jbdevprimary/game-harness/lighthouse';
+import { lighthouseAssertions } from 'game-harness/lighthouse';
 
 const config = lighthouseAssertions('game-default', {
   url: ['http://localhost/index.html', 'http://localhost/settings/index.html'],
@@ -33,7 +33,7 @@ environment beyond the `overrides` you pass.
 ## Release ladder orchestrator
 
 ```ts
-import { verifyReleaseLadder } from '@jbdevprimary/game-harness/release-ladder';
+import { verifyReleaseLadder } from 'game-harness/release-ladder';
 import { execSync } from 'node:child_process';
 
 const result = await verifyReleaseLadder([
