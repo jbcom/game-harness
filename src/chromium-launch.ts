@@ -17,7 +17,9 @@ export interface ChromiumLaunchProfileOptions {
 }
 
 export interface ChromiumLaunchProfile {
+  /** De-duplicated Chromium launch arguments for the selected `gpuMode`, always ending in `--mute-audio`. */
   args: string[];
+  /** Present when `env` overrides were supplied or `gpuMode` is `linux-hardware-vulkan` (which also sets `EGL_PLATFORM`); merged on top of `process.env`. */
   env?: ChromiumEnvironment;
 }
 

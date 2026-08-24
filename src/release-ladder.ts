@@ -1,17 +1,25 @@
 export interface ReleaseLadderStep {
+  /** Label logged before/after the step runs and used to identify it in a failure result. */
   name: string;
+  /** The step's work. A thrown error or rejected promise stops the ladder at this step. */
   run: () => void | Promise<void>;
 }
 
 export interface ReleaseLadderResult {
+  /** True only if every step completed without throwing. */
   ok: boolean;
+  /** Names of steps that completed successfully, in order, up to (and excluding) any failure. */
   ranSteps: string[];
+  /** Name of the step that threw, present only when `ok` is false. */
   failedStep?: string;
+  /** The value thrown by `failedStep`'s `run()`, present only when `ok` is false. */
   error?: unknown;
 }
 
 export interface VerifyReleaseLadderOptions {
+  /** Called before and after each step. Defaults to `console.log` prefixed with `[verify]`. */
   log?: (msg: string) => void;
+  /** Called on step failure, once for the failure message and again with the error's message if it's an `Error`. Defaults to `console.error` prefixed with `[verify]`. */
   error?: (msg: string) => void;
 }
 

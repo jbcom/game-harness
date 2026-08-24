@@ -29,6 +29,14 @@ export interface VisualBatteryOptions {
   error?: (msg: string) => void;
 }
 
+/**
+ * Thrown by every `runVisualBattery()` failure path — a missing harness dir,
+ * no discovered `.browser.test.ts(x)` files, a misplaced `__screenshots__`
+ * directory, a dirty baseline dir in `--ci` mode, a failing harness run, or
+ * detected drift while `ci: true`. Callers (tests, other tooling) can catch
+ * this specific type instead of `process.exit`, which only the CLI entry
+ * point (`bin/test-harness-visual-battery`) calls.
+ */
 export class VisualBatteryError extends Error {}
 
 function findUnexpectedBaselineDirectories(root: string, canonical: string): string[] {

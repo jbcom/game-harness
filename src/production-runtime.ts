@@ -54,14 +54,24 @@ export interface ProductionRuntimeOptions {
   settleTimeMs?: number;
 }
 
+/** Evidence returned by a successful `verifyProductionRuntime()` call. */
 export interface ProductionRuntimeResult {
+  /** The page's URL after navigation, including the applied silent-QA query parameters. */
   finalUrl: string;
+  /** Every requested `localStorageSentinels` key, read back after the boot completed. */
   localStorage: Record<string, string | null>;
 }
 
+/**
+ * One runtime failure captured while the game booted: an uncaught page
+ * error, a `console.error` call, a network request that failed outright, or
+ * an HTTP response with a 4xx/5xx status. `verifyProductionRuntime()`
+ * accumulates these and fails closed if any were recorded.
+ */
 export interface ProductionRuntimeIssue {
   kind: 'console' | 'http' | 'pageerror' | 'requestfailed';
   message: string;
+  /** The request/response URL, present for `'http'` and `'requestfailed'` issues. */
   url?: string;
 }
 
@@ -70,7 +80,15 @@ export interface AvailableProductionPortOptions {
   host?: string;
 }
 
+/**
+ * Thrown by every failure path in this module — an unreachable/occupied
+ * readiness URL, a server that never became ready, a masked or
+ * software-rendered WebGL context, a changed localStorage sentinel, or one
+ * or more recorded {@link ProductionRuntimeIssue}s. Callers can inspect
+ * `.issues` for the underlying runtime errors instead of parsing `.message`.
+ */
 export class ProductionRuntimeVerificationError extends Error {
+  /** Runtime issues recorded before this error was thrown, if any. Empty for pure validation failures. */
   readonly issues: readonly ProductionRuntimeIssue[];
 
   constructor(message: string, issues: readonly ProductionRuntimeIssue[] = [], cause?: unknown) {
@@ -219,7 +237,9 @@ function mutedLaunchOptions(
 }
 
 export interface WebGLRendererInfo {
+  /** `UNMASKED_RENDERER_WEBGL` when available, otherwise the generic (often masked) `RENDERER` parameter. */
   renderer: string;
+  /** `UNMASKED_VENDOR_WEBGL` when available, otherwise the generic (often masked) `VENDOR` parameter. */
   vendor: string;
   /** True only when Chromium exposed `WEBGL_debug_renderer_info`. */
   unmasked: boolean;

@@ -93,6 +93,65 @@ assertion also fails closed when the browser withholds its unmasked renderer.
 only its first tier. Run `MULTIVIEW=1 pnpm exec playwright test` (or
 `VISUAL=1 ...`) to include every declared tier.
 
+## Vitest Browser Mode example
+
+```ts
+import { defineConfig } from 'vitest/config';
+import { defineBrowserTestConfig } from '@jbcom/game-harness/vitest';
+
+export default defineConfig({
+  test: {
+    projects: [
+      { extends: true, test: { name: 'unit', environment: 'node', include: ['tests/unit/**'] } },
+      {
+        extends: true,
+        test: defineBrowserTestConfig({
+          optimizeDeps: ['three/examples/jsm/utils/SkeletonUtils.js'],
+        }),
+      },
+    ],
+  },
+});
+```
+
+`defineBrowserTestConfig()` builds the `test` fragment for a real-Chromium
+Vitest Browser Mode project: headed by default (both locally and in CI, same
+as `definePlaywrightConfig()`), silent at the Chromium launch boundary, and a
+fixed viewport with `deviceScaleFactor: 1` so a headed macOS run never
+recaptures visual baselines at the host's Retina scale. Pass `headless:
+'ci-only'` only for a hosted runner genuinely without a display; CI should
+normally keep the headed default and run under `xvfb-run`. Requires `vitest`
+and `@vitest/browser-playwright` installed as peers.
+
+`optimizeDeps` surfaces module specifiers (deep imports Vite's scanner won't
+discover on its own) that must also be merged into your top-level
+`vite.config.ts`'s `optimizeDeps.include` — read them off the returned
+fragment's `__optimizeDepsInclude` field, since Vitest's `test` block has no
+`optimizeDeps` field of its own.
+
+## Chromium launch profile
+
+```ts
+import { chromium } from '@playwright/test';
+import { createChromiumLaunchProfile } from '@jbcom/game-harness/chromium';
+
+const { args, env } = createChromiumLaunchProfile({
+  gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
+});
+const browser = await chromium.launch({ args, env, headless: false });
+```
+
+`createChromiumLaunchProfile()` is the peer-free primitive behind both
+`definePlaywrightConfig()` and `defineBrowserTestConfig()` — use it directly
+when driving Chromium yourself (a custom launch script, `production-runtime`'s
+own internals, or a non-Playwright automation layer). It resolves one of three
+renderer policies (`auto` leaves selection to Chromium; `software` opts into
+SwiftShader explicitly; `linux-hardware-vulkan` applies the reviewed
+Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner exposing
+`/dev/dri/renderD128`) and always de-duplicates and appends `--mute-audio`
+last, so a caller-supplied arg list can never accidentally drop the silence
+guard.
+
 Every browser launched by `definePlaywrightConfig()` or
 `defineBrowserTestConfig()` receives Chromium's `--mute-audio` argument as a
 defense-in-depth guard, including projects with custom launch options. The
@@ -250,3 +309,55 @@ runVisualBattery('tests/harness', {
   isolatedHarnessFiles: ['scene.browser.test.tsx'],
 });
 ```
+
+## Lighthouse CI presets
+
+```ts
+// lighthouserc.mjs
+import { lighthouseAssertions } from '@jbcom/game-harness/lighthouse';
+
+export default lighthouseAssertions('game-default', {
+  url: ['http://localhost/index.html', 'http://localhost/settings/index.html'],
+  assertions: { 'categories:performance': ['warn', { minScore: 0.5 }] },
+});
+```
+
+`lighthouseAssertions()` returns a `lighthouserc.json`-shaped config object
+for a named preset, with `overrides` merged on top (assertion overrides are
+merged key-by-key on top of the preset's own; every other override field
+replaces it wholesale). The only shipped preset, `'game-default'`, is a
+production `lighthouserc.json` verbatim: performance/accessibility/best-practices
+assertions at warn level (a score dip surfaces in CI logs without hard-blocking
+a merge on Lighthouse's inherent run-to-run variance), with SEO and PWA
+assertions off since these are single-page game shells with no SEO surface and
+no installable-PWA requirement. To keep `lighthouserc.json` as static JSON
+instead of a `.mjs` config, run this once locally and paste the printed
+object — the factory has no runtime dependency on the consumer's environment
+beyond the `overrides` you pass.
+
+## Release ladder orchestrator
+
+```ts
+import { verifyReleaseLadder } from '@jbcom/game-harness/release-ladder';
+import { execSync } from 'node:child_process';
+
+const result = await verifyReleaseLadder([
+  { name: 'lint', run: () => execSync('pnpm lint', { stdio: 'inherit' }) },
+  { name: 'typecheck', run: () => execSync('pnpm typecheck', { stdio: 'inherit' }) },
+  { name: 'test', run: () => execSync('pnpm test', { stdio: 'inherit' }) },
+  { name: 'build', run: () => execSync('pnpm build', { stdio: 'inherit' }) },
+]);
+
+process.exit(result.ok ? 0 : 1);
+```
+
+`verifyReleaseLadder()` is a thin orchestrator for a `verify:*` release
+ladder — an ordered list of named steps, each a plain sync or async function,
+run in sequence and stopped at the first failure with a labeled summary. It
+generalizes the pattern of many discrete `node scripts/verify-X.mjs` files
+composed via a shell `&&` chain into one reusable primitive: a step can inline
+its logic or delegate to an existing script via `execSync`. It never throws —
+it returns a `ReleaseLadderResult` (`{ ok, ranSteps, failedStep?, error? }`) so
+the caller decides how to report or exit; `process.exit(result.ok ? 0 : 1)` is
+the CLI convention. Pass `{ log, error }` to redirect the default
+`console.log`/`console.error` output (both prefixed with `[verify]`).
