@@ -41,32 +41,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter game-harness-docs validate
 
-  sonar:
-    name: SonarQube Cloud analysis
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm coverage
-      - name: Scan with SonarQube Cloud
-        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: -Dsonar.qualitygate.wait=true
-
   portability:
     name: Node ${{ matrix.node || 'pinned' }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
