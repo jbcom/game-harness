@@ -4,7 +4,8 @@ description: Turn a successful build into runtime evidence with a fresh, silent,
 ---
 
 `verifyProductionRuntime()` turns a successful build into runtime evidence. It
-always launches a fresh headed Chromium process with `--mute-audio`,
+launches a fresh Chromium process with `--mute-audio` and uses headed mode by
+default,
 navigates through `openSilentGame()`, and fails on page errors, console
 errors, failed requests, HTTP errors, an inactive silent-QA marker, or a
 changed local-storage sentinel. The required `assertReady` callback pins game
@@ -22,7 +23,7 @@ const port = await findAvailableProductionPort();
 
 await verifyProductionRuntime({
   url: `http://127.0.0.1:${port}/`,
-  gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
+  gpuMode: process.platform === 'linux' && process.env.CI ? 'linux-hardware-vulkan' : 'auto',
   server: {
     command: process.execPath,
     args: [

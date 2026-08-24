@@ -44,9 +44,7 @@ For WebGL scenes, capture the canvas locator instead of the full browser
 page:
 
 ```ts
-const canvas = document.querySelector('canvas');
-if (!(canvas instanceof HTMLCanvasElement)) throw new Error('canvas missing');
-await page.elementLocator(canvas).screenshot({ path: '__screenshots__/scene.png' });
+await page.locator('canvas').screenshot({ path: '__screenshots__/scene.png' });
 ```
 
 If a canvas baseline is stable alone but changes after other harnesses have

@@ -9,10 +9,12 @@ description: Immutable Lighthouse CI assertions and a thin ordered-step release 
 // lighthouserc.mjs
 import { lighthouseAssertions } from '@jbdevprimary/game-harness/lighthouse';
 
-export default lighthouseAssertions('game-default', {
+const config = lighthouseAssertions('game-default', {
   url: ['http://localhost/index.html', 'http://localhost/settings/index.html'],
   assertions: { 'categories:performance': ['warn', { minScore: 0.5 }] },
 });
+
+console.log(JSON.stringify(config, null, 2));
 ```
 
 `lighthouseAssertions()` returns a `lighthouserc.json`-shaped config object

@@ -298,10 +298,21 @@ function normalizeBasePath(basePath: string): string {
       `Playwright basePath must be a pathname without a query or fragment; received ${basePath}`,
     );
   }
-  const segments = trimmed.split('/').filter(Boolean);
-  if (segments.some((segment) => segment === '.' || segment === '..')) {
+  const segments = trimmed
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        throw new TypeError(
+          `Playwright basePath contains invalid URL encoding; received ${basePath}`,
+        );
+      }
+    });
+  if (segments.some((segment) => segment === '.' || segment === '..' || /[\\/]/u.test(segment))) {
     throw new TypeError(
-      `Playwright basePath must not contain . or .. segments; received ${basePath}`,
+      `Playwright basePath must not contain traversal or encoded separators; received ${basePath}`,
     );
   }
   return segments.length === 0 ? '/' : `/${segments.join('/')}/`;

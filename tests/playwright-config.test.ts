@@ -270,6 +270,9 @@ describe('definePlaywrightConfig', () => {
     expect(() => definePlaywrightConfig({ basePath: '/game?mode=test' })).toThrow(/basePath/);
     expect(() => definePlaywrightConfig({ basePath: '/game#ready' })).toThrow(/basePath/);
     expect(() => definePlaywrightConfig({ basePath: '/games/../admin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/%2e%2e/admin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/%2f..%2fadmin' })).toThrow(/basePath/);
+    expect(() => definePlaywrightConfig({ basePath: '/games/\\..\\admin' })).toThrow(/basePath/);
   });
 
   it('validates and de-duplicates the device and timeout matrix', () => {

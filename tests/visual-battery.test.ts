@@ -68,6 +68,18 @@ describe('runVisualBattery', () => {
     );
   });
 
+  it('reports an invalid cwd through the documented error contract', () => {
+    const errors: string[] = [];
+    expect(() =>
+      runVisualBattery('tests/harness', {
+        cwd: join(cwd, 'missing-cwd'),
+        log: noop,
+        error: (message) => errors.push(message),
+      }),
+    ).toThrow(VisualBatteryError);
+    expect(errors).toEqual([expect.stringMatching(/cwd not found/)]);
+  });
+
   it('rejects harness and baseline paths outside the repository cwd', () => {
     expect(() => runVisualBattery('../outside', { cwd, ...quiet })).toThrow(
       /harness dir must stay inside cwd/,
@@ -79,6 +91,13 @@ describe('runVisualBattery', () => {
         ...quiet,
       }),
     ).toThrow(/baselines dir must stay inside cwd/);
+    expect(() =>
+      runVisualBattery('tests/harness', {
+        cwd,
+        baselinesDir,
+        ...quiet,
+      }),
+    ).toThrow(/baselines dir must be relative/);
   });
 
   it('rejects a harness symlink that resolves outside cwd', () => {

@@ -8,7 +8,7 @@ import { chromium } from '@playwright/test';
 import { createChromiumLaunchProfile } from '@jbdevprimary/game-harness/chromium';
 
 const { args, env } = createChromiumLaunchProfile({
-  gpuMode: process.env.CI ? 'linux-hardware-vulkan' : 'auto',
+  gpuMode: process.platform === 'linux' && process.env.CI ? 'linux-hardware-vulkan' : 'auto',
 });
 const browser = await chromium.launch({ args, env, headless: false });
 ```

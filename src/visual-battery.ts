@@ -121,23 +121,33 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     error = defaultError,
   } = options;
 
-  const HARNESS_DIR = resolve(cwd, harnessDir);
-  const relativeHarnessDir = relative(resolve(cwd), HARNESS_DIR).split(sep).join('/') || '.';
-  if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
-    throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
-  }
-  const relativeBaselinesRoot = options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`;
-  const canonicalBaselinesDir = resolve(cwd, relativeBaselinesRoot);
-  const relativeBaselinesDir = baselineProfile
-    ? `${relativeBaselinesRoot.replace(/\/$/, '')}/${baselineProfile}`
-    : relativeBaselinesRoot;
-  const BASELINES_DIR = resolve(cwd, relativeBaselinesDir);
-  const canonicalCwd = realpathSync(resolve(cwd));
-
   const die = (msg: string): never => {
     error(msg);
     throw new VisualBatteryError(msg);
   };
+
+  const resolvedCwd = resolve(cwd);
+  let canonicalCwd: string;
+  try {
+    canonicalCwd = realpathSync(resolvedCwd);
+  } catch {
+    die(`cwd not found or not reachable: ${cwd}`);
+  }
+
+  const HARNESS_DIR = resolve(canonicalCwd, harnessDir);
+  const relativeHarnessDir = relative(canonicalCwd, HARNESS_DIR).split(sep).join('/') || '.';
+  if (baselineProfile && !/^[a-z0-9][a-z0-9_-]*$/i.test(baselineProfile)) {
+    throw new VisualBatteryError(`invalid baseline profile: ${baselineProfile}`);
+  }
+  if (options.baselinesDir && isAbsolute(options.baselinesDir)) {
+    die(`baselines dir must be relative to cwd: ${options.baselinesDir}`);
+  }
+  const relativeBaselinesRoot = options.baselinesDir ?? `${relativeHarnessDir}/__screenshots__`;
+  const canonicalBaselinesDir = resolve(canonicalCwd, relativeBaselinesRoot);
+  const relativeBaselinesDir = baselineProfile
+    ? `${relativeBaselinesRoot.replace(/\/$/, '')}/${baselineProfile}`
+    : relativeBaselinesRoot;
+  const BASELINES_DIR = resolve(canonicalCwd, relativeBaselinesDir);
 
   const assertInsideCwd = (label: string, target: string): void => {
     const pathFromCwd = relative(canonicalCwd, canonicalizePath(target));
