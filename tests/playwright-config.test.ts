@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { definePlaywrightConfig, resolvePlaywrightPort } from '../src/playwright-config.js';
+import {
+  definePlaywrightConfig,
+  ONEPLUS_OPEN_DEVICES,
+  type OnePlusOpenDevice,
+  resolvePlaywrightPort,
+} from '../src/playwright-config.js';
 
 const ENV_KEYS = [
   'CI',
@@ -62,6 +67,84 @@ describe('definePlaywrightConfig', () => {
       'foldable-portrait',
       'foldable-landscape',
     ]);
+  });
+
+  it('expands foldable-open to the four measured OnePlus Open devices', () => {
+    process.env.MULTIVIEW = '1';
+    const config = definePlaywrightConfig({ deviceTiers: ['foldable-open'] });
+    expect(config.projects?.map((p) => p.name)).toEqual([
+      'oneplus-open-unfolded-portrait',
+      'oneplus-open-unfolded-landscape',
+      'oneplus-open-folded',
+      'oneplus-open-folded-landscape',
+    ]);
+    expect(config.projects?.map((p) => p.use?.viewport)).toEqual([
+      { width: 821, height: 765 },
+      { width: 883, height: 703 },
+      { width: 404, height: 797 },
+      { width: 853, height: 302 },
+    ]);
+    // `screen` is a valid Playwright context option that `use` forwards, but the
+    // test-options type does not declare it.
+    expect(config.projects?.map((p) => (p.use as Partial<OnePlusOpenDevice>).screen)).toEqual([
+      { width: 821, height: 884 },
+      { width: 884, height: 821 },
+      { width: 404, height: 900 },
+      { width: 900, height: 404 },
+    ]);
+  });
+
+  it('gives every OnePlus Open device the measured touch device settings', () => {
+    const devices = Object.values(ONEPLUS_OPEN_DEVICES);
+    expect(devices).toHaveLength(4);
+    for (const device of devices) {
+      expect(device.deviceScaleFactor).toBe(2.7625);
+      expect(device.hasTouch).toBe(true);
+      expect(device.isMobile).toBe(true);
+      expect(device.defaultBrowserType).toBe('chromium');
+      expect(device.userAgent).toBe(
+        'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
+      );
+    }
+  });
+
+  it('keeps the unfolded OnePlus Open postures inside the unfolded-foldable envelope', () => {
+    for (const name of [
+      'oneplus-open-unfolded-portrait',
+      'oneplus-open-unfolded-landscape',
+    ] as const) {
+      const { width, height } = ONEPLUS_OPEN_DEVICES[name].viewport;
+      expect(Math.max(width, height) / Math.min(width, height)).toBeLessThanOrEqual(1.3);
+      expect(Math.min(width, height)).toBeGreaterThanOrEqual(600);
+    }
+  });
+
+  it('exposes OnePlus Open descriptors that are immutable and independent of the tier projects', () => {
+    expect(Object.isFrozen(ONEPLUS_OPEN_DEVICES)).toBe(true);
+    process.env.MULTIVIEW = '1';
+    const config = definePlaywrightConfig({ deviceTiers: ['foldable-open'] });
+    const project = config.projects?.[0];
+    expect(project?.use?.viewport).toEqual(
+      ONEPLUS_OPEN_DEVICES['oneplus-open-unfolded-portrait'].viewport,
+    );
+    expect(project?.use).not.toBe(ONEPLUS_OPEN_DEVICES['oneplus-open-unfolded-portrait']);
+  });
+
+  it('leaves the folded foldable tier unchanged', () => {
+    process.env.MULTIVIEW = '1';
+    const config = definePlaywrightConfig({ deviceTiers: ['foldable', 'foldable-open'] });
+    const folded = config.projects?.slice(0, 2);
+    expect(folded?.map((p) => p.name)).toEqual(['foldable-portrait', 'foldable-landscape']);
+    expect(folded?.map((p) => p.use?.viewport)).toEqual([
+      { width: 840, height: 2120 },
+      { width: 2120, height: 840 },
+    ]);
+    expect(folded?.map((p) => p.use?.deviceScaleFactor)).toEqual([3, 3]);
+  });
+
+  it('only runs the first tier, foldable-open included, without MULTIVIEW', () => {
+    const config = definePlaywrightConfig({ deviceTiers: ['foldable-open', 'desktop'] });
+    expect(config.projects?.map((p) => p.name)).toEqual(Object.keys(ONEPLUS_OPEN_DEVICES));
   });
 
   it('VISUAL=1 implies MULTIVIEW expansion', () => {
@@ -280,6 +363,10 @@ describe('definePlaywrightConfig', () => {
     expect(() => definePlaywrightConfig({ deviceTiers: [] })).toThrow(/deviceTiers/);
     expect(() => definePlaywrightConfig({ deviceTiers: ['desktop', 'unknown' as never] })).toThrow(
       /unknown device tier/,
+    );
+    // A OnePlus Open device name is a project, not a tier: only `foldable-open` is.
+    expect(() => definePlaywrightConfig({ deviceTiers: ['oneplus-open-folded' as never] })).toThrow(
+      /unknown device tier\(s\): oneplus-open-folded/,
     );
     for (const inheritedKey of ['constructor', 'toString', '__proto__']) {
       expect(() => definePlaywrightConfig({ deviceTiers: [inheritedKey as never] })).toThrow(

@@ -21,7 +21,25 @@ export {
   SILENT_QA_QUERY_VALUE,
 } from './silent-qa.js';
 
-export type DeviceTier = 'desktop' | 'mobile' | 'tablet' | 'foldable' | 'ultrawide';
+/**
+ * Device tiers a Playwright config can request.
+ *
+ * - `foldable` is the folded, cover-display-adjacent form factor: a tall
+ *   phone-like viewport (portrait and landscape projects).
+ * - `foldable-open` is the book-style foldable as measured on a real OnePlus
+ *   Open on 2026-10-06 (see {@link ONEPLUS_OPEN_DEVICES}); the tier is named
+ *   for the unfolded form factor and also carries the cover-screen postures
+ *   of the same device. It expands to four projects named after the
+ *   descriptors: `oneplus-open-unfolded-portrait` (821 x 765) and
+ *   `oneplus-open-unfolded-landscape` (883 x 703), which are near-square
+ *   (aspect <= 1.3, short edge >= 600 CSS px), plus `oneplus-open-folded`
+ *   (404 x 797) and `oneplus-open-folded-landscape` (853 x 302). All use
+ *   deviceScaleFactor 2.7625, touch, `isMobile`, and the measured Chrome 154
+ *   Android user agent; each descriptor also records the fullscreen `screen`
+ *   size.
+ */
+export type DeviceTier =
+  'desktop' | 'mobile' | 'tablet' | 'foldable' | 'foldable-open' | 'ultrawide';
 
 type Project = NonNullable<PlaywrightTestConfig['projects']>[number];
 type LaunchOptions = NonNullable<NonNullable<PlaywrightTestConfig['use']>['launchOptions']>;
@@ -119,6 +137,92 @@ function mergeMutedLaunchOptions(...sources: Array<LaunchOptions | undefined>): 
   return { ...merged, args: [...new Set(args), '--mute-audio'] };
 }
 
+/** A Playwright device descriptor, usable via `test.use({ ...descriptor })`. */
+type PlaywrightDeviceDescriptor = (typeof devices)[string];
+
+/** Names of the measured OnePlus Open postures in {@link ONEPLUS_OPEN_DEVICES}. */
+export type OnePlusOpenDeviceName =
+  | 'oneplus-open-unfolded-portrait'
+  | 'oneplus-open-unfolded-landscape'
+  | 'oneplus-open-folded'
+  | 'oneplus-open-folded-landscape';
+
+/**
+ * A Playwright device descriptor that always records the physical `screen`
+ * size, so the Capacitor fullscreen WebView size is kept next to the browser
+ * `viewport`.
+ */
+export type OnePlusOpenDevice = PlaywrightDeviceDescriptor & {
+  screen: { width: number; height: number };
+};
+
+// Shared by every OnePlus Open posture. Measured on a OnePlus Open running
+// Chrome 154 on 2026-10-06.
+const ONEPLUS_OPEN_BASE = {
+  ...devices['Pixel 7'],
+  userAgent:
+    'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
+  deviceScaleFactor: 2.7625,
+  isMobile: true,
+  hasTouch: true,
+};
+
+/**
+ * Playwright device descriptors for the OnePlus Open, MEASURED on a real
+ * device (Chrome 154, 2026-10-06). Every posture has deviceScaleFactor 2.7625,
+ * `isMobile`, `hasTouch`, `pointer: coarse` / `hover: none`, and the measured
+ * Android 10 / Chrome 154 user agent.
+ *
+ * `viewport` is the in-browser `window.innerWidth` x `innerHeight`. `screen`
+ * is the measured `screen.width` x `screen.height`; it is also the viewport of
+ * the Capacitor fullscreen WebView, where the browser chrome is removed. Use
+ * `{ ...device, viewport: device.screen }` to emulate that fullscreen WebView.
+ *
+ * | Device                            | viewport  | screen    | physical    |
+ * | --------------------------------- | --------- | --------- | ----------- |
+ * | `oneplus-open-unfolded-portrait`  | 821 x 765 | 821 x 884 | 2268 x 2113 |
+ * | `oneplus-open-unfolded-landscape` | 883 x 703 | 884 x 821 | 2439 x 1942 |
+ * | `oneplus-open-folded`             | 404 x 797 | 404 x 900 | n/a         |
+ * | `oneplus-open-folded-landscape`   | 853 x 302 | 900 x 404 | n/a         |
+ *
+ * The unfolded postures are near-square and satisfy the unfolded-foldable
+ * detection rule (aspect <= 1.3 and short edge >= 600 CSS px): 821 / 765 =
+ * 1.07 and 883 / 703 = 1.26. The two `oneplus-open-folded*` devices are the
+ * cover screen in portrait and landscape.
+ *
+ * Safe-area insets are 0 in the browser for the unfolded postures. The folded
+ * cover screen has a 17 px bottom inset (other edges 0) in both orientations.
+ * Playwright cannot emulate `env(safe-area-inset-*)`, so these descriptors do
+ * not reproduce that inset: a test that needs it must stub the CSS custom
+ * property or padding the game derives from `env()` itself.
+ *
+ * @example
+ * test.use({ ...ONEPLUS_OPEN_DEVICES['oneplus-open-unfolded-portrait'] });
+ */
+export const ONEPLUS_OPEN_DEVICES: Readonly<Record<OnePlusOpenDeviceName, OnePlusOpenDevice>> =
+  Object.freeze({
+    'oneplus-open-unfolded-portrait': {
+      ...ONEPLUS_OPEN_BASE,
+      viewport: { width: 821, height: 765 },
+      screen: { width: 821, height: 884 },
+    },
+    'oneplus-open-unfolded-landscape': {
+      ...ONEPLUS_OPEN_BASE,
+      viewport: { width: 883, height: 703 },
+      screen: { width: 884, height: 821 },
+    },
+    'oneplus-open-folded': {
+      ...ONEPLUS_OPEN_BASE,
+      viewport: { width: 404, height: 797 },
+      screen: { width: 404, height: 900 },
+    },
+    'oneplus-open-folded-landscape': {
+      ...ONEPLUS_OPEN_BASE,
+      viewport: { width: 853, height: 302 },
+      screen: { width: 900, height: 404 },
+    },
+  });
+
 const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
   desktop: [
     {
@@ -152,6 +256,13 @@ const DEVICE_TIER_PROJECTS: Record<DeviceTier, Project[]> = {
       },
     },
   ],
+  // The measured OnePlus Open postures (see `ONEPLUS_OPEN_DEVICES`): the
+  // unfolded book-style foldable is near-square, so neither the folded
+  // `foldable` tier nor `tablet` exercises its layout.
+  'foldable-open': (Object.keys(ONEPLUS_OPEN_DEVICES) as OnePlusOpenDeviceName[]).map((name) => ({
+    name,
+    use: { ...ONEPLUS_OPEN_DEVICES[name] },
+  })),
   ultrawide: [
     {
       name: 'ultrawide',
@@ -323,7 +434,7 @@ function normalizeBasePath(basePath: string): string {
  * env-gated-suite convention:
  *
  * - `desktop` project always runs; `MULTIVIEW=1` (or `VISUAL=1`) expands to
- *   every requested device tier (mobile/tablet/foldable/ultrawide).
+ *   every requested device tier (mobile/tablet/foldable/foldable-open/ultrawide).
  * - `JOURNEY=1` (or `VISUAL=1`) opts into expensive artefact-producing specs
  *   that are excluded from the default tier-1 functional gate so CI stays
  *   fast.
