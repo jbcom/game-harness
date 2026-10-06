@@ -26,17 +26,14 @@ export {
  *
  * - `foldable` is the folded, cover-display-adjacent form factor: a tall
  *   phone-like viewport (portrait and landscape projects).
- * - `foldable-open` is the book-style foldable as measured on a real OnePlus
- *   Open on 2026-10-06 (see {@link ONEPLUS_OPEN_DEVICES}); the tier is named
- *   for the unfolded form factor and also carries the cover-screen postures
- *   of the same device. It expands to four projects named after the
- *   descriptors: `oneplus-open-unfolded-portrait` (821 x 765) and
- *   `oneplus-open-unfolded-landscape` (883 x 703), which are near-square
- *   (aspect <= 1.3, short edge >= 600 CSS px), plus `oneplus-open-folded`
- *   (404 x 797) and `oneplus-open-folded-landscape` (853 x 302). All use
- *   deviceScaleFactor 2.7625, touch, `isMobile`, and the measured Chrome 154
- *   Android user agent; each descriptor also records the fullscreen `screen`
- *   size.
+ * - `foldable-open` is the unfolded book-style foldable as measured on a real
+ *   OnePlus Open on 2026-10-06 (see {@link ONEPLUS_OPEN_DEVICES}). It expands
+ *   to two projects named after the descriptors:
+ *   `oneplus-open-unfolded-portrait` (821 x 765) and
+ *   `oneplus-open-unfolded-landscape` (883 x 703), both near-square
+ *   (aspect <= 1.3, short edge >= 600 CSS px). Both use deviceScaleFactor
+ *   2.7625, touch, `isMobile`, and the measured Chrome 154 Android user
+ *   agent; each descriptor also records the fullscreen `screen` size.
  */
 export type DeviceTier =
   'desktop' | 'mobile' | 'tablet' | 'foldable' | 'foldable-open' | 'ultrawide';
@@ -137,64 +134,67 @@ function mergeMutedLaunchOptions(...sources: Array<LaunchOptions | undefined>): 
   return { ...merged, args: [...new Set(args), '--mute-audio'] };
 }
 
-/** A Playwright device descriptor, usable via `test.use({ ...descriptor })`. */
-type PlaywrightDeviceDescriptor = (typeof devices)[string];
-
 /** Names of the measured OnePlus Open postures in {@link ONEPLUS_OPEN_DEVICES}. */
 export type OnePlusOpenDeviceName =
-  | 'oneplus-open-unfolded-portrait'
-  | 'oneplus-open-unfolded-landscape'
-  | 'oneplus-open-folded'
-  | 'oneplus-open-folded-landscape';
+  'oneplus-open-unfolded-portrait' | 'oneplus-open-unfolded-landscape';
+
+interface Size {
+  width: number;
+  height: number;
+}
 
 /**
- * A Playwright device descriptor that always records the physical `screen`
- * size, so the Capacitor fullscreen WebView size is kept next to the browser
- * `viewport`.
+ * A device descriptor that type-checks as Playwright Test `use` options. It
+ * deliberately omits `defaultBrowserType` (which Playwright forbids inside a
+ * `test.describe` group because it forces a new worker), so it can be applied
+ * at any scope; the browser comes from the config. The
+ * physical `screen` size lives under `contextOptions` because Playwright Test
+ * has no top-level `screen` option: a top-level `screen` fails the `use`
+ * typecheck (TS2353 on a literal) and is not applied at runtime, while
+ * `contextOptions.screen` is forwarded to the browser context.
  */
-export type OnePlusOpenDevice = PlaywrightDeviceDescriptor & {
-  screen: { width: number; height: number };
-};
+export interface OnePlusOpenDevice {
+  userAgent: string;
+  /** In-browser `window.innerWidth` x `innerHeight`. */
+  viewport: Size;
+  deviceScaleFactor: number;
+  isMobile: true;
+  hasTouch: true;
+  /** Carries the measured `screen` size, also the Capacitor fullscreen WebView viewport. */
+  contextOptions: { screen: Size };
+}
 
 // Shared by every OnePlus Open posture. Measured on a OnePlus Open running
 // Chrome 154 on 2026-10-06.
 const ONEPLUS_OPEN_BASE = {
-  ...devices['Pixel 7'],
   userAgent:
     'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
   deviceScaleFactor: 2.7625,
   isMobile: true,
   hasTouch: true,
-};
+} as const;
 
 /**
- * Playwright device descriptors for the OnePlus Open, MEASURED on a real
- * device (Chrome 154, 2026-10-06). Every posture has deviceScaleFactor 2.7625,
- * `isMobile`, `hasTouch`, `pointer: coarse` / `hover: none`, and the measured
- * Android 10 / Chrome 154 user agent.
+ * Playwright Test `use` options for the unfolded OnePlus Open, MEASURED on a
+ * real device (Chrome 154, 2026-10-06). Both postures have deviceScaleFactor
+ * 2.7625, `isMobile`, `hasTouch`, `pointer: coarse` / `hover: none`, and the
+ * measured Android 10 / Chrome 154 user agent.
  *
- * `viewport` is the in-browser `window.innerWidth` x `innerHeight`. `screen`
- * is the measured `screen.width` x `screen.height`; it is also the viewport of
- * the Capacitor fullscreen WebView, where the browser chrome is removed. Use
- * `{ ...device, viewport: device.screen }` to emulate that fullscreen WebView.
+ * `viewport` is the in-browser `window.innerWidth` x `innerHeight`.
+ * `contextOptions.screen` is the measured `screen.width` x `screen.height`; it
+ * is also the viewport of the Capacitor fullscreen WebView, where the browser
+ * chrome is removed. Emulate that WebView with
+ * `{ ...device, viewport: device.contextOptions.screen }`.
  *
  * | Device                            | viewport  | screen    | physical    |
  * | --------------------------------- | --------- | --------- | ----------- |
  * | `oneplus-open-unfolded-portrait`  | 821 x 765 | 821 x 884 | 2268 x 2113 |
  * | `oneplus-open-unfolded-landscape` | 883 x 703 | 884 x 821 | 2439 x 1942 |
- * | `oneplus-open-folded`             | 404 x 797 | 404 x 900 | n/a         |
- * | `oneplus-open-folded-landscape`   | 853 x 302 | 900 x 404 | n/a         |
  *
- * The unfolded postures are near-square and satisfy the unfolded-foldable
- * detection rule (aspect <= 1.3 and short edge >= 600 CSS px): 821 / 765 =
- * 1.07 and 883 / 703 = 1.26. The two `oneplus-open-folded*` devices are the
- * cover screen in portrait and landscape.
- *
- * Safe-area insets are 0 in the browser for the unfolded postures. The folded
- * cover screen has a 17 px bottom inset (other edges 0) in both orientations.
- * Playwright cannot emulate `env(safe-area-inset-*)`, so these descriptors do
- * not reproduce that inset: a test that needs it must stub the CSS custom
- * property or padding the game derives from `env()` itself.
+ * Both are near-square and satisfy the unfolded-foldable detection rule
+ * (aspect <= 1.3 and short edge >= 600 CSS px): 821 / 765 = 1.07 and
+ * 883 / 703 = 1.26. Safe-area insets are 0 in the browser for both; Playwright
+ * cannot emulate `env(safe-area-inset-*)` in any case.
  *
  * @example
  * test.use({ ...ONEPLUS_OPEN_DEVICES['oneplus-open-unfolded-portrait'] });
@@ -204,22 +204,12 @@ export const ONEPLUS_OPEN_DEVICES: Readonly<Record<OnePlusOpenDeviceName, OnePlu
     'oneplus-open-unfolded-portrait': {
       ...ONEPLUS_OPEN_BASE,
       viewport: { width: 821, height: 765 },
-      screen: { width: 821, height: 884 },
+      contextOptions: { screen: { width: 821, height: 884 } },
     },
     'oneplus-open-unfolded-landscape': {
       ...ONEPLUS_OPEN_BASE,
       viewport: { width: 883, height: 703 },
-      screen: { width: 884, height: 821 },
-    },
-    'oneplus-open-folded': {
-      ...ONEPLUS_OPEN_BASE,
-      viewport: { width: 404, height: 797 },
-      screen: { width: 404, height: 900 },
-    },
-    'oneplus-open-folded-landscape': {
-      ...ONEPLUS_OPEN_BASE,
-      viewport: { width: 853, height: 302 },
-      screen: { width: 900, height: 404 },
+      contextOptions: { screen: { width: 884, height: 821 } },
     },
   });
 

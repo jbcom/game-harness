@@ -1,3 +1,4 @@
+import type { PlaywrightTestConfig } from '@playwright/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   definePlaywrightConfig,
@@ -69,39 +70,42 @@ describe('definePlaywrightConfig', () => {
     ]);
   });
 
-  it('expands foldable-open to the four measured OnePlus Open devices', () => {
+  it('expands foldable-open to the two measured unfolded OnePlus Open devices', () => {
     process.env.MULTIVIEW = '1';
     const config = definePlaywrightConfig({ deviceTiers: ['foldable-open'] });
     expect(config.projects?.map((p) => p.name)).toEqual([
       'oneplus-open-unfolded-portrait',
       'oneplus-open-unfolded-landscape',
-      'oneplus-open-folded',
-      'oneplus-open-folded-landscape',
     ]);
     expect(config.projects?.map((p) => p.use?.viewport)).toEqual([
       { width: 821, height: 765 },
       { width: 883, height: 703 },
-      { width: 404, height: 797 },
-      { width: 853, height: 302 },
     ]);
-    // `screen` is a valid Playwright context option that `use` forwards, but the
-    // test-options type does not declare it.
-    expect(config.projects?.map((p) => (p.use as Partial<OnePlusOpenDevice>).screen)).toEqual([
+    // `screen` is carried under `contextOptions`: Playwright Test has no
+    // top-level `screen` option, so only this location type-checks and applies.
+    expect(config.projects?.map((p) => p.use?.contextOptions?.screen)).toEqual([
       { width: 821, height: 884 },
       { width: 884, height: 821 },
-      { width: 404, height: 900 },
-      { width: 900, height: 404 },
     ]);
+  });
+
+  it('keeps the measured screen type-checkable as Playwright Test use options', () => {
+    const device: OnePlusOpenDevice = ONEPLUS_OPEN_DEVICES['oneplus-open-unfolded-landscape'];
+    const fullscreen: NonNullable<PlaywrightTestConfig['use']> = {
+      ...device,
+      viewport: device.contextOptions.screen,
+    };
+    expect(fullscreen.viewport).toEqual({ width: 884, height: 821 });
   });
 
   it('gives every OnePlus Open device the measured touch device settings', () => {
     const devices = Object.values(ONEPLUS_OPEN_DEVICES);
-    expect(devices).toHaveLength(4);
+    expect(devices).toHaveLength(2);
     for (const device of devices) {
       expect(device.deviceScaleFactor).toBe(2.7625);
       expect(device.hasTouch).toBe(true);
       expect(device.isMobile).toBe(true);
-      expect(device.defaultBrowserType).toBe('chromium');
+      expect(device).not.toHaveProperty('defaultBrowserType');
       expect(device.userAgent).toBe(
         'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
       );
@@ -365,9 +369,9 @@ describe('definePlaywrightConfig', () => {
       /unknown device tier/,
     );
     // A OnePlus Open device name is a project, not a tier: only `foldable-open` is.
-    expect(() => definePlaywrightConfig({ deviceTiers: ['oneplus-open-folded' as never] })).toThrow(
-      /unknown device tier\(s\): oneplus-open-folded/,
-    );
+    expect(() =>
+      definePlaywrightConfig({ deviceTiers: ['oneplus-open-unfolded-portrait' as never] }),
+    ).toThrow(/unknown device tier\(s\): oneplus-open-unfolded-portrait/);
     for (const inheritedKey of ['constructor', 'toString', '__proto__']) {
       expect(() => definePlaywrightConfig({ deviceTiers: [inheritedKey as never] })).toThrow(
         /unknown device tier/,
