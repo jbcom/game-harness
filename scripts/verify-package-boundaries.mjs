@@ -31,6 +31,9 @@ function createAnonymousEnvironment({ home, userConfig }) {
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
 const packageName = packageManifest.name;
+// The Vitest peer range spans two majors; the Vitest-consumer smoke runs once
+// per supported major (default: the oldest supported, 4.1.10).
+const consumerVitestVersion = process.env.GAME_HARNESS_CONSUMER_VITEST ?? '4.1.10';
 const packagePathSegments = packageName.split('/');
 const escapedPackageName = packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const scratchPrefix = join(tmpdir(), 'game-harness-');
@@ -235,8 +238,8 @@ try {
     [
       'install',
       consumerSource,
-      'vitest@4.1.10',
-      '@vitest/browser-playwright@4.1.10',
+      `vitest@${consumerVitestVersion}`,
+      `@vitest/browser-playwright@${consumerVitestVersion}`,
       'playwright@1.62.1',
       '--ignore-scripts',
     ],

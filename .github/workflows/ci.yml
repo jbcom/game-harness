@@ -27,6 +27,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      # `verify` already ran the package-boundary smoke against the oldest
+      # supported Vitest (4.1.10); prove the newest supported major as well.
+      - name: Package boundaries with Vitest 5
+        run: pnpm run test:package
+        env:
+          GAME_HARNESS_CONSUMER_VITEST: 5.0.3
 
   docs-site:
     runs-on: ubuntu-24.04
