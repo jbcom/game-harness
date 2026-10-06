@@ -197,6 +197,17 @@ assertion also fails closed when the browser withholds its unmasked renderer.
 only its first tier. Run `MULTIVIEW=1 pnpm exec playwright test` (or
 `VISUAL=1 ...`) to include every declared tier.
 
+The available tiers are `desktop`, `mobile`, `tablet`, `foldable` (folded, tall:
+`foldable-portrait` and `foldable-landscape`), `foldable-open`, and
+`ultrawide`. `foldable-open` is the unfolded book-style foldable measured on a
+real OnePlus Open (Chrome 154, 2026-10-06); it expands to the projects
+`oneplus-open-unfolded-portrait` (821 x 765) and
+`oneplus-open-unfolded-landscape` (883 x 703), both at DPR 2.7625. The same
+descriptors are exported as `ONEPLUS_OPEN_DEVICES` (each records the fullscreen
+`screen` size under `contextOptions.screen`) for
+`test.use({ ...ONEPLUS_OPEN_DEVICES[name] })`. See the
+[Playwright guide](https://jonbogaty.com/game-harness/guides/playwright/).
+
 ## Vitest Browser Mode example
 
 ```ts
