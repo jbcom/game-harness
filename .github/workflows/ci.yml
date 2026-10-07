@@ -31,7 +31,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       # npm 10's optional-peer resolver crashes while assembling the Vitest consumer.
-      - run: npm install --global npm@11 --ignore-scripts --userconfig /dev/null
+      - run: npm install --global npm@11.21.0 --ignore-scripts --userconfig /dev/null
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       # `verify` already ran the package-boundary smoke against the oldest
