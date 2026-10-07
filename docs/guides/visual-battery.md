@@ -3,6 +3,27 @@ title: Visual battery
 description: Deterministic, fail-closed screenshot baseline orchestration.
 ---
 
+Modified PNGs are decoded and compared against `HEAD` pixel by pixel.
+`maxChannelDelta` defaults to 2 (integer 0–255): a pixel differs only when
+its maximum absolute RGBA channel delta exceeds this tolerance.
+`maxDifferentPixelRatio` defaults to 0 (range 0–1): any pixel beyond the
+channel tolerance is drift. Dimension changes, new/deleted baselines, and
+unreadable PNGs always count as drift. Accepted renders are restored to
+committed bytes; noise-only files log `rasterization noise (N px within ±2)`.
+The CI dirty-start check still rejects all uncommitted baseline changes.
+
+```ts
+runVisualBattery('tests/harness', {
+  ci: true,
+  maxChannelDelta: 2,
+  maxDifferentPixelRatio: 0,
+});
+```
+
+CLI equivalents: `--max-channel-delta 2 --max-different-pixel-ratio 0`.
+Use a channel delta of 0 for exact decoded pixels. Raising the ratio explicitly
+permits some pixels beyond the tolerance; do so deliberately.
+
 Run the default harness directory in update mode, or enforce committed
 baselines in CI:
 
@@ -24,8 +45,8 @@ The battery rejects any second `__screenshots__` directory nested elsewhere
 under the harness tree; otherwise an apparently green run could leave an
 important screenshot outside the Git diff gate.
 
-When two renderers cannot produce byte-identical PNGs, keep strict profiles
-instead of adding a pixel threshold. Pass `baselineProfile: 'linux'`; the
+When renderers produce genuinely different pixels, keep separate profiles.
+Pass `baselineProfile: 'linux'`; the
 battery compares `__screenshots__/linux/` and exposes the same value to Vite
 as `VITE_VISUAL_BASELINE_PROFILE`. Screenshot helpers should include that
 optional directory in their path:

@@ -52,8 +52,12 @@ runs selected harnesses in direct child processes, requires at least one PNG,
 and asks Git for scoped status with argument arrays rather than shell commands.
 
 Update mode reports reviewed changes. CI mode also refuses a dirty starting
-state and fails on any resulting drift. Renderer-specific output belongs in an
-explicit profile directory rather than behind a permissive pixel threshold.
+state and fails on any resulting drift. Modified PNGs are decoded with pngjs;
+dimensions must match, and every pixel whose maximum RGBA channel delta exceeds
+`maxChannelDelta` (default 2) counts toward `maxDifferentPixelRatio` (default 0).
+Accepted renders are restored to committed bytes. New/deleted or unreadable
+baselines remain drift. Renderer-specific output belongs in a separate profile
+when the difference exceeds rasterization noise.
 
 ## Configuration philosophy
 

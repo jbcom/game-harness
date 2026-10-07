@@ -4,7 +4,7 @@ description: Release-grade browser QA primitives for TypeScript games.
 ---
 
 Game Harness turns a successful build into evidence: silent browser sessions,
-deterministic device tiers, byte-exact screenshots, production-runtime proof,
+deterministic device tiers, pixel-tolerant screenshot gates, production-runtime proof,
 and Lighthouse gates.
 
 It is intentionally a focused library rather than a test framework. Your game

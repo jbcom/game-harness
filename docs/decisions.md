@@ -6,6 +6,17 @@ description: Why the package is shaped the way it is, and how a predecessor harn
 Each entry records a decision, the reason for it, and what it means for a
 consumer. Newest first.
 
+## Pixel tolerance for screenshot baselines
+
+Byte equality is not stable across renders, even on the same machine. Decode
+modified PNGs with pngjs and compare the maximum absolute RGBA channel delta
+per pixel. `maxChannelDelta` defaults to 2 (out of 255), and
+`maxDifferentPixelRatio` defaults to 0: any pixel beyond that tolerance is
+drift. Dimension changes, new/deleted files, and unreadable PNGs remain drift.
+Noise-only files are restored to committed bytes, keeping the Git diff clean.
+Both thresholds are configurable; raising the ratio explicitly permits real
+changes and should be a deliberate consumer decision.
+
 ## Converging a predecessor `test-harness` package
 
 This entry compares the supported migration paths export by export so that

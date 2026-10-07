@@ -64,6 +64,13 @@ New in Game Harness: `activateSilentQaAsync` (`/silent-qa`),
 `VisualBatteryCommand` (`/visual-battery` and root) and
 `CHROMIUM_ANTI_THROTTLING_ARGS` (`/chromium`).
 
+Modified PNG baselines now use decoded RGBA comparisons instead of byte equality.
+`maxChannelDelta` defaults to 2 and `maxDifferentPixelRatio` to 0, so every
+pixel beyond ±2 is drift. Noise-only files are restored to committed bytes;
+dimensions and new/deleted files still fail. Use `maxChannelDelta: 0` for exact
+decoded pixels. CLI flags are `--max-channel-delta` and
+`--max-different-pixel-ratio`; see the visual-battery guide for their ranges.
+
 ## 3. Options
 
 Every option keeps its name and meaning:
@@ -79,7 +86,7 @@ Every option keeps its name and meaning:
 | `ProductionRuntimeServerOptions` | `command`, `args`, `cwd`, `env`, `readyUrl`, `startupTimeoutMs`, `shutdownTimeoutMs`                                                                                                |
 | `AvailableProductionPortOptions` | `host`                                                                                                                                                                              |
 | `ActivateSilentQaOptions`        | `search`, `queryParameter`, `markerTarget`, `markerAttribute`, `markerValue`                                                                                                        |
-| `VisualBatteryOptions`           | `ci`, `cwd`, `testCommand`, `baselinesDir`, `baselineProfile`, `isolatedHarnessFiles`, `log`, `error`                                                                               |
+| `VisualBatteryOptions`           | `ci`, `cwd`, `testCommand`, `baselinesDir`, `baselineProfile`, `isolatedHarnessFiles`, `maxChannelDelta`, `maxDifferentPixelRatio`, `log`, `error`                                  |
 | `LighthouseAssertionsOverrides`  | `staticDistDir`, `url`, `numberOfRuns`, `assertions`                                                                                                                                |
 | `ChromiumLaunchProfileOptions`   | `gpuMode`, `args`, `env`                                                                                                                                                            |
 | `VerifyReleaseLadderOptions`     | `log`, `error`                                                                                                                                                                      |

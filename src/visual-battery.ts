@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import spawn from 'cross-spawn';
+import { PNG } from 'pngjs';
+import which from 'which';
 
 export interface VisualBatteryCommand {
   /** Executable invoked directly, without a shell. */
@@ -11,6 +13,10 @@ export interface VisualBatteryCommand {
 }
 
 export interface VisualBatteryOptions {
+  /** Maximum absolute RGBA channel delta per pixel (0–255 integer). Defaults to 2. */
+  maxChannelDelta?: number;
+  /** Allowed fraction of pixels beyond the channel tolerance (0–1). Defaults to 0. */
+  maxDifferentPixelRatio?: number;
   /** CI mode: refuses to run with a dirty baseline dir, fails on drift instead of updating. */
   ci?: boolean;
   /** Repo root the git commands run relative to. Defaults to `process.cwd()`. */
@@ -27,8 +33,7 @@ export interface VisualBatteryOptions {
   /**
    * Optional platform/profile directory below the baseline root (for example
    * `linux`). The profile is also exposed to Vite browser tests as
-   * `VITE_VISUAL_BASELINE_PROFILE`, allowing byte-exact baselines to remain
-   * strict on renderers that cannot produce identical PNGs.
+   * `VITE_VISUAL_BASELINE_PROFILE`, keeping distinct renderer baselines separate.
    */
   baselineProfile?: string;
   /**
@@ -94,9 +99,9 @@ function canonicalizePath(target: string): string {
  *
  * Runs every `.browser.test.tsx` harness file under `harnessDir`, then
  * diffs the resulting `__screenshots__/*.png` baselines against what's
- * committed in git. No pixel-threshold fuzzing, no flaky perceptual
- * comparison — a screenshot either byte-matches the committed baseline
- * (via `git status --porcelain`) or it doesn't.
+ * committed in git. Modified PNGs tolerate RGBA channel deltas up to 2 by
+ * default; any pixel beyond that precise tolerance is drift. Noise-only
+ * renders are restored to committed bytes. New/deleted baselines always drift.
  *
  * - Update mode (`ci: false`, the default): runs the harnesses, lets new
  *   baselines land on disk, reports what changed so a human can review
@@ -119,12 +124,25 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
     isolatedHarnessFiles = [],
     log = defaultLog,
     error = defaultError,
+    maxChannelDelta = 2,
+    maxDifferentPixelRatio = 0,
   } = options;
 
   const die = (msg: string): never => {
     error(msg);
     throw new VisualBatteryError(msg);
   };
+
+  if (!Number.isInteger(maxChannelDelta) || maxChannelDelta < 0 || maxChannelDelta > 255) {
+    die('maxChannelDelta must be an integer between 0 and 255');
+  }
+  if (
+    !Number.isFinite(maxDifferentPixelRatio) ||
+    maxDifferentPixelRatio < 0 ||
+    maxDifferentPixelRatio > 1
+  ) {
+    die('maxDifferentPixelRatio must be between 0 and 1');
+  }
 
   const resolvedCwd = resolve(cwd);
   const canonicalCwd = (() => {
@@ -206,13 +224,27 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   log(`running ${harnessFiles.length} harness file(s):`);
   for (const f of harnessFiles) log(`  - ${f}`);
 
+  // Resolve the consumer's Git installation once, including PATHEXT on Windows.
+  // All Git subprocesses use the resulting absolute executable path.
+  const gitExecutable = (() => {
+    try {
+      return resolve(which.sync('git'));
+    } catch (err) {
+      return die(`git executable not found: ${err}`);
+    }
+  })();
+
   if (ci) {
     let beforeStatus = '';
     try {
-      beforeStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
-        cwd,
-        encoding: 'utf-8',
-      });
+      beforeStatus = execFileSync(
+        gitExecutable,
+        ['status', '--porcelain', '--', relativeBaselinesDir],
+        {
+          cwd,
+          encoding: 'utf-8',
+        },
+      );
     } catch (err) {
       die(`git status failed: ${err}`);
     }
@@ -279,13 +311,67 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
 
   let afterStatus = '';
   try {
-    afterStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
-      cwd,
-      encoding: 'utf-8',
-    });
+    afterStatus = execFileSync(
+      gitExecutable,
+      ['status', '--porcelain', '-z', '--untracked-files=all', '--', relativeBaselinesDir],
+      {
+        cwd,
+        encoding: 'utf-8',
+      },
+    );
   } catch (err) {
     die(`git status failed after harness run: ${err}`);
   }
+
+  const drift: string[] = [];
+  const entries = afterStatus.split('\0').filter(Boolean);
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index]!;
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+    // Renames/copies have a second NUL-delimited path; neither is noise.
+    if (/[RC]/.test(status)) index += 1;
+    if (status !== ' M' || !path.endsWith('.png')) {
+      drift.push(entry);
+      continue;
+    }
+    try {
+      const committed = PNG.sync.read(
+        execFileSync(gitExecutable, ['show', `HEAD:./${path}`], { cwd }),
+      );
+      const current = PNG.sync.read(readFileSync(resolve(cwd, path)));
+      if (committed.width !== current.width || committed.height !== current.height) {
+        drift.push(entry);
+        continue;
+      }
+      let changed = 0;
+      let beyond = 0;
+      for (let offset = 0; offset < current.data.length; offset += 4) {
+        const delta = Math.max(
+          Math.abs(current.data[offset]! - committed.data[offset]!),
+          Math.abs(current.data[offset + 1]! - committed.data[offset + 1]!),
+          Math.abs(current.data[offset + 2]! - committed.data[offset + 2]!),
+          Math.abs(current.data[offset + 3]! - committed.data[offset + 3]!),
+        );
+        if (delta > 0) changed += 1;
+        if (delta > maxChannelDelta) beyond += 1;
+      }
+      if (beyond / (current.width * current.height) > maxDifferentPixelRatio) {
+        drift.push(entry);
+        continue;
+      }
+      execFileSync(gitExecutable, ['checkout', '--', path], { cwd });
+      log(
+        beyond === 0
+          ? `${path}: rasterization noise (${changed} px within ±${maxChannelDelta})`
+          : `${path}: accepted pixel tolerance (${beyond} px beyond ±${maxChannelDelta})`,
+      );
+    } catch {
+      // Missing/unreadable committed PNGs or failed restoration must fail closed.
+      drift.push(entry);
+    }
+  }
+  afterStatus = drift.join('\n');
 
   if (afterStatus.trim().length === 0) {
     log('baselines clean — no visual drift detected.');

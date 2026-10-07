@@ -9,8 +9,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import spawn from 'cross-spawn';
+import which from 'which';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runVisualBattery, VisualBatteryError } from '../src/visual-battery.js';
 
@@ -20,6 +21,7 @@ vi.mock('node:child_process', () => ({
 vi.mock('cross-spawn', () => ({
   default: Object.assign(vi.fn(), { sync: vi.fn() }),
 }));
+vi.mock('which', () => ({ default: { sync: vi.fn(() => 'git') } }));
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedSpawnSync = vi.mocked(spawn.sync);
@@ -27,7 +29,7 @@ const noop = (): void => undefined;
 const quiet = { log: noop, error: noop };
 
 function commandLine(command: unknown, args: unknown): string {
-  return [String(command), ...(Array.isArray(args) ? args.map(String) : [])].join(' ');
+  return [basename(String(command)), ...(Array.isArray(args) ? args.map(String) : [])].join(' ');
 }
 
 describe('runVisualBattery', () => {
@@ -44,6 +46,7 @@ describe('runVisualBattery', () => {
     writeFileSync(join(harnessDir, 'foo.browser.test.tsx'), '// harness');
     writeFileSync(join(baselinesDir, 'foo.png'), 'fake-png-bytes');
     mockedExecFileSync.mockReset();
+    vi.mocked(which.sync).mockReset().mockReturnValue('git');
     mockedSpawnSync.mockReset();
     mockedSpawnSync.mockImplementation((command, args, options) => {
       try {
@@ -184,6 +187,27 @@ describe('runVisualBattery', () => {
     );
   });
 
+  it('fails closed when Git cannot be resolved', () => {
+    vi.mocked(which.sync).mockImplementation(() => {
+      throw new Error('not found');
+    });
+    expect(() => runVisualBattery('tests/harness', { cwd, ...quiet })).toThrow(
+      /git executable not found/,
+    );
+  });
+
+  it('uses the resolved Git executable path for status checks', () => {
+    const executable = resolve(cwd, 'tools/git');
+    vi.mocked(which.sync).mockReturnValue(executable);
+    mockedExecFileSync.mockReturnValue('');
+    runVisualBattery('tests/harness', { cwd, ci: true, ...quiet });
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      executable,
+      expect.arrayContaining(['status']),
+      expect.anything(),
+    );
+  });
+
   it('CI mode fails closed when the pre-run git status check itself fails', () => {
     mockedExecFileSync.mockImplementation((cmd, args) => {
       if (commandLine(cmd, args).startsWith('git status')) {
@@ -233,7 +257,7 @@ describe('runVisualBattery', () => {
     let ranCommand = '';
     mockedExecFileSync.mockImplementation((command, args) => {
       const commandText = commandLine(command, args);
-      if (command === 'git') return '';
+      if (basename(String(command)) === 'git') return '';
       ranCommand = commandText;
       return '';
     });
@@ -264,7 +288,7 @@ describe('runVisualBattery', () => {
     let executable = '';
     let invocationArgs: readonly string[] = [];
     mockedExecFileSync.mockImplementation((command, args) => {
-      if (command === 'git') return '';
+      if (basename(String(command)) === 'git') return '';
       executable = String(command);
       invocationArgs = args as string[];
       return '';
@@ -290,7 +314,7 @@ describe('runVisualBattery', () => {
   it('supports a direct command object without fixed arguments', () => {
     let invocationArgs: readonly string[] = [];
     mockedExecFileSync.mockImplementation((command, args) => {
-      if (command === 'git') return '';
+      if (basename(String(command)) === 'git') return '';
       invocationArgs = args as string[];
       return '';
     });
@@ -528,6 +552,18 @@ describe('runVisualBattery', () => {
     expect(() => runVisualBattery('tests/harness', { cwd, ci: true, ...quiet })).toThrow(/drift/i);
   });
 
+  it.each(['?? new.txt\0', ' M changed.txt\0', ' D deleted.png\0', 'R  renamed.png\0old.png\0'])(
+    'retains structural drift: %s',
+    (status) => {
+      let count = 0;
+      mockedExecFileSync.mockImplementation((command) => {
+        if (basename(String(command)) === 'git') return ++count === 1 ? '' : status;
+        return '';
+      });
+      expect(() => runVisualBattery('tests/harness', { cwd, ci: true, ...quiet })).toThrow(/drift/);
+    },
+  );
+
   it('does not throw in update mode when the run produces drift, just reports it', () => {
     mockedExecFileSync.mockImplementation((cmd, args) => {
       const cmdStr = commandLine(cmd, args);
@@ -575,7 +611,7 @@ describe('runVisualBattery', () => {
 
   it('fails closed when the post-run git status check fails', () => {
     mockedExecFileSync.mockImplementation((command) => {
-      if (command === 'git') throw new Error('repository unavailable');
+      if (basename(String(command)) === 'git') throw new Error('repository unavailable');
       return '';
     });
 

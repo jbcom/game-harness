@@ -8,7 +8,7 @@
 
 Release-grade browser QA primitives for TypeScript games. Game Harness turns a
 successful build into evidence: fresh silent browser sessions, deterministic
-device tiers, byte-exact screenshot gates, production-runtime assertions,
+device tiers, pixel-tolerant screenshot gates, production-runtime assertions,
 Lighthouse policy, and an ordered release ladder.
 
 It is intentionally a focused library rather than a test framework. Your game
@@ -24,7 +24,8 @@ and Vitest Browser Mode.
   commands use strict-port semantics, and production verification refuses an
   already-reachable readiness URL.
 - **Visual evidence that fails closed.** Screenshot baselines are scoped,
-  profile-aware, and checked through Git without fuzzy thresholds or shell
+  profile-aware, and checked against Git with bounded channel tolerance.
+  Every pixel beyond that tolerance fails by default; commands avoid shell
   interpolation.
 - **Real package boundaries.** Framework peers stay optional and isolated to
   subpath exports, with clean ESM, CommonJS, type, CLI, and install smoke tests.
@@ -377,6 +378,26 @@ server to bind with strict-port semantics so an external race fails closed.
 
 ## Visual battery contract
 
+Modified PNGs are decoded and compared pixel by pixel. `maxChannelDelta`
+(default 2, integer 0–255) tolerates that maximum RGBA channel delta.
+`maxDifferentPixelRatio` (default 0, range 0–1) limits the fraction of pixels
+beyond the channel tolerance: any such pixel fails by default. Dimension
+changes, new/deleted files, and unreadable PNGs always count as drift.
+Accepted renders are restored to committed bytes; noise-only files are logged
+as `rasterization noise (N px within ±2)`. The CI dirty-start check remains strict.
+Use `maxChannelDelta: 0` for exact decoded pixel equality. Raising the ratio
+deliberately permits pixels beyond the channel tolerance.
+
+```ts
+runVisualBattery('tests/harness', {
+  ci: true,
+  maxChannelDelta: 2,
+  maxDifferentPixelRatio: 0,
+});
+```
+
+The CLI exposes `--max-channel-delta 2` and `--max-different-pixel-ratio 0`.
+
 Run the default harness directory in update mode, or enforce committed
 baselines in CI:
 
@@ -397,8 +418,8 @@ battery rejects any second `__screenshots__` directory nested elsewhere under
 the harness tree; otherwise an apparently green run could leave an important
 screenshot outside the Git diff gate.
 
-When two renderers cannot produce byte-identical PNGs, keep strict profiles
-instead of adding a pixel threshold. Pass `baselineProfile: 'linux'`; the
+When renderers produce genuinely different pixels, keep separate profiles.
+Pass `baselineProfile: 'linux'`; the
 battery compares `__screenshots__/linux/` and exposes the same value to Vite as
 `VITE_VISUAL_BASELINE_PROFILE`. Screenshot helpers should include that optional
 directory in their path:
