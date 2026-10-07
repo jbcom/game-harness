@@ -24,8 +24,8 @@ newer is required.
 
 Only the package name changes. Every subpath and named export is the same.
 
-| Before                                     | After                             |
-| ------------------------------------------ | --------------------------------- |
+| Before                                        | After                             |
+| --------------------------------------------- | --------------------------------- |
 | `@your-scope/test-harness`                    | `game-harness`                    |
 | `@your-scope/test-harness/vitest`             | `game-harness/vitest`             |
 | `@your-scope/test-harness/playwright`         | `game-harness/playwright`         |
