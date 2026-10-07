@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'n
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import spawn from 'cross-spawn';
 import { PNG } from 'pngjs';
+import which from 'which';
 
 export interface VisualBatteryCommand {
   /** Executable invoked directly, without a shell. */
@@ -223,13 +224,27 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   log(`running ${harnessFiles.length} harness file(s):`);
   for (const f of harnessFiles) log(`  - ${f}`);
 
+  // Resolve the consumer's Git installation once, including PATHEXT on Windows.
+  // All Git subprocesses use the resulting absolute executable path.
+  const gitExecutable = (() => {
+    try {
+      return resolve(which.sync('git'));
+    } catch (err) {
+      return die(`git executable not found: ${err}`);
+    }
+  })();
+
   if (ci) {
     let beforeStatus = '';
     try {
-      beforeStatus = execFileSync('git', ['status', '--porcelain', '--', relativeBaselinesDir], {
-        cwd,
-        encoding: 'utf-8',
-      });
+      beforeStatus = execFileSync(
+        gitExecutable,
+        ['status', '--porcelain', '--', relativeBaselinesDir],
+        {
+          cwd,
+          encoding: 'utf-8',
+        },
+      );
     } catch (err) {
       die(`git status failed: ${err}`);
     }
@@ -297,7 +312,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
   let afterStatus = '';
   try {
     afterStatus = execFileSync(
-      'git',
+      gitExecutable,
       ['status', '--porcelain', '-z', '--untracked-files=all', '--', relativeBaselinesDir],
       {
         cwd,
@@ -321,7 +336,9 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
       continue;
     }
     try {
-      const committed = PNG.sync.read(execFileSync('git', ['show', `HEAD:./${path}`], { cwd }));
+      const committed = PNG.sync.read(
+        execFileSync(gitExecutable, ['show', `HEAD:./${path}`], { cwd }),
+      );
       const current = PNG.sync.read(readFileSync(resolve(cwd, path)));
       if (committed.width !== current.width || committed.height !== current.height) {
         drift.push(entry);
@@ -331,9 +348,10 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
       let beyond = 0;
       for (let offset = 0; offset < current.data.length; offset += 4) {
         const delta = Math.max(
-          ...[0, 1, 2, 3].map((channel) =>
-            Math.abs(current.data[offset + channel]! - committed.data[offset + channel]!),
-          ),
+          Math.abs(current.data[offset]! - committed.data[offset]!),
+          Math.abs(current.data[offset + 1]! - committed.data[offset + 1]!),
+          Math.abs(current.data[offset + 2]! - committed.data[offset + 2]!),
+          Math.abs(current.data[offset + 3]! - committed.data[offset + 3]!),
         );
         if (delta > 0) changed += 1;
         if (delta > maxChannelDelta) beyond += 1;
@@ -342,7 +360,7 @@ export function runVisualBattery(harnessDir: string, options: VisualBatteryOptio
         drift.push(entry);
         continue;
       }
-      execFileSync('git', ['checkout', '--', path], { cwd });
+      execFileSync(gitExecutable, ['checkout', '--', path], { cwd });
       log(
         beyond === 0
           ? `${path}: rasterization noise (${changed} px within ±${maxChannelDelta})`

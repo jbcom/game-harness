@@ -24,7 +24,8 @@ and Vitest Browser Mode.
   commands use strict-port semantics, and production verification refuses an
   already-reachable readiness URL.
 - **Visual evidence that fails closed.** Screenshot baselines are scoped,
-  profile-aware, and checked through Git without fuzzy thresholds or shell
+  profile-aware, and checked against Git with bounded channel tolerance.
+  Every pixel beyond that tolerance fails by default; commands avoid shell
   interpolation.
 - **Real package boundaries.** Framework peers stay optional and isolated to
   subpath exports, with clean ESM, CommonJS, type, CLI, and install smoke tests.

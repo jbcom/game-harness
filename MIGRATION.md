@@ -61,15 +61,15 @@ the package under.
 | `/visual-battery`     | `runVisualBattery`, `VisualBatteryError`, `VisualBatteryOptions`                                                                                                                                                                                                                                                      |
 
 New in Game Harness: `activateSilentQaAsync` (`/silent-qa`),
+`VisualBatteryCommand` (`/visual-battery` and root) and
+`CHROMIUM_ANTI_THROTTLING_ARGS` (`/chromium`).
+
 Modified PNG baselines now use decoded RGBA comparisons instead of byte equality.
 `maxChannelDelta` defaults to 2 and `maxDifferentPixelRatio` to 0, so every
 pixel beyond ±2 is drift. Noise-only files are restored to committed bytes;
 dimensions and new/deleted files still fail. Use `maxChannelDelta: 0` for exact
 decoded pixels. CLI flags are `--max-channel-delta` and
 `--max-different-pixel-ratio`; see the visual-battery guide for their ranges.
-
-`VisualBatteryCommand` (`/visual-battery` and root) and
-`CHROMIUM_ANTI_THROTTLING_ARGS` (`/chromium`).
 
 ## 3. Options
 
