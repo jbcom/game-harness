@@ -57,23 +57,28 @@ function waitForDevToolsUrl(child: ChildProcess): Promise<string> {
   });
 }
 
+export function rawChromiumArgs(args: readonly string[], userDataDir: string): string[] {
+  return [
+    ...args.filter((arg) => arg !== '--mute-audio'),
+    // Hosted Linux runners restrict the user namespaces Chromium's sandbox
+    // needs; Playwright disables the sandbox there for the same reason.
+    ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
+    '--remote-debugging-port=0',
+    `--user-data-dir=${userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    'about:blank',
+    // Chromium accepts switches after a URL; keep the silence guard last
+    // among all arguments, including any switches added by this helper.
+    '--mute-audio',
+  ];
+}
+
 export async function launchRawChromium(args: readonly string[]): Promise<RawChromium> {
   const userDataDir = mkdtempSync(join(tmpdir(), 'game-harness-chromium-'));
-  const child = spawn(
-    chromium.executablePath(),
-    [
-      ...args,
-      // Hosted Linux runners restrict the user namespaces Chromium's sandbox
-      // needs; Playwright disables the sandbox there for the same reason.
-      ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
-      '--remote-debugging-port=0',
-      `--user-data-dir=${userDataDir}`,
-      '--no-first-run',
-      '--no-default-browser-check',
-      'about:blank',
-    ],
-    { stdio: ['ignore', 'ignore', 'pipe'] },
-  );
+  const child = spawn(chromium.executablePath(), rawChromiumArgs(args, userDataDir), {
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
   const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
 
   const removeProfile = async (): Promise<void> => {
