@@ -31,7 +31,7 @@ Commits by release-please.
 * harden release proof and production runtime verification ([#9](https://github.com/jbcom/game-harness/issues/9)) ([b0b8659](https://github.com/jbcom/game-harness/commit/b0b8659cb78c0faeaf3ceb6f72a770fd43894fe3))
 * **persistence:** align Capacitor 8.5 and release contracts ([#41](https://github.com/jbcom/game-harness/issues/41)) ([f49f6bf](https://github.com/jbcom/game-harness/commit/f49f6bf1b2ec340a980d5f791de19827afa14598))
 * publish game-harness as a production-ready OSS package ([02e50b1](https://github.com/jbcom/game-harness/commit/02e50b1567700e7873c627977233fd4ed76eb6bd))
-* **test-harness:** extract vitest-browser+playwright+visual-battery harness to @arcade-cabinet/test-harness ([#1](https://github.com/jbcom/game-harness/issues/1)) ([1609226](https://github.com/jbcom/game-harness/commit/1609226b0f6e464abf0ca2e6cea51bf7e18dcac2))
+* **test-harness:** add Vitest Browser Mode, Playwright, and visual-battery utilities ([#1](https://github.com/jbcom/game-harness/issues/1)) ([1609226](https://github.com/jbcom/game-harness/commit/1609226b0f6e464abf0ca2e6cea51bf7e18dcac2))
 * **test-harness:** isolate concurrent Playwright ports ([5703743](https://github.com/jbcom/game-harness/commit/57037437427c03247142e1c81ee5c09fe87733d8))
 * **test-harness:** share silent QA runtime adapter ([#15](https://github.com/jbcom/game-harness/issues/15)) ([78f1b23](https://github.com/jbcom/game-harness/commit/78f1b233ea705b58ca1f2b9f309eb9810d791dab))
 * **test-harness:** standardize headed hardware WebGL proof ([#12](https://github.com/jbcom/game-harness/issues/12)) ([ebd1eca](https://github.com/jbcom/game-harness/commit/ebd1ecaac9e606d63d7a4f4cfdb2315390fedc6a))
@@ -62,8 +62,7 @@ Commits by release-please.
 
 ### Added
 
-- Initial standalone public package extracted from the production browser-game
-  verification harness.
+- Initial standalone public package for browser-game verification.
 - Peer-isolated Playwright and Vitest Browser Mode configuration entry points.
 - Fail-closed silent-QA, production-runtime, visual-regression, Lighthouse, and
   release-ladder primitives.

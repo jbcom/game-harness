@@ -8,10 +8,8 @@ consumer. Newest first.
 
 ## Converging a predecessor `test-harness` package
 
-Game Harness began as an extraction of a private, scoped package published as
-`@your-scope/test-harness`. Both lines kept shipping for a while, so this entry
-compares them export by export and records what was folded into Game Harness
-so that every consumer of the predecessor can move here. The step-by-step
+This entry compares the supported migration paths export by export so that
+consumers of an earlier `test-harness` package can move to Game Harness. The step-by-step
 consumer mapping is in [MIGRATION.md](https://github.com/jbcom/game-harness/blob/main/MIGRATION.md).
 
 **Decision:** Game Harness is the one canonical harness. Where both packages
