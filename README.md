@@ -526,7 +526,9 @@ An agent integrating this package should read [AGENTS.md](AGENTS.md) first;
 
 ## Development
 
-Use Node.js 22, 24 or 26 and the package's declared pnpm version. With
+Use Node.js 22, 24 or 26, npm 11 for packed-consumer verification, and the
+package's declared pnpm version. On Node 22, install npm 11 with
+`npm install --global npm@11` to avoid npm 10's optional-peer resolver crash. With
 [mise](https://mise.jdx.dev) (recommended — it also reads `.nvmrc` and keeps
 pnpm current via `mise.toml`):
 

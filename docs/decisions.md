@@ -15,6 +15,11 @@ and documentation jobs use `lts/*`. No hook or script requires an exact patch.
 This policy covers maintained lines rather than every historical patch, and
 does not change runtime behavior or the public API.
 
+Packed-consumer verification uses npm 11 on every CI verification leg. The
+Node 22 bundled npm 10.9.9 crashes in its optional-peer resolver (`edgesOut`)
+when installing the Vitest consumer; npm 11 handles the same tarball and peer
+set. This is verification tooling, not an additional runtime requirement.
+
 ## Pixel tolerance for screenshot baselines
 
 Byte equality is not stable across renders, even on the same machine. Decode
