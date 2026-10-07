@@ -40,7 +40,7 @@ Only the package name changes. Every subpath and named export is the same.
 A single search and replace of the specifier prefix is enough:
 
 ```sh
-git grep -l '@your-scope/test-harness' | xargs perl -pi -e 's#\@your-scope/test-harness#game-harness#g'
+git grep -lz '@your-scope/test-harness' | xargs -0 perl -pi -e 's#\@your-scope/test-harness#game-harness#g'
 ```
 
 Replace `your-scope` in these commands with the scope your project installed
