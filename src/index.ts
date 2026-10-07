@@ -11,6 +11,7 @@ export {
 } from './release-ladder.js';
 export {
   runVisualBattery,
+  type VisualBatteryCommand,
   VisualBatteryError,
   type VisualBatteryOptions,
 } from './visual-battery.js';
