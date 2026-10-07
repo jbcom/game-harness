@@ -4,6 +4,23 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.1.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.0.0...game-harness-v1.1.0) (2026-10-07)
+
+
+### Features
+
+* accept Vitest 5 as a peer alongside Vitest 4 ([5d7a86c](https://github.com/jbcom/game-harness/commit/5d7a86c9e0b393e5e00818f89b03160cdd2c7370))
+* **chromium:** keep background and occluded windows on schedule ([ba72078](https://github.com/jbcom/game-harness/commit/ba72078f8d3af5151d63e331eb84253213ac3a08))
+* converge test-harness into game-harness and keep background windows on schedule ([b5295f9](https://github.com/jbcom/game-harness/commit/b5295f9c6fa421198e171b95358f19459a6f5f99))
+* export VisualBatteryCommand from the package root ([ca6dd88](https://github.com/jbcom/game-harness/commit/ca6dd884935bd91ae811168a88e5a8bbbda0629c))
+
+
+### Bug Fixes
+
+* harden release package install ([c74160d](https://github.com/jbcom/game-harness/commit/c74160dc78d43811c94c8249fae40ab9e6bb8632))
+* publish releases from cd workflow ([f6f3b3e](https://github.com/jbcom/game-harness/commit/f6f3b3e5ac1ab8cf3670fb47cb98523f1ce4d1be))
+* publish releases from cd workflow ([c7560ac](https://github.com/jbcom/game-harness/commit/c7560ac921b20ef706f761c14955088bfd07a7f7))
+
 ## [1.0.0](https://github.com/jbcom/game-harness/compare/game-harness-v0.5.0...game-harness-v1.0.0) (2026-08-24)
 
 
