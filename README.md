@@ -41,7 +41,7 @@ and Vitest Browser Mode.
 `@jbdevprimary/game-harness` package is a personal-user scope and is being
 retired; update existing dependency declarations and imports to `game-harness`.
 
-Node 22 or newer is required. Install the package plus only the peer family for
+Node.js 22, 24 and 26 are supported. Install the package plus only the peer family for
 the integration you use:
 
 ```sh
@@ -123,11 +123,11 @@ framework entry point it imports. A Playwright-only game, for example, installs
 
 ## Current release matrix
 
-`engines.node` declares `>=22`, the earliest Node LTS line still actively
-supported. CI pins the primary gate to the version in `.nvmrc` (currently
-24.19.0, the latest Node 24 LTS patch) and additionally runs the full test
-and build suite against Node 22 on Linux to prove the floor of that range,
-alongside macOS and Windows portability on the pinned version. The current
+`engines.node` declares `>=22`. Supported maintained lines are Node.js 22,
+24 and 26; CI runs the full verification and packed-consumer smoke on each
+line on Linux, plus Node 26 portability on macOS and Windows. `.nvmrc`
+selects major 26 without requiring an exact patch. This is a maintained-line
+policy, not a promise about every historical patch. The current
 conformance matrix is Playwright 1.62.1 and Vitest Browser 4.1.10 and 5.0.3.
 Package-boundary consumers run with a credential-free home directory and npm
 configuration, install only the peer family needed by each entry point, and
@@ -313,7 +313,7 @@ Keep `reuseExistingServer` false for release evidence and assert the game
 identity before exercising a journey. A process from another repository on a
 familiar port must never be accepted as proof.
 
-Before publishing, run `pnpm verify` under the pinned release toolchain. The
+Before publishing, run `pnpm verify` under a supported Node line. The
 package verifier uses npm 11.17.0 directly from the package directory, packs a
 tarball, and installs it into credential-free temporary consumers for the
 peer-free root, Playwright/production-runtime, and Vitest Browser boundaries.
@@ -526,7 +526,9 @@ An agent integrating this package should read [AGENTS.md](AGENTS.md) first;
 
 ## Development
 
-Use the pinned Node and pnpm versions so the local gate matches CI. With
+Use Node.js 22, 24 or 26, npm 11 for packed-consumer verification, and the
+package's declared pnpm version. On Node 22, install npm 11 with
+`npm install --global npm@11` to avoid npm 10's optional-peer resolver crash. With
 [mise](https://mise.jdx.dev) (recommended — it also reads `.nvmrc` and keeps
 pnpm current via `mise.toml`):
 

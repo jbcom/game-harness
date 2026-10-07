@@ -3,7 +3,7 @@ title: Getting started
 description: Install Game Harness and pick the entry points your game needs.
 ---
 
-Node 22 or newer is required. Install the package plus only the peer family
+Node.js 22, 24 and 26 are supported. Install the package plus only the peer family
 for the integration you use:
 
 ```sh
@@ -26,11 +26,11 @@ the framework entry point it imports — a Playwright-only game installs
 
 ## Current release matrix
 
-`engines.node` declares `>=22`, the earliest Node LTS line still actively
-supported. CI pins the primary gate to the version in `.nvmrc` (currently
-24.19.0, the latest Node 24 LTS patch) and additionally runs the full test
-and build suite against Node 22 on Linux to prove the floor of that range,
-alongside macOS and Windows portability on the pinned version. The current
+`engines.node` declares `>=22`. Supported maintained lines are Node.js 22,
+24 and 26; CI runs the full verification and packed-consumer smoke on each
+line on Linux, plus Node 26 portability on macOS and Windows. `.nvmrc`
+selects major 26 without requiring an exact patch. This is a maintained-line
+policy, not a promise about every historical patch. The current
 conformance matrix is Playwright 1.62.1 and Vitest Browser 4.1.10 and 5.0.3.
 Package-boundary consumers run with a credential-free home directory and npm
 configuration, install only the peer family needed by each entry point, and
