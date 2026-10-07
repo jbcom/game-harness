@@ -33,7 +33,8 @@ pnpm exec playwright install chromium
 pnpm add -D game-harness
 ```
 
-Node 22 or newer is required.
+Node.js 22, 24 and 26 are supported (`engines.node: >=22`). This maintained-line
+policy does not require equality to a patch release.
 
 ### Entry points
 
@@ -105,8 +106,9 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-`mise.toml` is local-only. CI reads the Node version from `.nvmrc` and the
-pnpm version from `package.json`'s `packageManager` field via the official
+`mise.toml` is local-only. CI verifies Node majors 22, 24 and 26; `.nvmrc`
+selects major 26 for local development. Release and docs jobs select `lts/*`.
+CI reads the pnpm version from `package.json`'s `packageManager` field via the official
 `actions/setup-node` and `pnpm/action-setup` actions — never edit a
 hardcoded version string into a workflow file.
 

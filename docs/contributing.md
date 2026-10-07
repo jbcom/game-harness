@@ -3,7 +3,8 @@ title: Contributing
 description: Development, validation, and pull-request expectations.
 ---
 
-Game Harness uses pnpm and Node from `.nvmrc` (Node 22 or newer).
+Game Harness uses pnpm and supports Node.js 22, 24 and 26. `.nvmrc` selects
+major 26 for local development; no exact patch is required.
 
 ```sh
 mise install # or: nvm use && corepack enable

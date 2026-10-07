@@ -6,6 +6,15 @@ description: Why the package is shaped the way it is, and how a predecessor harn
 Each entry records a decision, the reason for it, and what it means for a
 consumer. Newest first.
 
+## Maintained Node lines
+
+Keep `engines.node: >=22`: Node.js 22, 24 and 26 are the supported maintained
+lines. Linux CI runs full verification and packed-consumer smoke on all three;
+local verification covers Node 22 and 26. `.nvmrc` selects major 26, and release
+and documentation jobs use `lts/*`. No hook or script requires an exact patch.
+This policy covers maintained lines rather than every historical patch, and
+does not change runtime behavior or the public API.
+
 ## Pixel tolerance for screenshot baselines
 
 Byte equality is not stable across renders, even on the same machine. Decode
