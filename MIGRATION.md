@@ -1,7 +1,7 @@
 # Migrating from a scoped `test-harness` package
 
 Game Harness grew out of a scoped package published privately as
-`@<scope>/test-harness`. Every capability of that package now lives here, under
+`@your-scope/test-harness`. Every capability of that package now lives here, under
 the same export names and subpaths. This guide maps each import, option and
 binary, and lists the few places where Game Harness is stricter. The reasoning
 behind each difference is in [docs/decisions.md](docs/decisions.md).
@@ -9,7 +9,7 @@ behind each difference is in [docs/decisions.md](docs/decisions.md).
 ## 1. Swap the dependency
 
 ```sh
-pnpm remove @<scope>/test-harness
+pnpm remove @your-scope/test-harness
 pnpm add -D game-harness
 ```
 
@@ -26,22 +26,25 @@ Only the package name changes. Every subpath and named export is the same.
 
 | Before                                     | After                             |
 | ------------------------------------------ | --------------------------------- |
-| `@<scope>/test-harness`                    | `game-harness`                    |
-| `@<scope>/test-harness/vitest`             | `game-harness/vitest`             |
-| `@<scope>/test-harness/playwright`         | `game-harness/playwright`         |
-| `@<scope>/test-harness/silent-qa`          | `game-harness/silent-qa`          |
-| `@<scope>/test-harness/production-runtime` | `game-harness/production-runtime` |
-| `@<scope>/test-harness/chromium`           | `game-harness/chromium`           |
-| `@<scope>/test-harness/lighthouse`         | `game-harness/lighthouse`         |
-| `@<scope>/test-harness/release-ladder`     | `game-harness/release-ladder`     |
-| `@<scope>/test-harness/visual-battery`     | `game-harness/visual-battery`     |
-| `@<scope>/test-harness/package.json`       | `game-harness/package.json`       |
+| `@your-scope/test-harness`                    | `game-harness`                    |
+| `@your-scope/test-harness/vitest`             | `game-harness/vitest`             |
+| `@your-scope/test-harness/playwright`         | `game-harness/playwright`         |
+| `@your-scope/test-harness/silent-qa`          | `game-harness/silent-qa`          |
+| `@your-scope/test-harness/production-runtime` | `game-harness/production-runtime` |
+| `@your-scope/test-harness/chromium`           | `game-harness/chromium`           |
+| `@your-scope/test-harness/lighthouse`         | `game-harness/lighthouse`         |
+| `@your-scope/test-harness/release-ladder`     | `game-harness/release-ladder`     |
+| `@your-scope/test-harness/visual-battery`     | `game-harness/visual-battery`     |
+| `@your-scope/test-harness/package.json`       | `game-harness/package.json`       |
 
 A single search and replace of the specifier prefix is enough:
 
 ```sh
-git grep -l '@<scope>/test-harness' | xargs perl -pi -e 's#\@<scope>/test-harness#game-harness#g'
+git grep -l '@your-scope/test-harness' | xargs perl -pi -e 's#\@your-scope/test-harness#game-harness#g'
 ```
+
+Replace `your-scope` in these commands with the scope your project installed
+the package under.
 
 ### Export by export
 
