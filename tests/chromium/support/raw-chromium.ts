@@ -124,6 +124,23 @@ export async function launchRawChromium(args: readonly string[]): Promise<RawChr
     async openTab(url) {
       const { targetId } = await send('Target.createTarget', { url });
       const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
+      // A freshly created target may not have a JavaScript context yet on a
+      // slow host; wait until its document has loaded before handing it out.
+      const deadline = Date.now() + LAUNCH_TIMEOUT_MS;
+      for (;;) {
+        try {
+          const response = await send(
+            'Runtime.evaluate',
+            { expression: 'document.readyState', returnByValue: true },
+            String(sessionId),
+          );
+          if ((response.result as { value?: unknown }).value === 'complete') break;
+        } catch (error) {
+          if (!/execution context/u.test(String(error)) || Date.now() > deadline) throw error;
+        }
+        if (Date.now() > deadline) throw new Error(`tab did not finish loading: ${url}`);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
       return String(sessionId);
     },
     async openForegroundTab(url) {
