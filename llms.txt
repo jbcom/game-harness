@@ -23,6 +23,7 @@ agent-oriented quick reference before writing code against this package.
 - [Visual battery guide](https://jonbogaty.com/game-harness/guides/visual-battery/): Deterministic screenshot baseline orchestration.
 - [Lighthouse presets & release ladder guide](https://jonbogaty.com/game-harness/guides/lighthouse-and-release-ladder/): CI Lighthouse assertions and the release-step orchestrator.
 - [Architecture reference](https://jonbogaty.com/game-harness/reference/architecture/): Module boundaries, runtime evidence flow, build/distribution guarantees.
+- [Decisions reference](https://jonbogaty.com/game-harness/decisions/): Migration and compatibility decisions and their rationale.
 - [Troubleshooting reference](https://jonbogaty.com/game-harness/reference/troubleshooting/): Common failure modes and releases/support.
 
 ## Optional
