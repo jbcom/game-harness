@@ -1,17 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { createChromiumLaunchProfile } from '../src/chromium-launch.js';
+import {
+  CHROMIUM_ANTI_THROTTLING_ARGS,
+  createChromiumLaunchProfile,
+} from '../src/chromium-launch.js';
 
 describe('createChromiumLaunchProfile', () => {
-  it('defaults to native renderer selection and silent output', () => {
-    expect(createChromiumLaunchProfile()).toEqual({ args: ['--mute-audio'] });
+  it('defaults to native renderer selection, background scheduling and silent output', () => {
+    expect(createChromiumLaunchProfile()).toEqual({
+      args: [
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
+        '--mute-audio',
+      ],
+    });
   });
 
-  it('de-duplicates args and keeps mute last', () => {
+  it('keeps the anti-throttling switches in every gpu mode', () => {
+    for (const gpuMode of ['auto', 'software', 'linux-hardware-vulkan'] as const) {
+      expect(createChromiumLaunchProfile({ gpuMode }).args).toEqual(
+        expect.arrayContaining([...CHROMIUM_ANTI_THROTTLING_ARGS]),
+      );
+    }
+  });
+
+  it('exposes the anti-throttling switches as an immutable list', () => {
+    expect(Object.isFrozen(CHROMIUM_ANTI_THROTTLING_ARGS)).toBe(true);
+  });
+
+  it('de-duplicates args, including repeated anti-throttling switches, and keeps mute last', () => {
     expect(
       createChromiumLaunchProfile({
-        args: ['--custom', '--mute-audio', '--custom'],
+        args: ['--custom', '--mute-audio', '--custom', '--disable-renderer-backgrounding'],
       }).args,
-    ).toEqual(['--custom', '--mute-audio']);
+    ).toEqual([...CHROMIUM_ANTI_THROTTLING_ARGS, '--custom', '--mute-audio']);
   });
 
   it('preserves explicit environment values in the Linux hardware profile', () => {
@@ -38,7 +60,13 @@ describe('createChromiumLaunchProfile', () => {
 
   it('omits env entirely when no environment overrides and no hardware profile are requested', () => {
     expect(createChromiumLaunchProfile({ gpuMode: 'software' })).toEqual({
-      args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist', '--mute-audio'],
+      args: [
+        '--use-gl=swiftshader',
+        '--enable-webgl',
+        '--ignore-gpu-blocklist',
+        ...CHROMIUM_ANTI_THROTTLING_ARGS,
+        '--mute-audio',
+      ],
     });
   });
 });

@@ -27,6 +27,33 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      # `verify` already ran the package-boundary smoke against the oldest
+      # supported Vitest (4.1.10); prove the newest supported major as well.
+      - name: Read development Vitest version
+        run: node -e "const fs = require('node:fs'); const pkg = require('./package.json'); fs.appendFileSync(process.env.GITHUB_ENV, 'GAME_HARNESS_CONSUMER_VITEST=' + pkg.devDependencies.vitest + '\n');"
+      - name: Package boundaries with Vitest 5
+        run: pnpm run test:package
+
+  chromium:
+    # Real headed Chromium checks of the launch profile (background-tab
+    # timer scheduling). Kept out of `pnpm verify` so publishing never
+    # depends on a browser download or a display.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: xvfb-run -a pnpm test:chromium
 
   docs-site:
     runs-on: ubuntu-24.04

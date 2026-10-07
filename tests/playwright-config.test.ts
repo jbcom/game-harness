@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CHROMIUM_ANTI_THROTTLING_ARGS } from '../src/chromium-launch.js';
 import { definePlaywrightConfig, resolvePlaywrightPort } from '../src/playwright-config.js';
 
 const ENV_KEYS = [
@@ -251,18 +252,18 @@ describe('definePlaywrightConfig', () => {
   });
 
   it('respects a custom basePath', () => {
-    const config = definePlaywrightConfig({ port: 4173, basePath: '/kuroga/' });
-    expect(config.use?.baseURL).toBe('http://127.0.0.1:4173/kuroga/');
+    const config = definePlaywrightConfig({ port: 4173, basePath: '/example-game/' });
+    expect(config.use?.baseURL).toBe('http://127.0.0.1:4173/example-game/');
   });
 
   it('normalizes a base path for reliable relative navigation', () => {
-    expect(definePlaywrightConfig({ basePath: 'kuroga' }).use?.baseURL).toBe(
-      'http://127.0.0.1:4173/kuroga/',
+    expect(definePlaywrightConfig({ basePath: 'example-game' }).use?.baseURL).toBe(
+      'http://127.0.0.1:4173/example-game/',
     );
     expect(definePlaywrightConfig({ basePath: '  ' }).use?.baseURL).toBe('http://127.0.0.1:4173/');
     expect(definePlaywrightConfig({ basePath: '///' }).use?.baseURL).toBe('http://127.0.0.1:4173/');
-    expect(definePlaywrightConfig({ basePath: '//games//kuroga//' }).use?.baseURL).toBe(
-      'http://127.0.0.1:4173/games/kuroga/',
+    expect(definePlaywrightConfig({ basePath: '//games//example-game//' }).use?.baseURL).toBe(
+      'http://127.0.0.1:4173/games/example-game/',
     );
   });
 
@@ -343,6 +344,7 @@ describe('definePlaywrightConfig', () => {
           '--use-gl=angle',
           '--use-angle=vulkan',
           '--ignore-gpu-blocklist',
+          ...CHROMIUM_ANTI_THROTTLING_ARGS,
           '--mute-audio',
         ],
         env: expect.objectContaining({ EGL_PLATFORM: 'surfaceless' }),
@@ -366,8 +368,13 @@ describe('definePlaywrightConfig', () => {
       },
     });
 
-    expect(config.use?.launchOptions?.args).toEqual(['--use-angle=swiftshader', '--mute-audio']);
+    expect(config.use?.launchOptions?.args).toEqual([
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
+      '--use-angle=swiftshader',
+      '--mute-audio',
+    ]);
     expect(config.projects?.[0]?.use?.launchOptions?.args).toEqual([
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
       '--use-angle=swiftshader',
       '--enable-unsafe-webgpu',
       '--mute-audio',

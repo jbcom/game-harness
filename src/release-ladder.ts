@@ -29,7 +29,7 @@ export interface VerifyReleaseLadderOptions {
  * screenshots → native sync, or whatever a given repo's ladder is), run in
  * sequence and stopped at the first failure with a labeled summary.
  *
- * Generalizes the reach-for-the-sky pattern of ~17 discrete
+ * Generalizes the common pattern of many discrete
  * `node scripts/verify-X.mjs` files composed via a shell `&&` chain into a
  * single reusable primitive: each step is a plain function (sync or async),
  * so a repo can inline its logic or delegate to existing scripts via

@@ -4,6 +4,13 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: check-yaml
+        exclude: ^(pnpm-lock\.yaml|maestro/.*\.ya?ml)$
+      # Two formats are multi-document by design: pnpm 12's lockfile (environment, then packages) and
+      # Maestro flows (config, then commands). Only they may hold more than one document.
+      - id: check-yaml
+        name: check yaml (multi-document formats)
+        files: ^(pnpm-lock\.yaml|maestro/.*\.ya?ml)$
+        args: [--allow-multiple-documents]
       - id: check-json
       - id: check-toml
       - id: detect-private-key

@@ -18,12 +18,12 @@ import { openSilentGame, silentTestUrl } from '../src/playwright-config.js';
 describe('silent browser QA', () => {
   it('adds the mute mode while preserving and overriding query values', () => {
     expect(
-      silentTestUrl('/chonkers/?muted=0&seed=old#boss', {
+      silentTestUrl('/example-game/?muted=0&seed=old#boss', {
         seed: 'new',
         passAndPlay: true,
         players: 2,
       }),
-    ).toBe('/chonkers/?muted=1&seed=new&passAndPlay=true&players=2#boss');
+    ).toBe('/example-game/?muted=1&seed=new&passAndPlay=true&players=2#boss');
   });
 
   it('supports absolute URLs and custom legacy mute query names', () => {
@@ -44,10 +44,13 @@ describe('silent browser QA', () => {
       locator: vi.fn().mockReturnValue(locator),
     } as unknown as Page;
 
-    await expect(openSilentGame(page, '/chonkers/#play', { scenario: 'new-game' })).resolves.toBe(
-      response,
+    await expect(
+      openSilentGame(page, '/example-game/#play', { scenario: 'new-game' }),
+    ).resolves.toBe(response);
+    expect(page.goto).toHaveBeenCalledWith(
+      '/example-game/?scenario=new-game&muted=1#play',
+      undefined,
     );
-    expect(page.goto).toHaveBeenCalledWith('/chonkers/?scenario=new-game&muted=1#play', undefined);
     expect(page.locator).toHaveBeenCalledWith('html');
     expect(playwrightMocks.toHaveAttribute).toHaveBeenCalledWith('data-audio-mode', 'muted-test', {
       timeout: 5_000,
@@ -88,10 +91,10 @@ describe('silent browser QA', () => {
       locator: vi.fn().mockReturnValue({}),
     } as unknown as Page;
 
-    await openSilentGame(page, '/chonkers/', {}, { muteQueryParameter: 'silent' });
-    expect(page.goto).toHaveBeenCalledWith('/chonkers/?silent=1', undefined);
+    await openSilentGame(page, '/example-game/', {}, { muteQueryParameter: 'silent' });
+    expect(page.goto).toHaveBeenCalledWith('/example-game/?silent=1', undefined);
 
-    await openSilentGame(page, '/chonkers/', {}, { muteQueryValue: 'yes' });
-    expect(page.goto).toHaveBeenCalledWith('/chonkers/?muted=yes', undefined);
+    await openSilentGame(page, '/example-game/', {}, { muteQueryValue: 'yes' });
+    expect(page.goto).toHaveBeenCalledWith('/example-game/?muted=yes', undefined);
   });
 });

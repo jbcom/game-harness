@@ -127,7 +127,7 @@ supported. CI pins the primary gate to the version in `.nvmrc` (currently
 24.19.0, the latest Node 24 LTS patch) and additionally runs the full test
 and build suite against Node 22 on Linux to prove the floor of that range,
 alongside macOS and Windows portability on the pinned version. The current
-conformance matrix is Playwright 1.62.1 and Vitest Browser 4.1.10.
+conformance matrix is Playwright 1.62.1 and Vitest Browser 4.1.10 and 5.0.3.
 Package-boundary consumers run with a credential-free home directory and npm
 configuration, install only the peer family needed by each entry point, and
 exercise ESM, CommonJS, the CLI, silent runtime markers, and Chromium launch
@@ -257,7 +257,14 @@ SwiftShader explicitly; `linux-hardware-vulkan` applies the reviewed
 Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner exposing
 `/dev/dri/renderD128`) and always de-duplicates and appends `--mute-audio`
 last, so a caller-supplied arg list can never accidentally drop the silence
-guard.
+guard. Every profile also carries `CHROMIUM_ANTI_THROTTLING_ARGS`
+(`--disable-background-timer-throttling`, `--disable-renderer-backgrounding`,
+`--disable-backgrounding-occluded-windows`), so background and occluded
+windows keep their timers on schedule when several headed browsers run at
+once; Page Visibility still reports `hidden`.
+
+Moving from the scoped `test-harness` package this one grew out of? See
+[MIGRATION.md](MIGRATION.md).
 
 Every browser launched by `definePlaywrightConfig()` or
 `defineBrowserTestConfig()` receives Chromium's `--mute-audio` argument as a

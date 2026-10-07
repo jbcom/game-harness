@@ -65,7 +65,7 @@ export default defineConfig({
             },
             {
               group: 'Reference',
-              pages: ['architecture', 'reference/troubleshooting'],
+              pages: ['architecture', 'decisions', 'reference/troubleshooting'],
             },
             {
               group: 'Project',

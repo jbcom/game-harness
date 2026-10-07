@@ -40,10 +40,10 @@ describe('package peer boundaries', () => {
       devDependencies: {
         '@playwright/test': '1.62.1',
         '@types/node': '24.13.3',
-        '@vitest/browser-playwright': '4.1.10',
+        '@vitest/browser-playwright': '5.0.3',
         rimraf: '6.1.3',
         typescript: '7.0.2',
-        vitest: '4.1.10',
+        vitest: '5.0.3',
       },
     });
   });

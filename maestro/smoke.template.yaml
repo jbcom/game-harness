@@ -3,7 +3,7 @@
 # render its first screen" flow; add game-specific flows alongside it as
 # separate .maestro/*.yaml files (they're app-specific user journeys, not
 # shareable config — see game-harness's package notes).
-appId: __APP_ID__ # e.g. com.jbcom.kuroga — must match capacitor.config.ts's appId
+appId: __APP_ID__ # e.g. com.example.game — must match capacitor.config.ts's appId
 ---
 - launchApp
 - assertVisible:

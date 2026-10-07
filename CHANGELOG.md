@@ -62,8 +62,7 @@ Commits by release-please.
 
 ### Added
 
-- Initial standalone public package extracted from the production browser-game
-  verification harness.
+- Initial standalone public package for browser-game verification.
 - Peer-isolated Playwright and Vitest Browser Mode configuration entry points.
 - Fail-closed silent-QA, production-runtime, visual-regression, Lighthouse, and
   release-ladder primitives.

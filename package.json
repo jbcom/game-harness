@@ -16,6 +16,7 @@
     "docs",
     "llms.txt",
     "maestro",
+    "MIGRATION.md",
     "LICENSE",
     "README.md"
   ],
@@ -133,6 +134,7 @@
     "package:check": "publint && attw --pack . --profile node16",
     "prepack": "pnpm run build",
     "test": "vitest run",
+    "test:chromium": "vitest run --config vitest.chromium.config.ts",
     "test:package": "node scripts/verify-package-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run package:check && pnpm run test:package"
@@ -143,8 +145,8 @@
   },
   "peerDependencies": {
     "@playwright/test": ">=1.62.1 <2",
-    "@vitest/browser-playwright": ">=4.1.10 <5",
-    "vitest": ">=4.1.10 <5"
+    "@vitest/browser-playwright": ">=4.1.10 <6",
+    "vitest": ">=4.1.10 <6"
   },
   "peerDependenciesMeta": {
     "@playwright/test": {
@@ -162,14 +164,14 @@
     "@playwright/test": "1.62.1",
     "@types/cross-spawn": "6.0.6",
     "@types/node": "24.13.3",
-    "@vitest/browser-playwright": "4.1.10",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/browser-playwright": "5.0.3",
+    "@vitest/coverage-v8": "5.0.3",
     "oxlint": "1.79.0",
     "prettier": "3.9.6",
     "publint": "0.3.24",
     "rimraf": "6.1.3",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "5.0.3"
   },
   "engines": {
     "node": ">=22"

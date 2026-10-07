@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { chromium } from '@playwright/test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CHROMIUM_ANTI_THROTTLING_ARGS } from '../src/chromium-launch.js';
 import { openSilentGame } from '../src/playwright-config.js';
 import {
   findAvailableProductionPort,
@@ -134,7 +135,7 @@ describe('verifyProductionRuntime', () => {
 
     expect(chromium.launch).toHaveBeenCalledWith(
       expect.objectContaining({
-        args: ['--custom', '--mute-audio'],
+        args: [...CHROMIUM_ANTI_THROTTLING_ARGS, '--custom', '--mute-audio'],
         headless: false,
       }),
     );
@@ -168,6 +169,7 @@ describe('verifyProductionRuntime', () => {
           '--use-gl=angle',
           '--use-angle=vulkan',
           '--ignore-gpu-blocklist',
+          ...CHROMIUM_ANTI_THROTTLING_ARGS,
           '--mute-audio',
         ],
         env: expect.objectContaining({ EGL_PLATFORM: 'surfaceless' }),
