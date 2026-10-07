@@ -4,6 +4,13 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.1.1](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.0...game-harness-v1.1.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **visual-battery:** tolerate rasterization noise while failing real drift ([e2ef323](https://github.com/jbcom/game-harness/commit/e2ef323643dc6b09a4991489f579f068c915d078))
+
 ## [1.1.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.0.0...game-harness-v1.1.0) (2026-10-07)
 
 
