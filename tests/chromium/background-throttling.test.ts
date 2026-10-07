@@ -76,8 +76,9 @@ describe('Chromium launch profile in a real headed browser', () => {
   });
 
   it('control: the same background tab is throttled without the anti-throttling switches', async () => {
+    const antiThrottling = new Set(CHROMIUM_ANTI_THROTTLING_ARGS);
     const args = createChromiumLaunchProfile().args.filter(
-      (argument) => !CHROMIUM_ANTI_THROTTLING_ARGS.includes(argument),
+      (argument) => !antiThrottling.has(argument),
     );
     const sample = await sampleBackgroundTimer(args);
 
