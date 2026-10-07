@@ -29,8 +29,8 @@ either framework.
 2. When a server is configured, its readiness URL must be unreachable first.
    The command is spawned directly with an argument array and must bind with
    strict-port behavior.
-3. A fresh browser launches with the selected renderer profile and exactly one
-   final `--mute-audio` argument.
+3. A fresh browser launches with the selected renderer profile, the
+   anti-throttling switches, and exactly one final `--mute-audio` argument.
 4. Local-storage sentinels are installed before application code.
 5. `openSilentGame()` adds the runtime-only mute query and waits for the
    application readiness marker.

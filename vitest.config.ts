@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    // Real-browser checks run separately through vitest.chromium.config.ts.
+    exclude: ['tests/chromium/**', '**/node_modules/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

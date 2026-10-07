@@ -16,6 +16,7 @@
     "docs",
     "llms.txt",
     "maestro",
+    "MIGRATION.md",
     "LICENSE",
     "README.md"
   ],
@@ -133,6 +134,7 @@
     "package:check": "publint && attw --pack . --profile node16",
     "prepack": "pnpm run build",
     "test": "vitest run",
+    "test:chromium": "vitest run --config vitest.chromium.config.ts",
     "test:package": "node scripts/verify-package-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run package:check && pnpm run test:package"

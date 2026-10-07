@@ -17,7 +17,11 @@ export interface ChromiumLaunchProfileOptions {
 }
 
 export interface ChromiumLaunchProfile {
-  /** De-duplicated Chromium launch arguments for the selected `gpuMode`, always ending in `--mute-audio`. */
+  /**
+   * De-duplicated Chromium launch arguments: the `gpuMode` renderer flags, the
+   * {@link CHROMIUM_ANTI_THROTTLING_ARGS}, any caller `args`, and always
+   * `--mute-audio` last.
+   */
   args: string[];
   /** Present when `env` overrides were supplied or `gpuMode` is `linux-hardware-vulkan` (which also sets `EGL_PLATFORM`); merged on top of `process.env`. */
   env?: ChromiumEnvironment;
@@ -35,8 +39,23 @@ const GPU_ARGS: Readonly<Record<ChromiumGpuMode, readonly string[]>> = {
 };
 
 /**
- * Builds the shared Chromium renderer and silence profile without deciding
- * whether the browser is headed. Callers own that explicit choice.
+ * Keeps timers and rendering on schedule in pages Chromium considers
+ * backgrounded. Several headed windows commonly run at once during a test
+ * suite; without these switches a background tab's timers are coalesced to
+ * one wake-up per second, and an occluded window or backgrounded renderer is
+ * deprioritised, so suites time out for reasons unrelated to the game.
+ * Page Visibility still reports `hidden`, so visibility handling stays
+ * testable.
+ */
+export const CHROMIUM_ANTI_THROTTLING_ARGS: readonly string[] = Object.freeze([
+  '--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+]);
+
+/**
+ * Builds the shared Chromium renderer, scheduling and silence profile without
+ * deciding whether the browser is headed. Callers own that explicit choice.
  */
 export function createChromiumLaunchProfile(
   options: ChromiumLaunchProfileOptions = {},
@@ -44,7 +63,7 @@ export function createChromiumLaunchProfile(
   const gpuMode = options.gpuMode ?? 'auto';
   const args = [
     ...new Set(
-      [...GPU_ARGS[gpuMode], ...(options.args ?? [])].filter(
+      [...GPU_ARGS[gpuMode], ...CHROMIUM_ANTI_THROTTLING_ARGS, ...(options.args ?? [])].filter(
         (argument) => argument !== '--mute-audio',
       ),
     ),

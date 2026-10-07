@@ -24,6 +24,15 @@ exposing `/dev/dri/renderD128`) and always de-duplicates and appends
 `--mute-audio` last, so a caller-supplied arg list can never accidentally
 drop the silence guard.
 
+Every profile also carries `CHROMIUM_ANTI_THROTTLING_ARGS`:
+`--disable-background-timer-throttling`, `--disable-renderer-backgrounding`
+and `--disable-backgrounding-occluded-windows`. When several headed windows
+run at once, Chromium would otherwise coalesce a background tab's timers to
+one wake-up per second and deprioritise occluded windows, and suites time out
+for reasons unrelated to the game. Page Visibility is unaffected: a
+backgrounded page still reports `hidden`, so pause-on-hide logic stays
+testable.
+
 Every browser launched by `definePlaywrightConfig()` or
 `defineBrowserTestConfig()` receives Chromium's `--mute-audio` argument as a
 defense-in-depth guard, including projects with custom launch options. The

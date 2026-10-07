@@ -257,7 +257,14 @@ SwiftShader explicitly; `linux-hardware-vulkan` applies the reviewed
 Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner exposing
 `/dev/dri/renderD128`) and always de-duplicates and appends `--mute-audio`
 last, so a caller-supplied arg list can never accidentally drop the silence
-guard.
+guard. Every profile also carries `CHROMIUM_ANTI_THROTTLING_ARGS`
+(`--disable-background-timer-throttling`, `--disable-renderer-backgrounding`,
+`--disable-backgrounding-occluded-windows`), so background and occluded
+windows keep their timers on schedule when several headed browsers run at
+once; Page Visibility still reports `hidden`.
+
+Moving from the scoped `test-harness` package this one grew out of? See
+[MIGRATION.md](MIGRATION.md).
 
 Every browser launched by `definePlaywrightConfig()` or
 `defineBrowserTestConfig()` receives Chromium's `--mute-audio` argument as a

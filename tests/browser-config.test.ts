@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { defineBrowserTestConfig } from '../src/browser-config.js';
+import { CHROMIUM_ANTI_THROTTLING_ARGS } from '../src/chromium-launch.js';
 
 describe('defineBrowserTestConfig', () => {
   const originalCi = process.env.CI;
@@ -92,7 +93,11 @@ describe('defineBrowserTestConfig', () => {
         }
       | undefined;
     expect(provider?.name).toBe('playwright');
-    expect(provider?.options?.launchOptions?.args).toEqual(['--custom-flag', '--mute-audio']);
+    expect(provider?.options?.launchOptions?.args).toEqual([
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
+      '--custom-flag',
+      '--mute-audio',
+    ]);
   });
 
   it('pins device scale to one for deterministic headed screenshots', () => {
@@ -127,6 +132,7 @@ describe('defineBrowserTestConfig', () => {
       '--use-gl=swiftshader',
       '--enable-webgl',
       '--ignore-gpu-blocklist',
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
       '--mute-audio',
     ]);
   });
@@ -148,6 +154,7 @@ describe('defineBrowserTestConfig', () => {
       '--use-gl=angle',
       '--use-angle=vulkan',
       '--ignore-gpu-blocklist',
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
       '--mute-audio',
     ]);
     expect(provider.options?.launchOptions?.env?.EGL_PLATFORM).toBe('surfaceless');

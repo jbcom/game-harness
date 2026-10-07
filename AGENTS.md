@@ -117,6 +117,10 @@ hardcoded version string into a workflow file.
   clean-tarball consumer smoke tests. This is what CI runs; run it before
   every commit.
 - `pnpm test` — unit and contract tests only, for fast iteration.
+- `pnpm test:chromium` — real headed Chromium checks of the launch profile
+  (needs `pnpm exec playwright install chromium`, and `xvfb-run -a` on a
+  Linux host without a display). CI runs it in its own `chromium` job; it is
+  not part of `pnpm verify`, so publishing never depends on a browser.
 - `pnpm --filter game-harness-docs validate` / `pnpm --filter
 game-harness-docs dev` — build or preview the Sourcey docs site in isolation.
 - `pnpm format` — apply Prettier.
