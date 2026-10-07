@@ -528,6 +528,18 @@ describe('runVisualBattery', () => {
     expect(() => runVisualBattery('tests/harness', { cwd, ci: true, ...quiet })).toThrow(/drift/i);
   });
 
+  it.each(['?? new.txt\0', ' M changed.txt\0', ' D deleted.png\0', 'R  renamed.png\0old.png\0'])(
+    'retains structural drift: %s',
+    (status) => {
+      let count = 0;
+      mockedExecFileSync.mockImplementation((command) => {
+        if (command === 'git') return ++count === 1 ? '' : status;
+        return '';
+      });
+      expect(() => runVisualBattery('tests/harness', { cwd, ci: true, ...quiet })).toThrow(/drift/);
+    },
+  );
+
   it('does not throw in update mode when the run produces drift, just reports it', () => {
     mockedExecFileSync.mockImplementation((cmd, args) => {
       const cmdStr = commandLine(cmd, args);

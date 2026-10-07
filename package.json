@@ -141,7 +141,8 @@
   },
   "dependencies": {
     "cross-spawn": "7.0.6",
-    "get-port": "7.2.0"
+    "get-port": "7.2.0",
+    "pngjs": "^7.0.0"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.62.1 <2",
@@ -164,6 +165,7 @@
     "@playwright/test": "1.62.1",
     "@types/cross-spawn": "6.0.6",
     "@types/node": "24.13.3",
+    "@types/pngjs": "^6.0.5",
     "@vitest/browser-playwright": "5.0.3",
     "@vitest/coverage-v8": "5.0.3",
     "oxlint": "1.79.0",
