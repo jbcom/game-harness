@@ -4,6 +4,14 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.1.2](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.1...game-harness-v1.1.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* declare maintained Node support and standardize CI gates ([86b5dae](https://github.com/jbcom/game-harness/commit/86b5daea84d5680b2a1252e4f4d3dfbccb2754db))
+* declare the supported Node lines and test each in CI ([3454eb6](https://github.com/jbcom/game-harness/commit/3454eb6b13c55593ff12eba1f4ff78edaf51f8f6))
+
 ## [1.1.1](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.0...game-harness-v1.1.1) (2026-10-07)
 
 
