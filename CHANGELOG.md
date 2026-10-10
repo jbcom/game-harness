@@ -4,6 +4,13 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.2.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.2...game-harness-v1.2.0) (2026-10-10)
+
+
+### Features
+
+* **vitest:** pass the browser server's api, custom commands, failure screenshots and isolation through ([29c6d2d](https://github.com/jbcom/game-harness/commit/29c6d2dbaf099b7dcdf8a9cd2b1ffa621e9d9059))
+
 ## [1.1.2](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.1...game-harness-v1.1.2) (2026-10-07)
 
 
