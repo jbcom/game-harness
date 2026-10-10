@@ -9,7 +9,6 @@ Commits by release-please.
 
 ### Features
 
-* **vitest:** pass the browser server's api, custom commands, failure screenshots and isolation through ([8391eaf](https://github.com/jbcom/game-harness/commit/8391eafe3146faf4eb35869dd4a05c67b46bbf80))
 * **vitest:** pass the browser server's api, custom commands, failure screenshots and isolation through ([29c6d2d](https://github.com/jbcom/game-harness/commit/29c6d2dbaf099b7dcdf8a9cd2b1ffa621e9d9059))
 
 ## [1.1.2](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.1...game-harness-v1.1.2) (2026-10-07)
