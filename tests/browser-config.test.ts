@@ -143,6 +143,20 @@ describe('defineBrowserTestConfig', () => {
     ]);
   });
 
+  it('provides the macOS ANGLE Metal profile for headless render hosts', () => {
+    const config = defineBrowserTestConfig({ gpuMode: 'macos-hardware-metal', headless: true });
+    const provider = config.browser?.provider as {
+      options?: { launchOptions?: { args?: string[] } };
+    };
+    expect(config.browser?.headless).toBe(true);
+    expect(provider.options?.launchOptions?.args).toEqual([
+      '--use-angle=metal',
+      '--ignore-gpu-blocklist',
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
+      '--mute-audio',
+    ]);
+  });
+
   it('provides the proven Linux Intel Vulkan profile', () => {
     const config = defineBrowserTestConfig({
       gpuMode: 'linux-hardware-vulkan',

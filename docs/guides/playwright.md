@@ -43,7 +43,11 @@ to make WebGL start. The default `auto` profile lets Chromium select the
 native renderer (including Metal on macOS). `software` is an explicit
 SwiftShader fallback. `linux-hardware-vulkan` applies the reviewed
 Mesa/ANGLE flags and `EGL_PLATFORM=surfaceless` for a runner that exposes
-`/dev/dri/renderD128`.
+`/dev/dri/renderD128`. `macos-hardware-metal` asks ANGLE for its Metal backend
+(`--use-angle=metal --ignore-gpu-blocklist`); it is the profile for an Apple
+Silicon Mac with no window session, where `headless: true` still reaches the
+real GPU (no display server or Xvfb is involved), so a render host does not
+fall back to SwiftShader.
 
 A Gitea runner job using the hardware profile must install
 `mesa-vulkan-drivers` and `xvfb`, require the render device with

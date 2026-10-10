@@ -261,6 +261,18 @@ describe('verifyProductionRuntime', () => {
     );
   });
 
+  it('accepts the Apple GPU that headless Chromium reaches through ANGLE Metal', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValue({
+      renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)',
+      vendor: 'Google Inc. (Apple)',
+      unmasked: true,
+    });
+    await expect(requireHardwareWebGL(page as never)).resolves.toEqual(
+      expect.objectContaining({ renderer: expect.stringContaining('ANGLE Metal Renderer') }),
+    );
+  });
+
   it.each(['SwiftShader', 'llvmpipe (LLVM 19.1.7)'])(
     'rejects the software WebGL renderer %s',
     async (renderer) => {

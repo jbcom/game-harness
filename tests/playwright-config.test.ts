@@ -335,6 +335,22 @@ describe('definePlaywrightConfig', () => {
     ).toBe(true);
   });
 
+  it('applies the macOS ANGLE Metal profile to every project', () => {
+    const config = definePlaywrightConfig({ gpuMode: 'macos-hardware-metal' });
+    expect(config.use?.launchOptions).toEqual(
+      expect.objectContaining({
+        args: [
+          '--use-angle=metal',
+          '--ignore-gpu-blocklist',
+          ...CHROMIUM_ANTI_THROTTLING_ARGS,
+          '--mute-audio',
+        ],
+      }),
+    );
+    expect(config.use?.launchOptions).not.toHaveProperty('env');
+    expect(config.projects?.[0]?.use?.launchOptions?.args).toEqual(config.use?.launchOptions?.args);
+  });
+
   it('applies the Linux hardware Vulkan profile to every project', () => {
     const config = definePlaywrightConfig({ gpuMode: 'linux-hardware-vulkan' });
     expect(config.use?.launchOptions).toEqual(
