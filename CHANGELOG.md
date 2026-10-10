@@ -4,6 +4,14 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.3.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.2.0...game-harness-v1.3.0) (2026-10-10)
+
+
+### Features
+
+* **chromium:** add the macos-hardware-metal gpu mode ([87741b7](https://github.com/jbcom/game-harness/commit/87741b7d66b4c53cac7a6b0cf309ca3b67cb4020))
+* **chromium:** add the macos-hardware-metal gpu mode ([008f277](https://github.com/jbcom/game-harness/commit/008f2770886e73a2d323b65bb3f6373ea21be426))
+
 ## [1.2.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.1.2...game-harness-v1.2.0) (2026-10-10)
 
 
