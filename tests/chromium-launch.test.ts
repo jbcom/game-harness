@@ -81,7 +81,8 @@ describe('createChromiumLaunchProfile', () => {
       '--mute-audio',
     ]);
     expect(profile.env).toEqual(expect.objectContaining({ TEST_SENTINEL: 'retained' }));
-    expect(profile.env).not.toHaveProperty('EGL_PLATFORM');
+    // The profile adds no EGL_PLATFORM of its own; whatever the host set passes through.
+    expect(profile.env?.EGL_PLATFORM).toBe(process.env.EGL_PLATFORM);
   });
 
   it('merges caller environment with process.env outside the Linux hardware profile', () => {
@@ -90,7 +91,7 @@ describe('createChromiumLaunchProfile', () => {
       env: { TEST_SENTINEL: 'retained' },
     });
     expect(profile.env).toEqual(expect.objectContaining({ TEST_SENTINEL: 'retained' }));
-    expect(profile.env).not.toHaveProperty('EGL_PLATFORM');
+    expect(profile.env?.EGL_PLATFORM).toBe(process.env.EGL_PLATFORM);
   });
 
   it('omits env entirely when no environment overrides and no hardware profile are requested', () => {
