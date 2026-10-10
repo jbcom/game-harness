@@ -17,10 +17,13 @@ const browser = await chromium.launch({ args, env, headless: false });
 `definePlaywrightConfig()` and `defineBrowserTestConfig()` — use it directly
 when driving Chromium yourself (a custom launch script, `production-runtime`'s
 own internals, or a non-Playwright automation layer). It resolves one of
-three renderer policies (`auto` leaves selection to Chromium; `software`
+four renderer policies (`auto` leaves selection to Chromium; `software`
 opts into SwiftShader explicitly; `linux-hardware-vulkan` applies the
 reviewed Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner
-exposing `/dev/dri/renderD128`) and always de-duplicates and appends
+exposing `/dev/dri/renderD128`; `macos-hardware-metal` asks ANGLE for its
+Metal backend with `--use-angle=metal --ignore-gpu-blocklist`, which a
+headless Chromium on an Apple Silicon Mac with no window session honours by
+using the real GPU) and always de-duplicates and appends
 `--mute-audio` last, so a caller-supplied arg list can never accidentally
 drop the silence guard.
 

@@ -17,7 +17,12 @@ describe('createChromiumLaunchProfile', () => {
   });
 
   it('keeps the anti-throttling switches in every gpu mode', () => {
-    for (const gpuMode of ['auto', 'software', 'linux-hardware-vulkan'] as const) {
+    for (const gpuMode of [
+      'auto',
+      'software',
+      'linux-hardware-vulkan',
+      'macos-hardware-metal',
+    ] as const) {
       expect(createChromiumLaunchProfile({ gpuMode }).args).toEqual(
         expect.arrayContaining([...CHROMIUM_ANTI_THROTTLING_ARGS]),
       );
@@ -47,6 +52,36 @@ describe('createChromiumLaunchProfile', () => {
         TEST_SENTINEL: 'retained',
       }),
     );
+  });
+
+  it('selects ANGLE Metal without any software-renderer switch in the macOS hardware profile', () => {
+    const profile = createChromiumLaunchProfile({ gpuMode: 'macos-hardware-metal' });
+    expect(profile).toEqual({
+      args: [
+        '--use-angle=metal',
+        '--ignore-gpu-blocklist',
+        ...CHROMIUM_ANTI_THROTTLING_ARGS,
+        '--mute-audio',
+      ],
+    });
+    expect(profile.args.join(' ')).not.toMatch(/swiftshader/i);
+  });
+
+  it('keeps caller args and env on top of the macOS hardware profile', () => {
+    const profile = createChromiumLaunchProfile({
+      gpuMode: 'macos-hardware-metal',
+      args: ['--custom'],
+      env: { TEST_SENTINEL: 'retained' },
+    });
+    expect(profile.args).toEqual([
+      '--use-angle=metal',
+      '--ignore-gpu-blocklist',
+      ...CHROMIUM_ANTI_THROTTLING_ARGS,
+      '--custom',
+      '--mute-audio',
+    ]);
+    expect(profile.env).toEqual(expect.objectContaining({ TEST_SENTINEL: 'retained' }));
+    expect(profile.env).not.toHaveProperty('EGL_PLATFORM');
   });
 
   it('merges caller environment with process.env outside the Linux hardware profile', () => {

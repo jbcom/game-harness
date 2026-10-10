@@ -1,13 +1,18 @@
 /** Browser renderer policy for agent-controlled Chromium sessions. */
-export type ChromiumGpuMode = 'auto' | 'software' | 'linux-hardware-vulkan';
+export type ChromiumGpuMode =
+  'auto' | 'software' | 'linux-hardware-vulkan' | 'macos-hardware-metal';
 export type ChromiumEnvironment = Record<string, string | undefined>;
 
 export interface ChromiumLaunchProfileOptions {
   /**
-   * `auto` leaves renderer selection to Chromium (Metal on macOS, the native
-   * desktop stack elsewhere). `software` opts into SwiftShader explicitly.
+   * `auto` leaves renderer selection to Chromium (Metal on macOS in a headed
+   * window, the native desktop stack elsewhere). `software` opts into
+   * SwiftShader explicitly.
    * `linux-hardware-vulkan` is a proven Mesa/ANGLE profile for a
    * Linux runner with `/dev/dri/renderD128` passed through.
+   * `macos-hardware-metal` asks ANGLE for its Metal backend, which gives a
+   * headless Chromium on an Apple Silicon Mac (no window session needed) the
+   * real GPU instead of SwiftShader.
    */
   gpuMode?: ChromiumGpuMode;
   /** Additional Chromium arguments, de-duplicated ahead of `--mute-audio`. */
@@ -36,6 +41,7 @@ const GPU_ARGS: Readonly<Record<ChromiumGpuMode, readonly string[]>> = {
     '--use-angle=vulkan',
     '--ignore-gpu-blocklist',
   ],
+  'macos-hardware-metal': ['--use-angle=metal', '--ignore-gpu-blocklist'],
 };
 
 /**

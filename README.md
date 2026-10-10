@@ -180,6 +180,11 @@ make WebGL start. The default `auto` profile lets Chromium select the native
 renderer (including Metal on macOS). `software` is an explicit SwiftShader
 fallback. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
 `EGL_PLATFORM=surfaceless` for a runner that exposes `/dev/dri/renderD128`.
+`macos-hardware-metal` asks ANGLE for its Metal backend (`--use-angle=metal
+--ignore-gpu-blocklist`); it is the profile for an Apple Silicon Mac with no
+window session, where `headless: true` still reaches the real GPU (no display
+server or Xvfb is involved), so a render host does not fall back to
+SwiftShader.
 
 Vitest's interactive UI is disabled by default even though the Chromium window
 remains visible. This gives Playwright a fixed viewport and a deterministic
@@ -252,11 +257,12 @@ const browser = await chromium.launch({ args, env, headless: false });
 `createChromiumLaunchProfile()` is the peer-free primitive behind both
 `definePlaywrightConfig()` and `defineBrowserTestConfig()` — use it directly
 when driving Chromium yourself (a custom launch script, `production-runtime`'s
-own internals, or a non-Playwright automation layer). It resolves one of three
+own internals, or a non-Playwright automation layer). It resolves one of four
 renderer policies (`auto` leaves selection to Chromium; `software` opts into
 SwiftShader explicitly; `linux-hardware-vulkan` applies the reviewed
 Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner exposing
-`/dev/dri/renderD128`) and always de-duplicates and appends `--mute-audio`
+`/dev/dri/renderD128`; `macos-hardware-metal` asks ANGLE for its Metal backend
+with `--use-angle=metal --ignore-gpu-blocklist`) and always de-duplicates and appends `--mute-audio`
 last, so a caller-supplied arg list can never accidentally drop the silence
 guard. Every profile also carries `CHROMIUM_ANTI_THROTTLING_ARGS`
 (`--disable-background-timer-throttling`, `--disable-renderer-backgrounding`,
