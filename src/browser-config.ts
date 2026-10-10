@@ -1,6 +1,7 @@
 import { type PlaywrightProviderOptions, playwright } from '@vitest/browser-playwright';
-import type { TestUserConfig } from 'vitest/node';
+import type { BrowserConfigOptions, TestUserConfig } from 'vitest/node';
 import { type ChromiumGpuMode, createChromiumLaunchProfile } from './chromium-launch.js';
+import { vitestMajor } from './vitest-major.js';
 
 /**
  * A single browser instance entry, as accepted by Vitest Browser Mode's
@@ -66,6 +67,26 @@ export interface BrowserTestConfigOptions {
    * verified your suite tolerates concurrent browser contexts.
    */
   fileParallelism?: boolean;
+  /**
+   * The browser server's address, such as the port a CI slot or a local
+   * port allocator assigned (`{ port, strictPort: true }`). Placed where the
+   * installed Vitest reads it: the top-level `api` on Vitest 5, `browser.api`
+   * on Vitest 4. Omitted, Vitest's default port is used.
+   */
+  api?: BrowserApiConfig;
+  /** Custom browser commands (`browser.commands`), e.g. a pointer drawn along a path. */
+  commands?: NonNullable<BrowserConfigOptions['commands']>;
+  /** `browser.screenshotFailures`. Omitted, Vitest's default applies. */
+  screenshotFailures?: boolean;
+  /** The top-level `isolate` (Vitest 5 retired `browser.isolate` for it). Omitted, Vitest's default applies. */
+  isolate?: boolean;
+}
+
+/** The browser server's address options: the subset Vitest 4's `browser.api` and Vitest 5's `api` share. */
+export interface BrowserApiConfig {
+  port?: number;
+  strictPort?: boolean;
+  host?: string;
 }
 
 function resolveHeadless(headless: BrowserTestConfigOptions['headless']): boolean {
@@ -119,6 +140,10 @@ export function defineBrowserTestConfig(
     name = 'browser',
     include = ['tests/browser/**/*.browser.test.{ts,tsx}'],
     fileParallelism = false,
+    api,
+    commands,
+    screenshotFailures,
+    isolate,
   } = opts;
 
   if (!name.trim()) throw new TypeError('browser project name must not be empty');
@@ -157,6 +182,15 @@ export function defineBrowserTestConfig(
   if (setupFiles) {
     test.setupFiles = [...setupFiles];
   }
+
+  if (api) {
+    if (vitestMajor() >= 5) test.api = { ...api };
+    // Vitest 4's browser server reads its own `api`; Vitest 5's types no longer carry it.
+    else (test.browser as BrowserConfigOptions & { api?: BrowserApiConfig }).api = { ...api };
+  }
+  if (commands) test.browser = { ...test.browser, commands: { ...commands } };
+  if (screenshotFailures !== undefined) test.browser = { ...test.browser, screenshotFailures };
+  if (isolate !== undefined) test.isolate = isolate;
 
   if (optimizeDeps.length > 0) {
     // Vitest's `test` fragment has no `optimizeDeps` field (that lives at

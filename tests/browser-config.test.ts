@@ -1,4 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/** The installed Vitest's major, as the config sees it: 5 here unless a test says otherwise. */
+const vitest = vi.hoisted(() => ({ major: 5 }));
+vi.mock('../src/vitest-major.js', () => ({ vitestMajor: () => vitest.major }));
+
 import { defineBrowserTestConfig } from '../src/browser-config.js';
 import { CHROMIUM_ANTI_THROTTLING_ARGS } from '../src/chromium-launch.js';
 
@@ -7,6 +12,7 @@ describe('defineBrowserTestConfig', () => {
 
   beforeEach(() => {
     delete process.env.CI;
+    vitest.major = 5;
   });
 
   afterEach(() => {
@@ -235,5 +241,51 @@ describe('defineBrowserTestConfig', () => {
   it('always enables browser mode', () => {
     const config = defineBrowserTestConfig();
     expect(config.browser?.enabled).toBe(true);
+  });
+
+  it('leaves the api, commands, failure screenshots and isolation to Vitest unless given', () => {
+    const config = defineBrowserTestConfig();
+    expect(config.browser).not.toHaveProperty('api');
+    expect(config.browser).not.toHaveProperty('commands');
+    expect(config.browser).not.toHaveProperty('screenshotFailures');
+    expect(config.browser).not.toHaveProperty('isolate');
+    expect(config).not.toHaveProperty('isolate');
+  });
+
+  it('places the api server a port allocator assigned where Vitest 5 reads it, the top level', () => {
+    vitest.major = 5;
+    const config = defineBrowserTestConfig({ api: { port: 4310, strictPort: true } });
+    expect(config.api).toEqual({ port: 4310, strictPort: true });
+    expect(config.browser).not.toHaveProperty('api');
+  });
+
+  it('places it in browser.api on Vitest 4, whose browser server reads only that', () => {
+    vitest.major = 4;
+    const config = defineBrowserTestConfig({ api: { port: 4310, strictPort: true } });
+    expect((config.browser as { api?: unknown }).api).toEqual({ port: 4310, strictPort: true });
+    expect(config).not.toHaveProperty('api');
+  });
+
+  it('passes through custom browser commands', () => {
+    const pointerPath = async () => undefined;
+    const config = defineBrowserTestConfig({ commands: { pointerPath } });
+    expect(config.browser?.commands).toEqual({ pointerPath });
+  });
+
+  it('passes through failure screenshots and per-file isolation', () => {
+    const config = defineBrowserTestConfig({ screenshotFailures: false, isolate: true });
+    expect(config.browser?.screenshotFailures).toBe(false);
+    expect(config.isolate).toBe(true);
+    expect(config.browser).not.toHaveProperty('isolate');
+  });
+
+  it('copies the api and commands so a later consumer edit cannot reach the config', () => {
+    const api = { port: 4310 };
+    const commands: Record<string, () => Promise<void>> = { a: async () => undefined };
+    const config = defineBrowserTestConfig({ api, commands });
+    api.port = 1;
+    commands.late = async () => undefined;
+    expect(config.api).toEqual({ port: 4310 });
+    expect(Object.keys(config.browser?.commands ?? {})).toEqual(['a']);
   });
 });
