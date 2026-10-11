@@ -614,13 +614,7 @@ describe('verifyProductionRuntime', () => {
 
       expect(result).toMatchObject({
         canvasCount: 1,
-        context: {
-          error: 'NO_ERROR',
-          isContextLost: false,
-          kind: 'webgl2',
-          renderer: 'param:unmasked-renderer',
-          unmasked: true,
-        },
+        context: null,
         selector: '#scene-canvas canvas',
         selectedCanvas: { id: 'board' },
       });
@@ -658,12 +652,7 @@ describe('verifyProductionRuntime', () => {
       const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
 
       expect(result).toMatchObject({
-        context: {
-          error: 'CONTEXT_LOST_WEBGL',
-          isContextLost: true,
-          renderer: null,
-          unmasked: false,
-        },
+        context: null,
       });
     });
 
@@ -709,7 +698,7 @@ describe('verifyProductionRuntime', () => {
 
       expect(result).toMatchObject({
         canvasCount: 1,
-        context: { kind: null, isContextLost: null },
+        context: null,
         selectedCanvas: { id: 'poster' },
       });
     });
@@ -748,13 +737,7 @@ describe('verifyProductionRuntime', () => {
       const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
 
       expect(result).toMatchObject({
-        context: {
-          error: 'GL_ERROR_0x9999',
-          genericRenderer: 'generic:renderer',
-          kind: 'webgl',
-          renderer: 'generic:renderer',
-          unmasked: false,
-        },
+        context: null,
       });
     });
 

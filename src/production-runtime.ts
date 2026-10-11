@@ -304,7 +304,7 @@ export interface WebGLContextDiagnostics {
     depth?: boolean | undefined;
     desynchronized?: boolean | undefined;
     failIfMajorPerformanceCaveat?: boolean | undefined;
-    powerPreference?: WebGLPowerPreference | undefined;
+    powerPreference?: 'default' | 'high-performance' | 'low-power' | undefined;
     premultipliedAlpha?: boolean | undefined;
     preserveDrawingBuffer?: boolean | undefined;
     stencil?: boolean | undefined;
@@ -359,8 +359,6 @@ export async function readWebGLCanvasDiagnostics(
       return { canvasCount: 0, context: null, selectedCanvas: null, selector };
     }
 
-    const webgl2 = canvas.getContext('webgl2');
-    const context = webgl2 ?? canvas.getContext('webgl');
     const rect = canvas.getBoundingClientRect();
     const selectedCanvas = {
       className: canvas.className,
@@ -370,73 +368,10 @@ export async function readWebGLCanvasDiagnostics(
       rect: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
       width: canvas.width,
     };
-    if (!context) {
-      return {
-        canvasCount: matchedCanvases.length,
-        context: {
-          attributes: null,
-          error: null,
-          genericRenderer: null,
-          genericVendor: null,
-          isContextLost: null,
-          kind: null,
-          renderer: null,
-          unmasked: false,
-          vendor: null,
-        },
-        selectedCanvas,
-        selector,
-      };
-    }
-
-    const attributes = context.getContextAttributes();
-    const extension = context.getExtension('WEBGL_debug_renderer_info');
-    const genericRenderer = context.getParameter(context.RENDERER);
-    const genericVendor = context.getParameter(context.VENDOR);
-    const renderer = extension
-      ? context.getParameter(extension.UNMASKED_RENDERER_WEBGL)
-      : genericRenderer;
-    const vendor = extension
-      ? context.getParameter(extension.UNMASKED_VENDOR_WEBGL)
-      : genericVendor;
-    const errorCode = context.getError();
-    const errorNames: Readonly<Record<number, string>> = {
-      [context.INVALID_ENUM]: 'INVALID_ENUM',
-      [context.INVALID_FRAMEBUFFER_OPERATION]: 'INVALID_FRAMEBUFFER_OPERATION',
-      [context.INVALID_OPERATION]: 'INVALID_OPERATION',
-      [context.INVALID_VALUE]: 'INVALID_VALUE',
-      [context.NO_ERROR]: 'NO_ERROR',
-      [context.OUT_OF_MEMORY]: 'OUT_OF_MEMORY',
-      0x9242: 'CONTEXT_LOST_WEBGL',
-    };
-    return {
-      canvasCount: matchedCanvases.length,
-      context: {
-        attributes: attributes
-          ? {
-              alpha: attributes.alpha,
-              antialias: attributes.antialias,
-              depth: attributes.depth,
-              desynchronized: attributes.desynchronized,
-              failIfMajorPerformanceCaveat: attributes.failIfMajorPerformanceCaveat,
-              powerPreference: attributes.powerPreference,
-              premultipliedAlpha: attributes.premultipliedAlpha,
-              preserveDrawingBuffer: attributes.preserveDrawingBuffer,
-              stencil: attributes.stencil,
-            }
-          : null,
-        error: errorNames[errorCode] ?? `GL_ERROR_0x${errorCode.toString(16)}`,
-        genericRenderer: genericRenderer === null ? null : String(genericRenderer),
-        genericVendor: genericVendor === null ? null : String(genericVendor),
-        isContextLost: context.isContextLost(),
-        kind: webgl2 ? 'webgl2' : 'webgl',
-        renderer: renderer === null ? null : String(renderer),
-        unmasked: extension !== null,
-        vendor: vendor === null ? null : String(vendor),
-      },
-      selectedCanvas,
-      selector,
-    };
+    // Do not call getContext here: doing so initializes a pristine canvas and
+    // can lock an application into WebGL2 before it chooses its own context.
+    // Context diagnostics are collected by the owned preflight probe instead.
+    return { canvasCount: matchedCanvases.length, context: null, selectedCanvas, selector };
   }, canvasSelector);
 }
 
@@ -668,6 +603,7 @@ export async function verifyProductionRuntime(
           error,
         );
       }
+      if (!options.captureWebGLContextEvents) throw error;
       if (error instanceof ProductionRuntimeVerificationError) {
         throw new ProductionRuntimeVerificationError(
           `${error.message}${contextEventSuffix}`,
@@ -675,7 +611,6 @@ export async function verifyProductionRuntime(
           error,
         );
       }
-      if (!options.captureWebGLContextEvents) throw error;
       throw new ProductionRuntimeVerificationError(
         `${error instanceof Error ? error.message : String(error)}${contextEventSuffix}`,
         [],
@@ -683,19 +618,42 @@ export async function verifyProductionRuntime(
       );
     }
 
-    const localStorage = await readLocalStorage(page, Object.keys(sentinels));
-    for (const [key, expected] of Object.entries(sentinels)) {
-      const received = localStorage[key] ?? null;
-      if (received !== expected) {
+    let localStorage: Record<string, string | null>;
+    try {
+      localStorage = await readLocalStorage(page, Object.keys(sentinels));
+      for (const [key, expected] of Object.entries(sentinels)) {
+        const received = localStorage[key] ?? null;
+        if (received !== expected) {
+          throw new ProductionRuntimeVerificationError(
+            `localStorage sentinel ${key} changed: expected ${String(expected)}, received ${String(received)}`,
+          );
+        }
+      }
+      if (issues.length > 0) {
         throw new ProductionRuntimeVerificationError(
-          `localStorage sentinel ${key} changed: expected ${String(expected)}, received ${String(received)}`,
+          `production runtime emitted errors:\n${formatIssues(issues)}`,
+          issues,
         );
       }
-    }
-    if (issues.length > 0) {
+    } catch (error) {
+      if (!options.captureWebGLContextEvents) throw error;
+      let suffix: string;
+      try {
+        suffix = `\nwebglContextEvents=${JSON.stringify(await readWebGLContextEvents(page))}`;
+      } catch (readError) {
+        suffix = `\nwebglContextEvents=${formatDiagnosticReadFailure(readError)}`;
+      }
+      if (error instanceof ProductionRuntimeVerificationError) {
+        throw new ProductionRuntimeVerificationError(
+          `${error.message}${suffix}`,
+          error.issues,
+          error,
+        );
+      }
       throw new ProductionRuntimeVerificationError(
-        `production runtime emitted errors:\n${formatIssues(issues)}`,
-        issues,
+        `${error instanceof Error ? error.message : String(error)}${suffix}`,
+        [],
+        error,
       );
     }
 
