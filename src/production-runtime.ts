@@ -554,9 +554,21 @@ export async function requireHardwareWebGL(
     );
   }
   const { diagnostics, info } = preflight;
-  if (!info.unmasked || !info.renderer.trim() || SOFTWARE_RENDERER_PATTERN.test(info.renderer)) {
+  const context = diagnostics.context;
+  const contextFailure = context?.isContextLost
+    ? 'observed a lost WebGL context'
+    : context?.error && context.error !== 'NO_ERROR'
+      ? `consumed WebGL error: ${context.error}`
+      : null;
+  if (
+    contextFailure ||
+    !info.unmasked ||
+    !info.renderer.trim() ||
+    SOFTWARE_RENDERER_PATTERN.test(info.renderer)
+  ) {
+    const rendererFailure = `received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}`;
     throw new ProductionRuntimeVerificationError(
-      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}; diagnostic=${formatWebGLDiagnostics(diagnostics)}`,
+      `hardware WebGL required; ${contextFailure ?? rendererFailure}; diagnostic=${formatWebGLDiagnostics(diagnostics)}`,
     );
   }
   return info;

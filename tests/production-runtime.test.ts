@@ -299,7 +299,7 @@ describe('verifyProductionRuntime', () => {
     );
   });
 
-  it('accepts the Apple GPU that headless Chromium reaches through ANGLE Metal', async () => {
+  it('accepts the Apple GPU that headless Chromium reaches through ANGLE Metal when no GL fault is pending', async () => {
     const { page } = createRuntime();
     page.evaluate.mockResolvedValue(
       hardwarePreflight({
@@ -310,6 +310,24 @@ describe('verifyProductionRuntime', () => {
     );
     await expect(requireHardwareWebGL(page as never)).resolves.toEqual(
       expect.objectContaining({ renderer: expect.stringContaining('ANGLE Metal Renderer') }),
+    );
+  });
+
+  it('fails closed when hardware-looking preflight consumes a pending GL error', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValue(
+      hardwarePreflight(
+        {
+          renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)',
+          vendor: 'Google Inc. (Apple)',
+          unmasked: true,
+        },
+        { error: 'INVALID_OPERATION' },
+      ),
+    );
+
+    await expect(requireHardwareWebGL(page as never)).rejects.toThrow(
+      /consumed WebGL error: INVALID_OPERATION/,
     );
   });
 
@@ -635,6 +653,59 @@ describe('verifyProductionRuntime', () => {
         },
       });
       expect(canvas.getContext).toHaveBeenCalledWith('webgl2');
+    });
+
+    it('records a pending invalid operation and cannot accept an otherwise hardware renderer', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      const extension = {
+        UNMASKED_RENDERER_WEBGL: 'unmasked-renderer',
+        UNMASKED_VENDOR_WEBGL: 'unmasked-vendor',
+      };
+      const context = {
+        INVALID_ENUM: 0x0500,
+        INVALID_FRAMEBUFFER_OPERATION: 0x0506,
+        INVALID_OPERATION: 0x0502,
+        INVALID_VALUE: 0x0501,
+        NO_ERROR: 0,
+        OUT_OF_MEMORY: 0x0505,
+        RENDERER: 'renderer',
+        VENDOR: 'vendor',
+        getContextAttributes: vi.fn().mockReturnValue({ alpha: true }),
+        getError: vi.fn().mockReturnValue(0x0502),
+        getExtension: vi.fn().mockReturnValue(extension),
+        getParameter: vi.fn((name: string) => {
+          if (name === 'unmasked-renderer') {
+            return 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)';
+          }
+          if (name === 'unmasked-vendor') return 'Google Inc. (Apple)';
+          return `generic:${name}`;
+        }),
+        isContextLost: vi.fn().mockReturnValue(false),
+      };
+      const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
+      Object.assign(canvas, {
+        className: 'game',
+        height: 720,
+        id: 'board',
+        isConnected: true,
+        width: 1280,
+      });
+      canvas.getBoundingClientRect = vi
+        .fn()
+        .mockReturnValue({ height: 720, width: 1280, x: 0, y: 0 }) as never;
+      canvas.getContext = vi.fn().mockReturnValue(context) as never;
+      vi.stubGlobal('document', {
+        querySelectorAll: vi.fn().mockReturnValue([canvas]),
+      });
+      page.evaluate.mockImplementation(async (callback: (arg: string) => unknown, arg: string) =>
+        callback(arg),
+      );
+
+      await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+        /consumed WebGL error: INVALID_OPERATION.*"renderer":"ANGLE \(Apple, ANGLE Metal Renderer/,
+      );
+      expect(context.getError).toHaveBeenCalledOnce();
     });
 
     it('retains a lost WebGL context in the owned preflight snapshot', async () => {

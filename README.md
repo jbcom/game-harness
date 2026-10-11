@@ -376,9 +376,11 @@ renderer, its error includes the matched canvas count and identity, context
 kind, loss state, GL error, attributes, and generic/unmasked renderer values.
 `readWebGLCanvasDiagnostics()` is safe to call before renderer startup: it
 reports selector ownership without calling `getContext()` on a pristine canvas.
-Set `captureWebGLContextEvents: true` to attach observational context
-lost/restored events to the failure log; it never calls `preventDefault()` or
-changes the renderer policy.
+The owned preflight consumes the GL error flag only to report it, and fails
+closed on any non-`NO_ERROR` value or lost context so it never treats that
+altered state as successful runtime proof. Set `captureWebGLContextEvents: true`
+to attach observational context lost/restored events to the failure log; it
+never calls `preventDefault()` or changes the renderer policy.
 
 Pass `browserLaunchOptions: { headless: true }` only for a deliberately
 constrained non-visual check. Release and final gameplay proof remain headed.
