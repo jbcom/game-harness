@@ -31,13 +31,16 @@ either framework.
    strict-port behavior.
 3. A fresh browser launches with the selected renderer profile, the
    anti-throttling switches, and exactly one final `--mute-audio` argument.
-4. Local-storage sentinels are installed before application code.
+4. Local-storage sentinels and optional observational WebGL context lifecycle
+   recording are installed before application code.
 5. `openSilentGame()` adds the runtime-only mute query and waits for the
    application readiness marker.
 6. The consumer's `assertReady` proves game identity and primary UI. An optional
    `assertSilentState` proves engine-specific mute state.
 7. Console errors, page errors, failed requests, HTTP errors, and sentinel
-   mutations fail the verification.
+   mutations fail the verification. Hardware preflights can retain explicit
+   canvas/context diagnostics and context lifecycle events without weakening
+   renderer policy.
 8. Browser and owned server resources are closed on success or failure.
 
 The browser launch argument is defense in depth. The application marker is the

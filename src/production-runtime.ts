@@ -46,6 +46,12 @@ export interface ProductionRuntimeOptions {
   silentOptions?: OpenSilentGameOptions;
   /** Values written before application code and required to remain byte-for-byte unchanged. */
   localStorageSentinels?: Readonly<Record<string, string | null>>;
+  /**
+   * Records WebGL context lost/restored events before navigation. This is
+   * observational only: it never prevents a loss event or alters renderer
+   * policy. Events are appended to a runtime failure for CI diagnostics.
+   */
+  captureWebGLContextEvents?: boolean;
   /** Required game-specific identity plus primary UI/canvas assertions. */
   assertReady: (page: Page) => Promise<void>;
   /** Optional engine-specific assertion such as `window.Howler._muted === true`. */
@@ -279,8 +285,197 @@ export interface WebGLRendererInfo {
   unmasked: boolean;
 }
 
+export interface WebGLCanvasIdentity {
+  id: string;
+  className: string;
+  connected: boolean;
+  width: number;
+  height: number;
+  rect: Readonly<{ x: number; y: number; width: number; height: number }>;
+}
+
+export interface WebGLContextDiagnostics {
+  kind: 'webgl2' | 'webgl' | null;
+  isContextLost: boolean | null;
+  error: string | null;
+  attributes: Readonly<{
+    alpha?: boolean | undefined;
+    antialias?: boolean | undefined;
+    depth?: boolean | undefined;
+    desynchronized?: boolean | undefined;
+    failIfMajorPerformanceCaveat?: boolean | undefined;
+    powerPreference?: WebGLPowerPreference | undefined;
+    premultipliedAlpha?: boolean | undefined;
+    preserveDrawingBuffer?: boolean | undefined;
+    stencil?: boolean | undefined;
+  }> | null;
+  unmasked: boolean;
+  renderer: string | null;
+  vendor: string | null;
+  genericRenderer: string | null;
+  genericVendor: string | null;
+}
+
+export interface WebGLCanvasDiagnostics {
+  selector: string;
+  canvasCount: number;
+  selectedCanvas: WebGLCanvasIdentity | null;
+  context: WebGLContextDiagnostics | null;
+}
+
+export interface WebGLContextEventRecord {
+  type: 'webglcontextlost' | 'webglcontextrestored';
+  timeStamp: number;
+  canvas: Pick<WebGLCanvasIdentity, 'className' | 'height' | 'id' | 'width'> | null;
+}
+
 const SOFTWARE_RENDERER_PATTERN =
   /swiftshader|llvmpipe|software rasterizer|microsoft basic render driver|angle.*(?:warp|software)/i;
+
+const WEBGL_CONTEXT_EVENTS_KEY = '__gameHarnessWebGLContextEvents';
+
+function formatWebGLDiagnostics(diagnostics: WebGLCanvasDiagnostics): string {
+  return JSON.stringify(diagnostics);
+}
+
+/**
+ * Reads canvas ownership and context state without changing rendering policy.
+ * This distinguishes a missing, wrong, or lost canvas from a masked or software renderer.
+ */
+export async function readWebGLCanvasDiagnostics(
+  page: Page,
+  canvasSelector = 'canvas',
+): Promise<WebGLCanvasDiagnostics> {
+  return page.evaluate((selector) => {
+    const matchedCanvases = [...document.querySelectorAll(selector)].filter(
+      (element): element is HTMLCanvasElement => element instanceof HTMLCanvasElement,
+    );
+    const canvas = matchedCanvases[0] ?? null;
+    if (!canvas) {
+      return { canvasCount: 0, context: null, selectedCanvas: null, selector };
+    }
+
+    const webgl2 = canvas.getContext('webgl2');
+    const context = webgl2 ?? canvas.getContext('webgl');
+    const rect = canvas.getBoundingClientRect();
+    const selectedCanvas = {
+      className: canvas.className,
+      connected: canvas.isConnected,
+      height: canvas.height,
+      id: canvas.id,
+      rect: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
+      width: canvas.width,
+    };
+    if (!context) {
+      return {
+        canvasCount: matchedCanvases.length,
+        context: {
+          attributes: null,
+          error: null,
+          genericRenderer: null,
+          genericVendor: null,
+          isContextLost: null,
+          kind: null,
+          renderer: null,
+          unmasked: false,
+          vendor: null,
+        },
+        selectedCanvas,
+        selector,
+      };
+    }
+
+    const attributes = context.getContextAttributes();
+    const extension = context.getExtension('WEBGL_debug_renderer_info');
+    const genericRenderer = context.getParameter(context.RENDERER);
+    const genericVendor = context.getParameter(context.VENDOR);
+    const renderer = extension
+      ? context.getParameter(extension.UNMASKED_RENDERER_WEBGL)
+      : genericRenderer;
+    const vendor = extension
+      ? context.getParameter(extension.UNMASKED_VENDOR_WEBGL)
+      : genericVendor;
+    const errorCode = context.getError();
+    const errorNames: Readonly<Record<number, string>> = {
+      [context.INVALID_ENUM]: 'INVALID_ENUM',
+      [context.INVALID_FRAMEBUFFER_OPERATION]: 'INVALID_FRAMEBUFFER_OPERATION',
+      [context.INVALID_OPERATION]: 'INVALID_OPERATION',
+      [context.INVALID_VALUE]: 'INVALID_VALUE',
+      [context.NO_ERROR]: 'NO_ERROR',
+      [context.OUT_OF_MEMORY]: 'OUT_OF_MEMORY',
+      0x9242: 'CONTEXT_LOST_WEBGL',
+    };
+    return {
+      canvasCount: matchedCanvases.length,
+      context: {
+        attributes: attributes
+          ? {
+              alpha: attributes.alpha,
+              antialias: attributes.antialias,
+              depth: attributes.depth,
+              desynchronized: attributes.desynchronized,
+              failIfMajorPerformanceCaveat: attributes.failIfMajorPerformanceCaveat,
+              powerPreference: attributes.powerPreference,
+              premultipliedAlpha: attributes.premultipliedAlpha,
+              preserveDrawingBuffer: attributes.preserveDrawingBuffer,
+              stencil: attributes.stencil,
+            }
+          : null,
+        error: errorNames[errorCode] ?? `GL_ERROR_0x${errorCode.toString(16)}`,
+        genericRenderer: genericRenderer === null ? null : String(genericRenderer),
+        genericVendor: genericVendor === null ? null : String(genericVendor),
+        isContextLost: context.isContextLost(),
+        kind: webgl2 ? 'webgl2' : 'webgl',
+        renderer: renderer === null ? null : String(renderer),
+        unmasked: extension !== null,
+        vendor: vendor === null ? null : String(vendor),
+      },
+      selectedCanvas,
+      selector,
+    };
+  }, canvasSelector);
+}
+
+/** Installs an observational WebGL context lifecycle recorder before page navigation. */
+export async function installWebGLContextEventRecorder(page: Page): Promise<void> {
+  await page.addInitScript((key: string) => {
+    const host = globalThis as typeof globalThis & {
+      [eventKey: string]: WebGLContextEventRecord[] | undefined;
+    };
+    const events: WebGLContextEventRecord[] = [];
+    host[key] = events;
+    const record = (event: Event): void => {
+      const canvas = event.target instanceof HTMLCanvasElement ? event.target : null;
+      events.push({
+        canvas: canvas
+          ? {
+              className: canvas.className,
+              height: canvas.height,
+              id: canvas.id,
+              width: canvas.width,
+            }
+          : null,
+        timeStamp: event.timeStamp,
+        type: event.type as WebGLContextEventRecord['type'],
+      });
+      if (events.length > 32) events.splice(0, events.length - 32);
+    };
+    window.addEventListener('webglcontextlost', record, true);
+    window.addEventListener('webglcontextrestored', record, true);
+  }, WEBGL_CONTEXT_EVENTS_KEY);
+}
+
+/** Reads context lifecycle observations installed by installWebGLContextEventRecorder(). */
+export async function readWebGLContextEvents(
+  page: Page,
+): Promise<readonly WebGLContextEventRecord[]> {
+  return page.evaluate((key: string) => {
+    const host = globalThis as typeof globalThis & {
+      [eventKey: string]: WebGLContextEventRecord[] | undefined;
+    };
+    return [...(host[key] ?? [])];
+  }, WEBGL_CONTEXT_EVENTS_KEY);
+}
 
 /** Reads the unmasked WebGL renderer already attached to the selected game canvas. */
 export async function readWebGLRenderer(
@@ -310,8 +505,9 @@ export async function requireHardwareWebGL(
 ): Promise<WebGLRendererInfo> {
   const info = await readWebGLRenderer(page, canvasSelector);
   if (!info.unmasked || !info.renderer.trim() || SOFTWARE_RENDERER_PATTERN.test(info.renderer)) {
+    const diagnostics = await readWebGLCanvasDiagnostics(page, canvasSelector);
     throw new ProductionRuntimeVerificationError(
-      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}`,
+      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}; diagnostic=${formatWebGLDiagnostics(diagnostics)}`,
     );
   }
   return info;
@@ -418,6 +614,7 @@ export async function verifyProductionRuntime(
     });
 
     const sentinels = options.localStorageSentinels ?? {};
+    if (options.captureWebGLContextEvents) await installWebGLContextEventRecorder(page);
     await seedLocalStorage(page, sentinels);
 
     try {
@@ -430,10 +627,23 @@ export async function verifyProductionRuntime(
       const settleTimeMs = options.settleTimeMs ?? 250;
       if (settleTimeMs > 0) await page.waitForTimeout(settleTimeMs);
     } catch (error) {
+      const contextEvents = options.captureWebGLContextEvents
+        ? await readWebGLContextEvents(page)
+        : [];
+      const contextEventSuffix = options.captureWebGLContextEvents
+        ? `\nwebglContextEvents=${JSON.stringify(contextEvents)}`
+        : '';
       if (issues.length > 0) {
         throw new ProductionRuntimeVerificationError(
-          `production runtime failed while emitting runtime errors:\n${formatIssues(issues)}`,
+          `production runtime failed while emitting runtime errors:\n${formatIssues(issues)}${contextEventSuffix}`,
           issues,
+          error,
+        );
+      }
+      if (error instanceof ProductionRuntimeVerificationError) {
+        throw new ProductionRuntimeVerificationError(
+          `${error.message}${contextEventSuffix}`,
+          error.issues,
           error,
         );
       }

@@ -6,6 +6,10 @@ import { CHROMIUM_ANTI_THROTTLING_ARGS } from '../src/chromium-launch.js';
 import { openSilentGame } from '../src/playwright-config.js';
 import {
   findAvailableProductionPort,
+  installWebGLContextEventRecorder,
+  ProductionRuntimeVerificationError,
+  readWebGLCanvasDiagnostics,
+  readWebGLContextEvents,
   readWebGLRenderer,
   requireHardwareWebGL,
   verifyProductionRuntime,
@@ -306,6 +310,95 @@ describe('verifyProductionRuntime', () => {
     await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/unmasked renderer: <empty>/);
   });
 
+  it('reports the selected canvas identity and a live WebGL2 context', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValue({
+      canvasCount: 2,
+      context: {
+        attributes: { antialias: true, alpha: true },
+        error: 'NO_ERROR',
+        isContextLost: false,
+        kind: 'webgl2',
+        renderer: 'ANGLE (Intel, Vulkan 1.4)',
+        unmasked: true,
+        vendor: 'Google Inc. (Intel)',
+      },
+      selector: '#game-canvas canvas',
+      selectedCanvas: {
+        className: 'game-canvas',
+        connected: true,
+        height: 720,
+        id: 'board',
+        rect: { height: 720, width: 1280, x: 0, y: 0 },
+        width: 1280,
+      },
+    });
+
+    await expect(
+      readWebGLCanvasDiagnostics(page as never, '#game-canvas canvas'),
+    ).resolves.toMatchObject({
+      canvasCount: 2,
+      context: expect.objectContaining({ kind: 'webgl2', isContextLost: false }),
+      selector: '#game-canvas canvas',
+      selectedCanvas: expect.objectContaining({ id: 'board', connected: true }),
+    });
+  });
+
+  it('retains a lost context diagnostic when hardware verification fails', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValueOnce({
+      renderer: 'WebKit WebGL',
+      unmasked: false,
+      vendor: 'WebKit',
+    });
+    page.evaluate.mockResolvedValueOnce({
+      canvasCount: 1,
+      context: {
+        attributes: null,
+        error: 'CONTEXT_LOST_WEBGL',
+        isContextLost: true,
+        kind: 'webgl',
+        renderer: null,
+        unmasked: false,
+        vendor: null,
+      },
+      selector: '#scene-canvas canvas',
+      selectedCanvas: {
+        className: '',
+        connected: true,
+        height: 0,
+        id: '',
+        rect: { height: 0, width: 0, x: 0, y: 0 },
+        width: 0,
+      },
+    });
+
+    await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+      /CONTEXT_LOST_WEBGL/,
+    );
+  });
+
+  it('records context lifecycle events before navigation and retains them on a preflight failure', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValueOnce([]);
+    const assertReady = vi
+      .fn()
+      .mockRejectedValue(new ProductionRuntimeVerificationError('hardware preflight failed'));
+
+    await expect(
+      verifyProductionRuntime({
+        assertReady,
+        captureWebGLContextEvents: true,
+        url: 'https://game.example/',
+      }),
+    ).rejects.toThrow(/webglContextEvents=\[\]/);
+
+    expect(page.addInitScript).toHaveBeenCalledOnce();
+    expect(page.addInitScript.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(openSilentGame).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
   describe('the in-page evaluate callback', () => {
     // `page.evaluate`/`page.addInitScript` serialize their callback into the
     // real browser; the mocked Page above never invokes it. Capture the real
@@ -404,6 +497,243 @@ describe('verifyProductionRuntime', () => {
       const callback = evaluateArgOf(page.evaluate);
 
       expect(() => callback('canvas')).toThrow(/WebGL context unavailable: canvas/);
+    });
+
+    it('records selector ownership and a live WebGL2 context in the diagnostic callback', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      const context = {
+        INVALID_ENUM: 0x0500,
+        INVALID_FRAMEBUFFER_OPERATION: 0x0506,
+        INVALID_OPERATION: 0x0502,
+        INVALID_VALUE: 0x0501,
+        NO_ERROR: 0,
+        OUT_OF_MEMORY: 0x0505,
+        RENDERER: 'renderer',
+        VENDOR: 'vendor',
+        getContextAttributes: vi.fn().mockReturnValue({ alpha: true, antialias: true }),
+        getError: vi.fn().mockReturnValue(0),
+        getExtension: vi.fn().mockReturnValue({
+          UNMASKED_RENDERER_WEBGL: 'unmasked-renderer',
+          UNMASKED_VENDOR_WEBGL: 'unmasked-vendor',
+        }),
+        getParameter: vi.fn((name: string) => `param:${name}`),
+        isContextLost: vi.fn().mockReturnValue(false),
+      };
+      const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
+      Object.assign(canvas, {
+        className: 'board-canvas',
+        height: 720,
+        id: 'board',
+        isConnected: true,
+        width: 1280,
+      });
+      canvas.getBoundingClientRect = vi
+        .fn()
+        .mockReturnValue({ height: 720, width: 1280, x: 0, y: 0 }) as never;
+      canvas.getContext = vi
+        .fn()
+        .mockImplementation((kind: string) => (kind === 'webgl2' ? context : null)) as never;
+      vi.stubGlobal('document', {
+        querySelectorAll: vi.fn().mockReturnValue([canvas]),
+      });
+
+      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
+
+      expect(result).toMatchObject({
+        canvasCount: 1,
+        context: {
+          error: 'NO_ERROR',
+          isContextLost: false,
+          kind: 'webgl2',
+          renderer: 'param:unmasked-renderer',
+          unmasked: true,
+        },
+        selector: '#scene-canvas canvas',
+        selectedCanvas: { id: 'board' },
+      });
+    });
+
+    it('retains a lost WebGL context instead of misreporting it as an empty renderer', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      const context = {
+        INVALID_ENUM: 0x0500,
+        INVALID_FRAMEBUFFER_OPERATION: 0x0506,
+        INVALID_OPERATION: 0x0502,
+        INVALID_VALUE: 0x0501,
+        NO_ERROR: 0,
+        OUT_OF_MEMORY: 0x0505,
+        RENDERER: 'renderer',
+        VENDOR: 'vendor',
+        getContextAttributes: vi.fn().mockReturnValue(null),
+        getError: vi.fn().mockReturnValue(0x9242),
+        getExtension: vi.fn().mockReturnValue(null),
+        getParameter: vi.fn().mockReturnValue(null),
+        isContextLost: vi.fn().mockReturnValue(true),
+      };
+      const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
+      Object.assign(canvas, { className: '', height: 0, id: '', isConnected: true, width: 0 });
+      canvas.getBoundingClientRect = vi
+        .fn()
+        .mockReturnValue({ height: 0, width: 0, x: 0, y: 0 }) as never;
+      canvas.getContext = vi.fn().mockReturnValue(context) as never;
+      vi.stubGlobal('document', {
+        querySelectorAll: vi.fn().mockReturnValue([canvas]),
+      });
+
+      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
+
+      expect(result).toMatchObject({
+        context: {
+          error: 'CONTEXT_LOST_WEBGL',
+          isContextLost: true,
+          renderer: null,
+          unmasked: false,
+        },
+      });
+    });
+
+    it('reports no selected canvas when the owner selector resolves only non-canvas nodes', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      vi.stubGlobal('document', {
+        querySelectorAll: vi.fn().mockReturnValue([{}]),
+      });
+
+      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
+
+      expect(result).toEqual({
+        canvasCount: 0,
+        context: null,
+        selectedCanvas: null,
+        selector: '#scene-canvas canvas',
+      });
+    });
+
+    it('reports a selected canvas with no WebGL context separately from a missing canvas', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
+      Object.assign(canvas, {
+        className: 'poster',
+        height: 160,
+        id: 'poster',
+        isConnected: true,
+        width: 320,
+      });
+      canvas.getBoundingClientRect = vi
+        .fn()
+        .mockReturnValue({ height: 160, width: 320, x: 4, y: 8 }) as never;
+      canvas.getContext = vi.fn().mockReturnValue(null) as never;
+      vi.stubGlobal('document', {
+        querySelectorAll: vi.fn().mockReturnValue([canvas]),
+      });
+
+      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
+
+      expect(result).toMatchObject({
+        canvasCount: 1,
+        context: { kind: null, isContextLost: null },
+        selectedCanvas: { id: 'poster' },
+      });
+    });
+
+    it('records generic WebGL identity and an unknown GL error without an unmasked extension', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      const context = {
+        INVALID_ENUM: 0x0500,
+        INVALID_FRAMEBUFFER_OPERATION: 0x0506,
+        INVALID_OPERATION: 0x0502,
+        INVALID_VALUE: 0x0501,
+        NO_ERROR: 0,
+        OUT_OF_MEMORY: 0x0505,
+        RENDERER: 'renderer',
+        VENDOR: 'vendor',
+        getContextAttributes: vi.fn().mockReturnValue(null),
+        getError: vi.fn().mockReturnValue(0x9999),
+        getExtension: vi.fn().mockReturnValue(null),
+        getParameter: vi.fn((name: string) => `generic:${name}`),
+        isContextLost: vi.fn().mockReturnValue(false),
+      };
+      const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
+      Object.assign(canvas, { className: '', height: 1, id: '', isConnected: true, width: 1 });
+      canvas.getBoundingClientRect = vi
+        .fn()
+        .mockReturnValue({ height: 1, width: 1, x: 0, y: 0 }) as never;
+      canvas.getContext = vi
+        .fn()
+        .mockImplementation((kind: string) => (kind === 'webgl' ? context : null)) as never;
+      vi.stubGlobal('document', {
+        querySelectorAll: vi.fn().mockReturnValue([canvas]),
+      });
+
+      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
+
+      expect(result).toMatchObject({
+        context: {
+          error: 'GL_ERROR_0x9999',
+          genericRenderer: 'generic:renderer',
+          kind: 'webgl',
+          renderer: 'generic:renderer',
+          unmasked: false,
+        },
+      });
+    });
+
+    it('records and bounds observational WebGL context lifecycle events', async () => {
+      vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
+      const { page } = createRuntime();
+      const listeners = new Map<string, (event: Event) => void>();
+      vi.stubGlobal('window', {
+        addEventListener: vi.fn((type: string, listener: (event: Event) => void) => {
+          listeners.set(type, listener);
+        }),
+      });
+      const canvas = Object.create(FakeHTMLCanvasElement.prototype) as HTMLCanvasElement;
+      Object.assign(canvas, { className: 'board', height: 720, id: 'board', width: 1280 });
+
+      await installWebGLContextEventRecorder(page as never);
+      const install = page.addInitScript.mock.calls.at(-1)?.[0] as (key: string) => void;
+      const key = page.addInitScript.mock.calls.at(-1)?.[1] as string;
+      install(key);
+      for (let index = 0; index < 33; index += 1) {
+        listeners.get('webglcontextlost')?.({
+          target: index === 0 ? {} : canvas,
+          timeStamp: index,
+          type: 'webglcontextlost',
+        } as unknown as Event);
+      }
+      listeners.get('webglcontextrestored')?.({
+        target: canvas,
+        timeStamp: 34,
+        type: 'webglcontextrestored',
+      } as unknown as Event);
+
+      await readWebGLContextEvents(page as never);
+      const read = evaluateArgOf(page.evaluate) as (storedKey: string) => unknown;
+      const events = read(key) as Array<{ canvas: { id: string } | null; type: string }>;
+
+      expect(events).toHaveLength(32);
+      expect(events[0]).toMatchObject({ canvas: { id: 'board' }, type: 'webglcontextlost' });
+      expect(events.at(-1)).toMatchObject({ type: 'webglcontextrestored' });
+    });
+
+    it('reads an empty lifecycle ledger when no recorder was requested', async () => {
+      const { page } = createRuntime();
+      const key = '__gameHarnessWebGLContextEvents';
+      delete (globalThis as Record<string, unknown>)[key];
+
+      await readWebGLContextEvents(page as never);
+      const read = evaluateArgOf(page.evaluate) as (storedKey: string) => unknown;
+
+      expect(read(key)).toEqual([]);
     });
 
     it('seeds and clears localStorage sentinels through the in-page init script', async () => {

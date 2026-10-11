@@ -357,15 +357,26 @@ await verifyProductionRuntime({
       '--strictPort',
     ],
   },
+  captureWebGLContextEvents: true,
   localStorageSentinels: { 'settings::muted': 'false' },
   assertReady: async (page) => {
     await page.getByRole('heading', { name: 'My Game' }).waitFor();
-    await page.locator('canvas').waitFor({ state: 'visible' });
-    const { renderer } = await requireHardwareWebGL(page);
+    const canvasSelector = '#scene-canvas canvas';
+    await page.locator(canvasSelector).waitFor({ state: 'visible' });
+    const { renderer } = await requireHardwareWebGL(page, canvasSelector);
     console.log(`WebGL renderer: ${renderer}`);
   },
 });
 ```
+
+Pass the game-owned selector to `requireHardwareWebGL()` instead of a generic
+`canvas` selector when the page can contain overlays, posters, or preloads.
+If a hardware preflight fails, `readWebGLCanvasDiagnostics()` reports the
+matched canvas count and identity, context kind, loss state, GL error,
+attributes, and generic/unmasked renderer values. Set
+`captureWebGLContextEvents: true` to attach observational context lost/restored
+events to the failure log; it never calls `preventDefault()` or changes the
+renderer policy.
 
 Pass `browserLaunchOptions: { headless: true }` only for a deliberately
 constrained non-visual check. Release and final gameplay proof remain headed.

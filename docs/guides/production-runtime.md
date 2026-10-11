@@ -34,15 +34,25 @@ await verifyProductionRuntime({
       '--strictPort',
     ],
   },
+  captureWebGLContextEvents: true,
   localStorageSentinels: { 'settings::muted': 'false' },
   assertReady: async (page) => {
     await page.getByRole('heading', { name: 'My Game' }).waitFor();
-    await page.locator('canvas').waitFor({ state: 'visible' });
-    const { renderer } = await requireHardwareWebGL(page);
+    const canvasSelector = '#scene-canvas canvas';
+    await page.locator(canvasSelector).waitFor({ state: 'visible' });
+    const { renderer } = await requireHardwareWebGL(page, canvasSelector);
     console.log(`WebGL renderer: ${renderer}`);
   },
 });
 ```
+
+Use an owner selector instead of generic `canvas` when the page has multiple
+canvases. A failed hardware preflight retains
+`readWebGLCanvasDiagnostics()` output in its error message: selector ownership,
+context kind and loss state, raw GL error, context attributes, and generic plus
+unmasked renderer values. `captureWebGLContextEvents: true` records lost and
+restored events before navigation without preventing them or changing renderer
+policy.
 
 Pass `browserLaunchOptions: { headless: true }` only for a deliberately
 constrained non-visual check. Release and final gameplay proof remain headed.
