@@ -343,8 +343,9 @@ function formatDiagnosticReadFailure(error: unknown): string {
 }
 
 /**
- * Reads canvas ownership and context state without changing rendering policy.
- * This distinguishes a missing, wrong, or lost canvas from a masked or software renderer.
+ * Reads canvas ownership without initializing a WebGL context or changing
+ * rendering policy. Context state is captured only by the owned hardware
+ * preflight after the caller has made the game canvas ready.
  */
 export async function readWebGLCanvasDiagnostics(
   page: Page,
@@ -416,7 +417,101 @@ export async function readWebGLContextEvents(
   }, WEBGL_CONTEXT_EVENTS_KEY);
 }
 
-/** Reads the unmasked WebGL renderer already attached to the selected game canvas. */
+interface HardwareWebGLPreflight {
+  info: WebGLRendererInfo;
+  diagnostics: WebGLCanvasDiagnostics;
+}
+
+/**
+ * Probes an owned game canvas and snapshots that same context for a failed
+ * hardware verdict. This is deliberately private: unlike the public canvas
+ * ownership reader, this probe may initialize a context and is only run by
+ * `requireHardwareWebGL()` after its caller has made the game canvas ready.
+ */
+async function readHardwareWebGLPreflight(
+  page: Page,
+  canvasSelector: string,
+): Promise<HardwareWebGLPreflight> {
+  return page.evaluate((selector) => {
+    const matchedCanvases = [...document.querySelectorAll(selector)].filter(
+      (element): element is HTMLCanvasElement => element instanceof HTMLCanvasElement,
+    );
+    const canvas = matchedCanvases[0] ?? null;
+    if (!canvas) throw new Error(`WebGL canvas not found: ${selector}`);
+
+    const webgl2 = canvas.getContext('webgl2');
+    const context = webgl2 ?? canvas.getContext('webgl');
+    if (!context) throw new Error(`WebGL context unavailable: ${selector}`);
+
+    const rect = canvas.getBoundingClientRect();
+    const selectedCanvas = {
+      className: canvas.className,
+      connected: canvas.isConnected,
+      height: canvas.height,
+      id: canvas.id,
+      rect: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
+      width: canvas.width,
+    };
+    const attributes = context.getContextAttributes();
+    const extension = context.getExtension('WEBGL_debug_renderer_info');
+    const genericRenderer = context.getParameter(context.RENDERER);
+    const genericVendor = context.getParameter(context.VENDOR);
+    const renderer = extension
+      ? context.getParameter(extension.UNMASKED_RENDERER_WEBGL)
+      : genericRenderer;
+    const vendor = extension
+      ? context.getParameter(extension.UNMASKED_VENDOR_WEBGL)
+      : genericVendor;
+    const errorCode = context.getError();
+    const errorNames: Readonly<Record<number, string>> = {
+      [context.INVALID_ENUM]: 'INVALID_ENUM',
+      [context.INVALID_FRAMEBUFFER_OPERATION]: 'INVALID_FRAMEBUFFER_OPERATION',
+      [context.INVALID_OPERATION]: 'INVALID_OPERATION',
+      [context.INVALID_VALUE]: 'INVALID_VALUE',
+      [context.NO_ERROR]: 'NO_ERROR',
+      [context.OUT_OF_MEMORY]: 'OUT_OF_MEMORY',
+      0x9242: 'CONTEXT_LOST_WEBGL',
+    };
+    const contextDiagnostics = {
+      attributes: attributes
+        ? {
+            alpha: attributes.alpha,
+            antialias: attributes.antialias,
+            depth: attributes.depth,
+            desynchronized: attributes.desynchronized,
+            failIfMajorPerformanceCaveat: attributes.failIfMajorPerformanceCaveat,
+            powerPreference: attributes.powerPreference,
+            premultipliedAlpha: attributes.premultipliedAlpha,
+            preserveDrawingBuffer: attributes.preserveDrawingBuffer,
+            stencil: attributes.stencil,
+          }
+        : null,
+      error: errorNames[errorCode] ?? `GL_ERROR_0x${errorCode.toString(16)}`,
+      genericRenderer: genericRenderer === null ? null : String(genericRenderer),
+      genericVendor: genericVendor === null ? null : String(genericVendor),
+      isContextLost: context.isContextLost(),
+      kind: webgl2 ? ('webgl2' as const) : ('webgl' as const),
+      renderer: renderer === null ? null : String(renderer),
+      unmasked: extension !== null,
+      vendor: vendor === null ? null : String(vendor),
+    };
+    return {
+      diagnostics: {
+        canvasCount: matchedCanvases.length,
+        context: contextDiagnostics,
+        selectedCanvas,
+        selector,
+      },
+      info: {
+        renderer: String(renderer),
+        unmasked: extension !== null,
+        vendor: String(vendor),
+      },
+    };
+  }, canvasSelector);
+}
+
+/** Reads the unmasked WebGL renderer attached to the selected game canvas. */
 export async function readWebGLRenderer(
   page: Page,
   canvasSelector = 'canvas',
@@ -442,9 +537,9 @@ export async function requireHardwareWebGL(
   page: Page,
   canvasSelector = 'canvas',
 ): Promise<WebGLRendererInfo> {
-  let info: WebGLRendererInfo;
+  let preflight: HardwareWebGLPreflight;
   try {
-    info = await readWebGLRenderer(page, canvasSelector);
+    preflight = await readHardwareWebGLPreflight(page, canvasSelector);
   } catch (error) {
     let diagnostic: string;
     try {
@@ -458,15 +553,10 @@ export async function requireHardwareWebGL(
       error,
     );
   }
+  const { diagnostics, info } = preflight;
   if (!info.unmasked || !info.renderer.trim() || SOFTWARE_RENDERER_PATTERN.test(info.renderer)) {
-    let diagnostic: string;
-    try {
-      diagnostic = formatWebGLDiagnostics(await readWebGLCanvasDiagnostics(page, canvasSelector));
-    } catch (error) {
-      diagnostic = formatDiagnosticReadFailure(error);
-    }
     throw new ProductionRuntimeVerificationError(
-      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}; diagnostic=${diagnostic}`,
+      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}; diagnostic=${formatWebGLDiagnostics(diagnostics)}`,
     );
   }
   return info;

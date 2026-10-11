@@ -42,6 +42,39 @@ function createRuntime() {
   return { browser, handlers, page };
 }
 
+function hardwarePreflight(
+  info: { renderer: string; vendor: string; unmasked: boolean },
+  context: Record<string, unknown> = {},
+) {
+  return {
+    diagnostics: {
+      canvasCount: 1,
+      context: {
+        attributes: { alpha: true, antialias: true },
+        error: 'NO_ERROR',
+        genericRenderer: info.renderer,
+        genericVendor: info.vendor,
+        isContextLost: false,
+        kind: 'webgl2',
+        renderer: info.renderer,
+        unmasked: info.unmasked,
+        vendor: info.vendor,
+        ...context,
+      },
+      selectedCanvas: {
+        className: 'game-canvas',
+        connected: true,
+        height: 720,
+        id: 'board',
+        rect: { height: 720, width: 1280, x: 0, y: 0 },
+        width: 1280,
+      },
+      selector: '#scene-canvas canvas',
+    },
+    info,
+  };
+}
+
 describe('verifyProductionRuntime', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -251,11 +284,12 @@ describe('verifyProductionRuntime', () => {
 
   it('reads and accepts a hardware-backed WebGL renderer', async () => {
     const { page } = createRuntime();
-    page.evaluate.mockResolvedValue({
+    const info = {
       renderer: 'ANGLE (Intel, Vulkan 1.4, Intel open-source Mesa driver)',
       vendor: 'Google Inc. (Intel)',
       unmasked: true,
-    });
+    };
+    page.evaluate.mockResolvedValueOnce(info).mockResolvedValueOnce(hardwarePreflight(info));
 
     await expect(readWebGLRenderer(page as never)).resolves.toEqual(
       expect.objectContaining({ renderer: expect.stringContaining('Intel') }),
@@ -267,11 +301,13 @@ describe('verifyProductionRuntime', () => {
 
   it('accepts the Apple GPU that headless Chromium reaches through ANGLE Metal', async () => {
     const { page } = createRuntime();
-    page.evaluate.mockResolvedValue({
-      renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)',
-      vendor: 'Google Inc. (Apple)',
-      unmasked: true,
-    });
+    page.evaluate.mockResolvedValue(
+      hardwarePreflight({
+        renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)',
+        vendor: 'Google Inc. (Apple)',
+        unmasked: true,
+      }),
+    );
     await expect(requireHardwareWebGL(page as never)).resolves.toEqual(
       expect.objectContaining({ renderer: expect.stringContaining('ANGLE Metal Renderer') }),
     );
@@ -281,100 +317,49 @@ describe('verifyProductionRuntime', () => {
     'rejects the software WebGL renderer %s',
     async (renderer) => {
       const { page } = createRuntime();
-      page.evaluate.mockResolvedValue({
-        renderer,
-        vendor: 'software',
-        unmasked: true,
-      });
+      page.evaluate.mockResolvedValue(
+        hardwarePreflight({ renderer, vendor: 'software', unmasked: true }),
+      );
       await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/hardware WebGL required/i);
     },
   );
 
   it('fails closed when the browser exposes only a masked renderer', async () => {
     const { page } = createRuntime();
-    page.evaluate.mockResolvedValue({
-      renderer: 'WebKit WebGL',
-      vendor: 'WebKit',
-      unmasked: false,
-    });
+    page.evaluate.mockResolvedValue(
+      hardwarePreflight({ renderer: 'WebKit WebGL', vendor: 'WebKit', unmasked: false }),
+    );
     await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/masked renderer/i);
   });
 
   it('reports <empty> when the unmasked renderer string is blank', async () => {
     const { page } = createRuntime();
-    page.evaluate.mockResolvedValue({
-      renderer: '',
-      vendor: '',
-      unmasked: true,
-    });
+    page.evaluate.mockResolvedValue(
+      hardwarePreflight({ renderer: '', vendor: '', unmasked: true }),
+    );
     await expect(requireHardwareWebGL(page as never)).rejects.toThrow(/unmasked renderer: <empty>/);
   });
 
-  it('reports the selected canvas identity and a live WebGL2 context', async () => {
+  it('retains a lost context snapshot when an owned hardware preflight fails', async () => {
     const { page } = createRuntime();
-    page.evaluate.mockResolvedValue({
-      canvasCount: 2,
-      context: {
-        attributes: { antialias: true, alpha: true },
-        error: 'NO_ERROR',
-        isContextLost: false,
-        kind: 'webgl2',
-        renderer: 'ANGLE (Intel, Vulkan 1.4)',
-        unmasked: true,
-        vendor: 'Google Inc. (Intel)',
-      },
-      selector: '#game-canvas canvas',
-      selectedCanvas: {
-        className: 'game-canvas',
-        connected: true,
-        height: 720,
-        id: 'board',
-        rect: { height: 720, width: 1280, x: 0, y: 0 },
-        width: 1280,
-      },
-    });
-
-    await expect(
-      readWebGLCanvasDiagnostics(page as never, '#game-canvas canvas'),
-    ).resolves.toMatchObject({
-      canvasCount: 2,
-      context: expect.objectContaining({ kind: 'webgl2', isContextLost: false }),
-      selector: '#game-canvas canvas',
-      selectedCanvas: expect.objectContaining({ id: 'board', connected: true }),
-    });
-  });
-
-  it('retains a lost context diagnostic when hardware verification fails', async () => {
-    const { page } = createRuntime();
-    page.evaluate.mockResolvedValueOnce({
-      renderer: 'WebKit WebGL',
-      unmasked: false,
-      vendor: 'WebKit',
-    });
-    page.evaluate.mockResolvedValueOnce({
-      canvasCount: 1,
-      context: {
-        attributes: null,
-        error: 'CONTEXT_LOST_WEBGL',
-        isContextLost: true,
-        kind: 'webgl',
-        renderer: null,
-        unmasked: false,
-        vendor: null,
-      },
-      selector: '#scene-canvas canvas',
-      selectedCanvas: {
-        className: '',
-        connected: true,
-        height: 0,
-        id: '',
-        rect: { height: 0, width: 0, x: 0, y: 0 },
-        width: 0,
-      },
-    });
+    page.evaluate.mockResolvedValue(
+      hardwarePreflight(
+        { renderer: 'null', unmasked: false, vendor: 'null' },
+        {
+          attributes: null,
+          error: 'CONTEXT_LOST_WEBGL',
+          genericRenderer: null,
+          genericVendor: null,
+          isContextLost: true,
+          kind: 'webgl',
+          renderer: null,
+          vendor: null,
+        },
+      ),
+    );
 
     await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
-      /CONTEXT_LOST_WEBGL/,
+      /"error":"CONTEXT_LOST_WEBGL".*"isContextLost":true.*"kind":"webgl"/,
     );
   });
 
@@ -382,26 +367,23 @@ describe('verifyProductionRuntime', () => {
     const { page } = createRuntime();
     page.evaluate
       .mockRejectedValueOnce(new Error('selected canvas detached'))
-      .mockRejectedValueOnce(new Error('page closed'));
+      .mockRejectedValueOnce('page closed');
 
     await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
       /hardware WebGL required; renderer probe failed: <unavailable: selected canvas detached>; diagnostic=<unavailable: page closed>/,
     );
   });
 
-  it('retains the hardware verdict when masked-renderer diagnostics reject', async () => {
+  it('uses the owned preflight snapshot without a second public diagnostic read', async () => {
     const { page } = createRuntime();
-    page.evaluate
-      .mockResolvedValueOnce({
-        renderer: 'WebKit WebGL',
-        unmasked: false,
-        vendor: 'WebKit',
-      })
-      .mockRejectedValueOnce('page closed');
+    page.evaluate.mockResolvedValue(
+      hardwarePreflight({ renderer: 'WebKit WebGL', unmasked: false, vendor: 'WebKit' }),
+    );
 
     await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
-      /hardware WebGL required; received masked renderer: WebKit WebGL; diagnostic=<unavailable: page closed>/,
+      /received masked renderer: WebKit WebGL/,
     );
+    expect(page.evaluate).toHaveBeenCalledOnce();
   });
 
   it('records context lifecycle events before navigation and retains them on a preflight failure', async () => {
@@ -634,9 +616,28 @@ describe('verifyProductionRuntime', () => {
         selectedCanvas: { id: 'board' },
       });
       expect(canvas.getContext).not.toHaveBeenCalled();
+
+      page.evaluate.mockResolvedValue(
+        hardwarePreflight({ renderer: 'ANGLE (Intel)', unmasked: true, vendor: 'Google Inc.' }),
+      );
+      await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).resolves.toEqual(
+        expect.objectContaining({ unmasked: true }),
+      );
+      const preflight = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
+      expect(preflight).toMatchObject({
+        diagnostics: {
+          context: {
+            attributes: { alpha: true, antialias: true },
+            error: 'NO_ERROR',
+            isContextLost: false,
+            kind: 'webgl2',
+          },
+        },
+      });
+      expect(canvas.getContext).toHaveBeenCalledWith('webgl2');
     });
 
-    it('retains a lost WebGL context instead of misreporting it as an empty renderer', async () => {
+    it('retains a lost WebGL context in the owned preflight snapshot', async () => {
       vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
       const { page } = createRuntime();
       const context = {
@@ -659,16 +660,32 @@ describe('verifyProductionRuntime', () => {
       canvas.getBoundingClientRect = vi
         .fn()
         .mockReturnValue({ height: 0, width: 0, x: 0, y: 0 }) as never;
-      canvas.getContext = vi.fn().mockReturnValue(context) as never;
+      canvas.getContext = vi
+        .fn()
+        .mockImplementation((kind: string) => (kind === 'webgl' ? context : null)) as never;
       vi.stubGlobal('document', {
         querySelectorAll: vi.fn().mockReturnValue([canvas]),
       });
+      page.evaluate.mockResolvedValue(
+        hardwarePreflight({ renderer: 'null', unmasked: false, vendor: 'null' }),
+      );
 
-      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+        /masked renderer: null/,
+      );
       const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
 
       expect(result).toMatchObject({
-        context: null,
+        diagnostics: {
+          context: {
+            attributes: null,
+            error: 'CONTEXT_LOST_WEBGL',
+            isContextLost: true,
+            kind: 'webgl',
+            renderer: null,
+            unmasked: false,
+          },
+        },
       });
     });
 
@@ -688,6 +705,17 @@ describe('verifyProductionRuntime', () => {
         selectedCanvas: null,
         selector: '#scene-canvas canvas',
       });
+
+      page.evaluate.mockResolvedValue(
+        hardwarePreflight({ renderer: 'WebKit WebGL', unmasked: false, vendor: 'WebKit' }),
+      );
+      await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+        /masked renderer: WebKit WebGL/,
+      );
+      const preflight = evaluateArgOf(page.evaluate);
+      expect(() => preflight('#scene-canvas canvas')).toThrow(
+        /WebGL canvas not found: #scene-canvas canvas/,
+      );
     });
 
     it('reports a selected canvas with no WebGL context separately from a missing canvas', async () => {
@@ -717,6 +745,17 @@ describe('verifyProductionRuntime', () => {
         context: null,
         selectedCanvas: { id: 'poster' },
       });
+
+      page.evaluate.mockResolvedValue(
+        hardwarePreflight({ renderer: 'WebKit WebGL', unmasked: false, vendor: 'WebKit' }),
+      );
+      await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+        /masked renderer: WebKit WebGL/,
+      );
+      const preflight = evaluateArgOf(page.evaluate);
+      expect(() => preflight('#scene-canvas canvas')).toThrow(
+        /WebGL context unavailable: #scene-canvas canvas/,
+      );
     });
 
     it('records generic WebGL identity and an unknown GL error without an unmasked extension', async () => {
@@ -749,11 +788,28 @@ describe('verifyProductionRuntime', () => {
         querySelectorAll: vi.fn().mockReturnValue([canvas]),
       });
 
-      await readWebGLCanvasDiagnostics(page as never, '#scene-canvas canvas');
+      page.evaluate.mockResolvedValue(
+        hardwarePreflight({
+          renderer: 'generic:renderer',
+          unmasked: false,
+          vendor: 'generic:vendor',
+        }),
+      );
+      await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+        /masked renderer: generic:renderer/,
+      );
       const result = evaluateArgOf(page.evaluate)('#scene-canvas canvas');
 
       expect(result).toMatchObject({
-        context: null,
+        diagnostics: {
+          context: {
+            error: 'GL_ERROR_0x9999',
+            genericRenderer: 'generic:renderer',
+            kind: 'webgl',
+            renderer: 'generic:renderer',
+            unmasked: false,
+          },
+        },
       });
     });
 

@@ -371,12 +371,14 @@ await verifyProductionRuntime({
 
 Pass the game-owned selector to `requireHardwareWebGL()` instead of a generic
 `canvas` selector when the page can contain overlays, posters, or preloads.
-If a hardware preflight fails, `readWebGLCanvasDiagnostics()` reports the
-matched canvas count and identity, context kind, loss state, GL error,
-attributes, and generic/unmasked renderer values. Set
-`captureWebGLContextEvents: true` to attach observational context lost/restored
-events to the failure log; it never calls `preventDefault()` or changes the
-renderer policy.
+When a hardware preflight obtains the owned canvas context but rejects its
+renderer, its error includes the matched canvas count and identity, context
+kind, loss state, GL error, attributes, and generic/unmasked renderer values.
+`readWebGLCanvasDiagnostics()` is safe to call before renderer startup: it
+reports selector ownership without calling `getContext()` on a pristine canvas.
+Set `captureWebGLContextEvents: true` to attach observational context
+lost/restored events to the failure log; it never calls `preventDefault()` or
+changes the renderer policy.
 
 Pass `browserLaunchOptions: { headless: true }` only for a deliberately
 constrained non-visual check. Release and final gameplay proof remain headed.

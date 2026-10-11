@@ -47,12 +47,13 @@ await verifyProductionRuntime({
 ```
 
 Use an owner selector instead of generic `canvas` when the page has multiple
-canvases. A failed hardware preflight retains
-`readWebGLCanvasDiagnostics()` output in its error message: selector ownership,
-context kind and loss state, raw GL error, context attributes, and generic plus
-unmasked renderer values. `captureWebGLContextEvents: true` records lost and
-restored events before navigation without preventing them or changing renderer
-policy.
+canvases. When a failed hardware preflight has obtained the owned canvas
+context, its error retains selector ownership, context kind and loss state, raw
+GL error, context attributes, and generic plus unmasked renderer values.
+`readWebGLCanvasDiagnostics()` is safe before renderer startup because it reads
+selector ownership without calling `getContext()` on a pristine canvas.
+`captureWebGLContextEvents: true` records lost and restored events before
+navigation without preventing them or changing renderer policy.
 
 Pass `browserLaunchOptions: { headless: true }` only for a deliberately
 constrained non-visual check. Release and final gameplay proof remain headed.
