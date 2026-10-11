@@ -338,6 +338,10 @@ function formatWebGLDiagnostics(diagnostics: WebGLCanvasDiagnostics): string {
   return JSON.stringify(diagnostics);
 }
 
+function formatDiagnosticReadFailure(error: unknown): string {
+  return `<unavailable: ${error instanceof Error ? error.message : String(error)}>`;
+}
+
 /**
  * Reads canvas ownership and context state without changing rendering policy.
  * This distinguishes a missing, wrong, or lost canvas from a masked or software renderer.
@@ -503,11 +507,31 @@ export async function requireHardwareWebGL(
   page: Page,
   canvasSelector = 'canvas',
 ): Promise<WebGLRendererInfo> {
-  const info = await readWebGLRenderer(page, canvasSelector);
-  if (!info.unmasked || !info.renderer.trim() || SOFTWARE_RENDERER_PATTERN.test(info.renderer)) {
-    const diagnostics = await readWebGLCanvasDiagnostics(page, canvasSelector);
+  let info: WebGLRendererInfo;
+  try {
+    info = await readWebGLRenderer(page, canvasSelector);
+  } catch (error) {
+    let diagnostic: string;
+    try {
+      diagnostic = formatWebGLDiagnostics(await readWebGLCanvasDiagnostics(page, canvasSelector));
+    } catch (diagnosticError) {
+      diagnostic = formatDiagnosticReadFailure(diagnosticError);
+    }
     throw new ProductionRuntimeVerificationError(
-      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}; diagnostic=${formatWebGLDiagnostics(diagnostics)}`,
+      `hardware WebGL required; renderer probe failed: ${formatDiagnosticReadFailure(error)}; diagnostic=${diagnostic}`,
+      [],
+      error,
+    );
+  }
+  if (!info.unmasked || !info.renderer.trim() || SOFTWARE_RENDERER_PATTERN.test(info.renderer)) {
+    let diagnostic: string;
+    try {
+      diagnostic = formatWebGLDiagnostics(await readWebGLCanvasDiagnostics(page, canvasSelector));
+    } catch (error) {
+      diagnostic = formatDiagnosticReadFailure(error);
+    }
+    throw new ProductionRuntimeVerificationError(
+      `hardware WebGL required; received ${info.unmasked ? 'unmasked' : 'masked'} renderer: ${info.renderer || '<empty>'}; diagnostic=${diagnostic}`,
     );
   }
   return info;
@@ -627,12 +651,16 @@ export async function verifyProductionRuntime(
       const settleTimeMs = options.settleTimeMs ?? 250;
       if (settleTimeMs > 0) await page.waitForTimeout(settleTimeMs);
     } catch (error) {
-      const contextEvents = options.captureWebGLContextEvents
-        ? await readWebGLContextEvents(page)
-        : [];
-      const contextEventSuffix = options.captureWebGLContextEvents
-        ? `\nwebglContextEvents=${JSON.stringify(contextEvents)}`
-        : '';
+      let contextEventSuffix = '';
+      if (options.captureWebGLContextEvents) {
+        try {
+          contextEventSuffix = `\nwebglContextEvents=${JSON.stringify(
+            await readWebGLContextEvents(page),
+          )}`;
+        } catch (contextEventError) {
+          contextEventSuffix = `\nwebglContextEvents=${formatDiagnosticReadFailure(contextEventError)}`;
+        }
+      }
       if (issues.length > 0) {
         throw new ProductionRuntimeVerificationError(
           `production runtime failed while emitting runtime errors:\n${formatIssues(issues)}${contextEventSuffix}`,
@@ -647,7 +675,12 @@ export async function verifyProductionRuntime(
           error,
         );
       }
-      throw error;
+      if (!options.captureWebGLContextEvents) throw error;
+      throw new ProductionRuntimeVerificationError(
+        `${error instanceof Error ? error.message : String(error)}${contextEventSuffix}`,
+        [],
+        error,
+      );
     }
 
     const localStorage = await readLocalStorage(page, Object.keys(sentinels));

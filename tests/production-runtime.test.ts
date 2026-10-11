@@ -378,6 +378,32 @@ describe('verifyProductionRuntime', () => {
     );
   });
 
+  it('retains the hardware verdict when renderer or diagnostic probes reject', async () => {
+    const { page } = createRuntime();
+    page.evaluate
+      .mockRejectedValueOnce(new Error('selected canvas detached'))
+      .mockRejectedValueOnce(new Error('page closed'));
+
+    await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+      /hardware WebGL required; renderer probe failed: <unavailable: selected canvas detached>; diagnostic=<unavailable: page closed>/,
+    );
+  });
+
+  it('retains the hardware verdict when masked-renderer diagnostics reject', async () => {
+    const { page } = createRuntime();
+    page.evaluate
+      .mockResolvedValueOnce({
+        renderer: 'WebKit WebGL',
+        unmasked: false,
+        vendor: 'WebKit',
+      })
+      .mockRejectedValueOnce('page closed');
+
+    await expect(requireHardwareWebGL(page as never, '#scene-canvas canvas')).rejects.toThrow(
+      /hardware WebGL required; received masked renderer: WebKit WebGL; diagnostic=<unavailable: page closed>/,
+    );
+  });
+
   it('records context lifecycle events before navigation and retains them on a preflight failure', async () => {
     const { page } = createRuntime();
     page.evaluate.mockResolvedValueOnce([]);
@@ -397,6 +423,51 @@ describe('verifyProductionRuntime', () => {
     expect(page.addInitScript.mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(openSilentGame).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
     );
+  });
+
+  it('retains ordinary assertion failures with lifecycle diagnostics', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValueOnce([]);
+
+    await expect(
+      verifyProductionRuntime({
+        assertReady: async () => {
+          throw new Error('landing did not settle');
+        },
+        captureWebGLContextEvents: true,
+        url: 'https://game.example/',
+      }),
+    ).rejects.toThrow(/landing did not settle\nwebglContextEvents=\[\]/);
+  });
+
+  it('retains the original assertion when lifecycle diagnostics cannot be read', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockRejectedValueOnce(new Error('page closed'));
+
+    await expect(
+      verifyProductionRuntime({
+        assertReady: async () => {
+          throw new Error('landing did not settle');
+        },
+        captureWebGLContextEvents: true,
+        url: 'https://game.example/',
+      }),
+    ).rejects.toThrow(/landing did not settle\nwebglContextEvents=<unavailable: page closed>/);
+  });
+
+  it('formats a non-Error assertion value with lifecycle diagnostics', async () => {
+    const { page } = createRuntime();
+    page.evaluate.mockResolvedValueOnce([]);
+
+    await expect(
+      verifyProductionRuntime({
+        assertReady: async () => {
+          throw 'landing did not settle';
+        },
+        captureWebGLContextEvents: true,
+        url: 'https://game.example/',
+      }),
+    ).rejects.toThrow(/landing did not settle\nwebglContextEvents=\[\]/);
   });
 
   describe('the in-page evaluate callback', () => {
