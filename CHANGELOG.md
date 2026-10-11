@@ -4,6 +4,22 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.4.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.3.0...game-harness-v1.4.0) (2026-10-11)
+
+
+### Features
+
+* **runtime:** retain WebGL preflight diagnostics ([ebc957c](https://github.com/jbcom/game-harness/commit/ebc957c4ee1b2afd7ef943dcd38e815a43d325a7))
+* **runtime:** retain WebGL preflight diagnostics ([8ec8759](https://github.com/jbcom/game-harness/commit/8ec87596ff49833b24f20b1500614e6a18a9a72b))
+
+
+### Bug Fixes
+
+* **runtime:** fail closed on consumed GL errors ([734d563](https://github.com/jbcom/game-harness/commit/734d5635cb5567eea1d34fe446b49695104532ca))
+* **runtime:** preserve diagnostic failure context ([7e135d0](https://github.com/jbcom/game-harness/commit/7e135d0cd6c0c48440a3d7700f5b40052c0d0151))
+* **runtime:** retain owned WebGL preflight diagnostics ([0b067aa](https://github.com/jbcom/game-harness/commit/0b067aadacef75166dc3c67057bcd2e06ed2765d))
+* **runtime:** retain preflight failures ([25067d4](https://github.com/jbcom/game-harness/commit/25067d4b2473854fbe3a87c66d79e25d1b0dde36))
+
 ## [1.3.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.2.0...game-harness-v1.3.0) (2026-10-10)
 
 
