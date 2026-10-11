@@ -440,6 +440,21 @@ describe('verifyProductionRuntime', () => {
     ).rejects.toThrow(/landing did not settle\nwebglContextEvents=\[\]/);
   });
 
+  it('appends the lifecycle ledger when the post-ready settle window fails', async () => {
+    const { page } = createRuntime();
+    page.waitForTimeout.mockRejectedValueOnce(new Error('animation never settled'));
+    page.evaluate.mockResolvedValueOnce([]);
+
+    await expect(
+      verifyProductionRuntime({
+        assertReady: async () => undefined,
+        captureWebGLContextEvents: true,
+        settleTimeMs: 1,
+        url: 'https://game.example/',
+      }),
+    ).rejects.toThrow(/animation never settled\nwebglContextEvents=\[\]/);
+  });
+
   it('retains the original assertion when lifecycle diagnostics cannot be read', async () => {
     const { page } = createRuntime();
     page.evaluate.mockRejectedValueOnce(new Error('page closed'));
@@ -570,7 +585,7 @@ describe('verifyProductionRuntime', () => {
       expect(() => callback('canvas')).toThrow(/WebGL context unavailable: canvas/);
     });
 
-    it('records selector ownership and a live WebGL2 context in the diagnostic callback', async () => {
+    it('reports selector ownership without creating a context on a pristine canvas', async () => {
       vi.stubGlobal('HTMLCanvasElement', FakeHTMLCanvasElement);
       const { page } = createRuntime();
       const context = {
@@ -618,6 +633,7 @@ describe('verifyProductionRuntime', () => {
         selector: '#scene-canvas canvas',
         selectedCanvas: { id: 'board' },
       });
+      expect(canvas.getContext).not.toHaveBeenCalled();
     });
 
     it('retains a lost WebGL context instead of misreporting it as an empty renderer', async () => {
@@ -919,6 +935,44 @@ describe('verifyProductionRuntime', () => {
     ).rejects.toThrow(/settings::muted.*expected.*false.*received.*true/i);
   });
 
+  it('appends the lifecycle ledger to a post-ready sentinel failure', async () => {
+    const { page } = createRuntime();
+    page.evaluate
+      .mockResolvedValueOnce({ 'settings::muted': 'true' })
+      .mockResolvedValueOnce([{ timeStamp: 12, type: 'webglcontextlost' }]);
+
+    await expect(
+      verifyProductionRuntime({
+        url: 'https://game.example/',
+        captureWebGLContextEvents: true,
+        localStorageSentinels: { 'settings::muted': 'false' },
+        assertReady: async () => undefined,
+      }),
+    ).rejects.toThrow(
+      /localStorage sentinel settings::muted changed:[\s\S]*webglContextEvents=\[{"timeStamp":12,"type":"webglcontextlost"}\]/,
+    );
+  });
+
+  it.each([
+    ['Error', new Error('storage unavailable')],
+    ['non-Error', 'storage unavailable'],
+  ])(
+    'retains a post-ready %s storage-read failure when its lifecycle ledger cannot be read',
+    async (_, error) => {
+      const { page } = createRuntime();
+      page.evaluate.mockRejectedValueOnce(error).mockRejectedValueOnce(new Error('page closed'));
+
+      await expect(
+        verifyProductionRuntime({
+          url: 'https://game.example/',
+          captureWebGLContextEvents: true,
+          localStorageSentinels: { 'settings::muted': 'false' },
+          assertReady: async () => undefined,
+        }),
+      ).rejects.toThrow(/storage unavailable\nwebglContextEvents=<unavailable: page closed>/);
+    },
+  );
+
   it('owns a local server and refuses to reuse an occupied readiness URL', async () => {
     const runtime = createRuntime();
     const child = Object.assign(new EventEmitter(), {
@@ -1067,9 +1121,10 @@ describe('verifyProductionRuntime', () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
-  it('propagates an assertReady failure unchanged when no runtime issues were recorded', async () => {
+  it('preserves a ProductionRuntimeVerificationError identity and stack when capture is off', async () => {
     createRuntime();
-    const readyError = new Error('heading never appeared');
+    const readyError = new ProductionRuntimeVerificationError('heading never appeared');
+    const stack = readyError.stack;
 
     await expect(
       verifyProductionRuntime({
@@ -1079,6 +1134,7 @@ describe('verifyProductionRuntime', () => {
         },
       }),
     ).rejects.toBe(readyError);
+    expect(readyError.stack).toBe(stack);
   });
 
   it('skips the settle wait entirely when settleTimeMs is 0', async () => {

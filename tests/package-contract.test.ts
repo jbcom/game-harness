@@ -18,6 +18,10 @@ const manifest = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 ) as PackageManifest;
 const rootSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+const productionRuntimeSource = readFileSync(
+  new URL('../src/production-runtime.ts', import.meta.url),
+  'utf8',
+);
 const binShim = readFileSync(
   new URL('../bin/test-harness-visual-battery.mjs', import.meta.url),
   'utf8',
@@ -117,5 +121,15 @@ describe('package peer boundaries', () => {
       expect(conditional.require?.types, subpath).toMatch(/\.d\.cts$/);
       expect(conditional.require?.default, subpath).toMatch(/dist\/cjs\/.*\.js$/);
     }
+  });
+
+  it('keeps production-runtime declarations independent of DOM-only WebGL aliases', () => {
+    // The public declaration is emitted directly from this source. Using the
+    // literal union keeps downstream type-checks from requiring
+    // WebGLPowerPreference solely to read runtime diagnostics.
+    expect(productionRuntimeSource).not.toContain('WebGLPowerPreference');
+    expect(productionRuntimeSource).toContain(
+      "powerPreference?: 'default' | 'high-performance' | 'low-power' | undefined;",
+    );
   });
 });
