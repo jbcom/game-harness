@@ -93,4 +93,30 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
       }),
     ).toBe(true);
   });
+
+  it('requires a non-black RGB readback rather than the always-opaque alpha channel', () => {
+    expect(
+      isHardwareWebGLProbeResultHealthy({
+        context: 'webgl2',
+        isContextLost: false,
+        error: null,
+        renderer: 'Mesa Intel(R) UHD Graphics 630 (CFL GT2)',
+        unmasked: true,
+        pixel: [0, 0, 0, 255],
+      }),
+    ).toBe(false);
+  });
+
+  it('reports a missing WebGL2 context as an unhealthy probe result', () => {
+    expect(
+      isHardwareWebGLProbeResultHealthy({
+        context: null,
+        isContextLost: false,
+        error: null,
+        renderer: '',
+        unmasked: false,
+        pixel: [],
+      }),
+    ).toBe(false);
+  });
 });

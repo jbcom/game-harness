@@ -24,7 +24,16 @@ async function runRow(row: (typeof LINUX_HARDWARE_WEBGL_PROBE_ROWS)[number]) {
       canvas.height = 720;
       document.body.append(canvas);
       const gl = canvas.getContext('webgl2', { antialias: true, preserveDrawingBuffer: true });
-      if (!gl) return { context: null };
+      if (!gl) {
+        return {
+          context: null,
+          isContextLost: false,
+          error: null,
+          renderer: '',
+          unmasked: false,
+          pixel: [],
+        };
+      }
 
       const compile = (kind: number, source: string) => {
         const shader = gl.createShader(kind);

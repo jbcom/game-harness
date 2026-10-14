@@ -75,6 +75,6 @@ export function isHardwareWebGLProbeResultHealthy(result: LinuxHardwareWebGLProb
     result.unmasked === true &&
     result.renderer.trim().length > 0 &&
     !SOFTWARE_RENDERER_PATTERN.test(result.renderer) &&
-    result.pixel.some((channel) => channel !== 0)
+    result.pixel.slice(0, 3).some((channel) => channel !== 0)
   );
 }

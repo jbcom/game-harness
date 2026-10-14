@@ -30,10 +30,10 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
       - run: test -c /dev/dri/renderD128
-      - run: pnpm build
       - name: Run fresh-browser matrix under Xvfb with Chromium launch logging
         env:
           DEBUG: pw:browser
