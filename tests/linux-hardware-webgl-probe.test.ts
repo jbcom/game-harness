@@ -75,18 +75,12 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
     });
   });
 
-  it('redacts unrelated environment variables from printed launch evidence', () => {
+  it('prints only declared renderer settings rather than a launch environment', () => {
     const surfacelessRow = LINUX_HARDWARE_WEBGL_PROBE_ROWS[2];
     if (!surfacelessRow) throw new Error('missing surfaceless probe row');
 
-    expect(
-      launchEvidenceForLinuxHardwareWebGLProbe(surfacelessRow, {
-        DISPLAY: ':99',
-        GITHUB_TOKEN: 'never-log-this',
-      }),
-    ).toEqual({
+    expect(launchEvidenceForLinuxHardwareWebGLProbe(surfacelessRow)).toEqual({
       args: [...surfacelessRow.args],
-      display: ':99',
       eglPlatform: 'surfaceless',
       headless: false,
     });

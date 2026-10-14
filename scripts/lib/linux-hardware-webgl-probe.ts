@@ -71,22 +71,19 @@ export function launchOptionsForLinuxHardwareWebGLProbe(
   return { args: [...row.args], env, headless: row.headless };
 }
 
-/** Keeps diagnostic output to renderer settings; a launch environment can carry CI secrets. */
-export function launchEvidenceForLinuxHardwareWebGLProbe(
-  row: LinuxHardwareWebGLProbeRow,
-  environment: NodeJS.ProcessEnv = process.env,
-): {
+/**
+ * Keeps diagnostic output to declared renderer settings; the actual Chromium
+ * argv comes from DEBUG=pw:browser because a launch environment can carry CI secrets.
+ */
+export function launchEvidenceForLinuxHardwareWebGLProbe(row: LinuxHardwareWebGLProbeRow): {
   args: string[];
-  display: string | undefined;
-  eglPlatform: string | undefined;
+  eglPlatform: 'surfaceless' | undefined;
   headless: false;
 } {
-  const launchOptions = launchOptionsForLinuxHardwareWebGLProbe(row, environment);
   return {
-    args: launchOptions.args,
-    display: launchOptions.env.DISPLAY,
-    eglPlatform: launchOptions.env.EGL_PLATFORM,
-    headless: launchOptions.headless,
+    args: [...row.args],
+    eglPlatform: row.eglPlatform,
+    headless: row.headless,
   };
 }
 
