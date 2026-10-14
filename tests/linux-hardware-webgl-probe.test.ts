@@ -86,6 +86,7 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
       }),
     ).toEqual({
       args: [...surfacelessRow.args],
+      display: ':99',
       eglPlatform: 'surfaceless',
       headless: false,
     });

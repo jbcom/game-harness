@@ -75,10 +75,16 @@ export function launchOptionsForLinuxHardwareWebGLProbe(
 export function launchEvidenceForLinuxHardwareWebGLProbe(
   row: LinuxHardwareWebGLProbeRow,
   environment: NodeJS.ProcessEnv = process.env,
-): { args: string[]; eglPlatform: string | undefined; headless: false } {
+): {
+  args: string[];
+  display: string | undefined;
+  eglPlatform: string | undefined;
+  headless: false;
+} {
   const launchOptions = launchOptionsForLinuxHardwareWebGLProbe(row, environment);
   return {
     args: launchOptions.args,
+    display: launchOptions.env.DISPLAY,
     eglPlatform: launchOptions.env.EGL_PLATFORM,
     headless: launchOptions.headless,
   };

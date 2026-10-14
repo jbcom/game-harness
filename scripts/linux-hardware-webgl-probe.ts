@@ -118,6 +118,7 @@ console.log(
 
 const results = [];
 for (const row of LINUX_HARDWARE_WEBGL_PROBE_ROWS) {
+  // Each profile gets its own browser process; an earlier GPU context must not influence a later row.
   const result = await runRow(row);
   const healthy = isHardwareWebGLProbeResultHealthy(result);
   const report = {
