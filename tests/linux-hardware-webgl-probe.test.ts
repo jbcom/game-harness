@@ -12,6 +12,7 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
         id: 'baseline',
         args: ['--mute-audio'],
         eglPlatform: undefined,
+        headless: false,
       },
       {
         id: 'angle-vulkan-no-egl',
@@ -26,6 +27,7 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
           '--mute-audio',
         ],
         eglPlatform: undefined,
+        headless: false,
       },
       {
         id: 'angle-vulkan-surfaceless',
@@ -40,6 +42,7 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
           '--mute-audio',
         ],
         eglPlatform: 'surfaceless',
+        headless: false,
       },
     ]);
   });

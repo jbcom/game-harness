@@ -112,7 +112,7 @@ async function runRow(row: (typeof LINUX_HARDWARE_WEBGL_PROBE_ROWS)[number]) {
 }
 
 console.log(
-  `Linux WebGL probe display=${process.env.DISPLAY} debug=${process.env.DEBUG ?? '<unset>'} rows=${LINUX_HARDWARE_WEBGL_PROBE_ROWS.map((row) => row.id).join(',')}`,
+  `Linux WebGL probe display=${process.env.DISPLAY} debug=${process.env.DEBUG ?? '<unset>'} headless=${LINUX_HARDWARE_WEBGL_PROBE_ROWS[0]?.headless} rows=${LINUX_HARDWARE_WEBGL_PROBE_ROWS.map((row) => row.id).join(',')}`,
 );
 
 const results = [];

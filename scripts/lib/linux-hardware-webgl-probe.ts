@@ -13,6 +13,8 @@ export interface LinuxHardwareWebGLProbeRow {
   readonly id: 'baseline' | 'angle-vulkan-no-egl' | 'angle-vulkan-surfaceless';
   readonly args: readonly string[];
   readonly eglPlatform: 'surfaceless' | undefined;
+  /** Matches production-runtime when a consumer does not supply browserLaunchOptions.headless. */
+  readonly headless: false;
 }
 
 export interface LinuxHardwareWebGLProbeResult {
@@ -38,16 +40,19 @@ export const LINUX_HARDWARE_WEBGL_PROBE_ROWS: readonly LinuxHardwareWebGLProbeRo
       id: 'baseline',
       args: Object.freeze(['--mute-audio']),
       eglPlatform: undefined,
+      headless: false,
     }),
     Object.freeze({
       id: 'angle-vulkan-no-egl',
       args: ANGLE_VULKAN_ARGS,
       eglPlatform: undefined,
+      headless: false,
     }),
     Object.freeze({
       id: 'angle-vulkan-surfaceless',
       args: ANGLE_VULKAN_ARGS,
       eglPlatform: 'surfaceless',
+      headless: false,
     }),
   ],
 );
@@ -63,7 +68,7 @@ export function launchOptionsForLinuxHardwareWebGLProbe(
   const env = { ...environment };
   if (row.eglPlatform === undefined) delete env.EGL_PLATFORM;
   else env.EGL_PLATFORM = row.eglPlatform;
-  return { args: [...row.args], env, headless: false };
+  return { args: [...row.args], env, headless: row.headless };
 }
 
 /** Requires a real GPU renderer after the fixture completes its draw/readback cycle. */
