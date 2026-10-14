@@ -2,6 +2,7 @@ import { chromium } from '@playwright/test';
 import {
   LINUX_HARDWARE_WEBGL_PROBE_ROWS,
   isHardwareWebGLProbeResultHealthy,
+  launchEvidenceForLinuxHardwareWebGLProbe,
   launchOptionsForLinuxHardwareWebGLProbe,
 } from './lib/linux-hardware-webgl-probe.ts';
 
@@ -121,7 +122,7 @@ for (const row of LINUX_HARDWARE_WEBGL_PROBE_ROWS) {
   const healthy = isHardwareWebGLProbeResultHealthy(result);
   const report = {
     id: row.id,
-    launch: launchOptionsForLinuxHardwareWebGLProbe(row),
+    launch: launchEvidenceForLinuxHardwareWebGLProbe(row),
     result,
     healthy,
   };

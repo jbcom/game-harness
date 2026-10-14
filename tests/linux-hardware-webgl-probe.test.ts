@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LINUX_HARDWARE_WEBGL_PROBE_ROWS,
   isHardwareWebGLProbeResultHealthy,
+  launchEvidenceForLinuxHardwareWebGLProbe,
   launchOptionsForLinuxHardwareWebGLProbe,
 } from '../scripts/lib/linux-hardware-webgl-probe.js';
 
@@ -70,6 +71,22 @@ describe('LINUX_HARDWARE_WEBGL_PROBE_ROWS', () => {
     expect(launchOptionsForLinuxHardwareWebGLProbe(surfacelessRow, { DISPLAY: ':99' })).toEqual({
       args: [...surfacelessRow.args],
       env: { DISPLAY: ':99', EGL_PLATFORM: 'surfaceless' },
+      headless: false,
+    });
+  });
+
+  it('redacts unrelated environment variables from printed launch evidence', () => {
+    const surfacelessRow = LINUX_HARDWARE_WEBGL_PROBE_ROWS[2];
+    if (!surfacelessRow) throw new Error('missing surfaceless probe row');
+
+    expect(
+      launchEvidenceForLinuxHardwareWebGLProbe(surfacelessRow, {
+        DISPLAY: ':99',
+        GITHUB_TOKEN: 'never-log-this',
+      }),
+    ).toEqual({
+      args: [...surfacelessRow.args],
+      eglPlatform: 'surfaceless',
       headless: false,
     });
   });

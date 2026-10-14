@@ -71,6 +71,19 @@ export function launchOptionsForLinuxHardwareWebGLProbe(
   return { args: [...row.args], env, headless: row.headless };
 }
 
+/** Keeps diagnostic output to renderer settings; a launch environment can carry CI secrets. */
+export function launchEvidenceForLinuxHardwareWebGLProbe(
+  row: LinuxHardwareWebGLProbeRow,
+  environment: NodeJS.ProcessEnv = process.env,
+): { args: string[]; eglPlatform: string | undefined; headless: false } {
+  const launchOptions = launchOptionsForLinuxHardwareWebGLProbe(row, environment);
+  return {
+    args: launchOptions.args,
+    eglPlatform: launchOptions.env.EGL_PLATFORM,
+    headless: launchOptions.headless,
+  };
+}
+
 /** Requires a real GPU renderer after the fixture completes its draw/readback cycle. */
 export function isHardwareWebGLProbeResultHealthy(result: LinuxHardwareWebGLProbeResult): boolean {
   return (
