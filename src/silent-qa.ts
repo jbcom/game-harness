@@ -77,9 +77,9 @@ export async function resolveSilentQaSearch(
   ) {
     return search;
   }
-  const resolved = new URLSearchParams(search);
-  resolved.set(parameter, SILENT_QA_QUERY_VALUE);
-  return `?${resolved.toString()}`;
+  const prefix = search.startsWith('?') ? search : `?${search}`;
+  const separator = prefix === '?' || prefix.endsWith('&') ? '' : '&';
+  return `${prefix}${separator}${encodeURIComponent(parameter)}=${SILENT_QA_QUERY_VALUE}`;
 }
 
 /**

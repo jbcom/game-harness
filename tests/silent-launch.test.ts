@@ -1,11 +1,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isSilentQaActive, resolveSilentQaSearch } from '../src/silent-qa.js';
+import {
+  _resetSilentQaForTests,
+  isSilentQaActive,
+  resolveSilentQaSearch,
+} from '../src/silent-qa.js';
 
 const accepts = (url: URL) =>
   url.protocol === 'example:' && url.hostname === 'qa' && url.pathname === '/';
 
 describe('first-bootstrap silent launch resolution', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    _resetSilentQaForTests();
+  });
+
+  it.each([
+    ['?seed=a%20b&tag=a~b&slash=x%2fY', '?seed=a%20b&tag=a~b&slash=x%2fY&muted=1'],
+    ['seed=a%20b', '?seed=a%20b&muted=1'],
+    ['?', '?muted=1'],
+    ['?seed=a%20b&', '?seed=a%20b&muted=1'],
+  ])('preserves original query encoding when appending to %s', async (search, expected) => {
+    expect(
+      await resolveSilentQaSearch({
+        search,
+        nativeLaunch: { readUrl: async () => 'example://qa/?muted=1', accepts },
+      }),
+    ).toBe(expected);
+  });
 
   it('preserves browser queries byte-for-byte without a native reader', async () => {
     expect(await resolveSilentQaSearch({ search: '?seed=a%20b&muted=0&seed=c' })).toBe(

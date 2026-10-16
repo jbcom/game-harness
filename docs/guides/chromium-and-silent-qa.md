@@ -91,14 +91,21 @@ the absolute URL, and copies only the mute request from an explicitly accepted
 route into the browser query. It has no native, audio, DOM or storage dependency.
 
 ```ts
-import { resolveSilentQaSearch } from 'game-harness/silent-qa';
+import { activateSilentQa, resolveSilentQaSearch } from 'game-harness/silent-qa';
+// These adapters belong to the consuming app; game-harness has no native peers.
+import { Capacitor } from '@capacitor/core';
+import { App as NativeApp } from '@capacitor/app';
 
+const nativeLaunch = Capacitor.isNativePlatform()
+  ? {
+      readUrl: async () => (await NativeApp.getLaunchUrl())?.url,
+      accepts: (url) =>
+        url.protocol === 'example:' && url.hostname === 'qa' && url.pathname === '/',
+    }
+  : undefined;
 const search = await resolveSilentQaSearch({
   search: window.location.search,
-  nativeLaunch: {
-    readUrl: async () => (await NativeApp.getLaunchUrl())?.url,
-    accepts: (url) => url.protocol === 'example:' && url.hostname === 'qa' && url.pathname === '/',
-  },
+  ...(nativeLaunch ? { nativeLaunch } : {}),
 });
 activateSilentQa(muteBothEnginesWithoutPersisting, { search });
 mountGame();
