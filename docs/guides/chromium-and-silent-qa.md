@@ -82,3 +82,41 @@ analyser assertions while agent-controlled playback remains muted.
 Keep `reuseExistingServer` false for release evidence and assert the game
 identity before exercising a journey. A process from another repository on a
 familiar port must never be accepted as proof.
+
+## Native first bootstrap
+
+An identical native APK can opt into silence through its initial launch URL.
+`resolveSilentQaSearch()` awaits a consumer-supplied launch reader, validates
+the absolute URL, and copies only the mute request from an explicitly accepted
+route into the browser query. It has no native, audio, DOM or storage dependency.
+
+```ts
+import { resolveSilentQaSearch } from 'game-harness/silent-qa';
+
+const search = await resolveSilentQaSearch({
+  search: window.location.search,
+  nativeLaunch: {
+    readUrl: async () => (await NativeApp.getLaunchUrl())?.url,
+    accepts: (url) => url.protocol === 'example:' && url.hostname === 'qa' && url.pathname === '/',
+  },
+});
+activateSilentQa(muteBothEnginesWithoutPersisting, { search });
+mountGame();
+```
+
+The consumer owns platform detection and the accepted route. Omit `nativeLaunch`
+on web. Ordinary launches without a URL or without the mute parameter retain the
+original browser query. Other native parameters (debug, progression, entitlement)
+are never imported. Malformed URLs and reader/policy errors reject: display a
+bootstrap failure and a retry action; never catch them by mounting unmuted.
+Await resolution and activate the engine override **before** rendering any game
+control, binding gameplay input or initializing audio. The resolver itself does
+not publish the readiness marker; only successful engine activation can do so.
+
+For Capacitor Android, `App.getLaunchUrl()` reads the cached initial intent URI.
+A QA runner may cold-start the explicit component with intent data, for example
+`adb shell am start -W -n example.app/.MainActivity -a android.intent.action.VIEW -d 'example://qa/?muted=1'`.
+Explicit component dispatch and the actual WebView marker still require native
+runtime proof. Warm `appUrlOpen` events are a separate lifecycle contract; do not
+assume `getLaunchUrl()` changes on warm resume. A runner must assert the runtime
+marker before any gameplay interaction and preserve saved audio preferences.
