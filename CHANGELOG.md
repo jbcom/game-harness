@@ -4,6 +4,19 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.5.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.4.0...game-harness-v1.5.0) (2026-10-16)
+
+
+### Features
+
+* **silent-qa:** resolve explicit native launch mute before bootstrap ([ea36447](https://github.com/jbcom/game-harness/commit/ea364471890bd526af49ff51fc7bac793c208c59))
+* **silent-qa:** resolve native launch mute before bootstrap ([a2d9366](https://github.com/jbcom/game-harness/commit/a2d9366b4091b4cb37b8466e60078abb83d4eb8f))
+
+
+### Bug Fixes
+
+* **silent-qa:** preserve browser query bytes when adding native mute ([15cc119](https://github.com/jbcom/game-harness/commit/15cc119fea153e9e9139c9a53cb181062da957cb))
+
 ## [1.4.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.3.0...game-harness-v1.4.0) (2026-10-11)
 
 
