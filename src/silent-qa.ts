@@ -40,6 +40,48 @@ function browserMarkerTarget(): SilentQaMarkerTarget | null {
   return typeof document === 'undefined' ? null : document.documentElement;
 }
 
+export interface ResolveSilentQaSearchOptions {
+  /** Existing browser query, preserved unless a native launch adds the mute request. */
+  search?: string;
+  /** Runtime-only mute parameter. Defaults to `muted`. */
+  queryParameter?: string;
+  /** Consumer-owned platform adapter; omit this entirely on web. */
+  nativeLaunch?: {
+    /** Read the initial absolute launch URI; undefined denotes an ordinary launch. */
+    readUrl(): Promise<string | undefined>;
+    /** Only this explicit consumer policy may admit a native mute request. */
+    accepts(url: URL): boolean;
+  };
+}
+
+/**
+ * Resolve first-bootstrap QA intent without activating audio or publishing readiness.
+ * Only mute presence crosses the native boundary; other launch parameters never do.
+ * Malformed URLs and native lookup/policy errors reject so callers can fail closed
+ * before mounting the game. This helper never navigates or touches persistence.
+ */
+export async function resolveSilentQaSearch(
+  options: ResolveSilentQaSearchOptions = {},
+): Promise<string> {
+  const search = options.search ?? browserSearch();
+  const nativeLaunch = options.nativeLaunch;
+  if (!nativeLaunch) return search;
+  const launchUrl = await nativeLaunch.readUrl();
+  if (launchUrl === undefined) return search;
+  const url = new URL(launchUrl);
+  const parameter = options.queryParameter ?? SILENT_QA_QUERY_PARAMETER;
+  if (
+    !nativeLaunch.accepts(url) ||
+    !isSilentQaRequested(url.search, parameter) ||
+    isSilentQaRequested(search, parameter)
+  ) {
+    return search;
+  }
+  const prefix = search.startsWith('?') ? search : `?${search}`;
+  const separator = prefix === '?' || prefix.endsWith('&') ? '' : '&';
+  return `${prefix}${separator}${encodeURIComponent(parameter)}=${SILENT_QA_QUERY_VALUE}`;
+}
+
 /**
  * Detects a page-lifetime mute request by parameter presence.
  *

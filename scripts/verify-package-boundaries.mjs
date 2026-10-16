@@ -178,6 +178,21 @@ try {
     ],
     rootConsumer,
   );
+  for (const moduleMode of ['commonjs', 'module']) {
+    const load =
+      moduleMode === 'module'
+        ? "await import('game-harness/silent-qa')"
+        : "require('game-harness/silent-qa')";
+    run(
+      process.execPath,
+      [
+        ...(moduleMode === 'module' ? ['--input-type=module'] : []),
+        '-e',
+        `(async()=>{const h=${load};const search=await h.resolveSilentQaSearch({search:'?seed=real',nativeLaunch:{readUrl:async()=> 'example://qa/?muted=0&progress=999',accepts:u=>u.protocol==='example:'&&u.hostname==='qa'}});if(search!=='?seed=real&muted=1'||h.isSilentQaActive())throw new Error('invalid peer-free native silent launch')})()`,
+      ],
+      rootConsumer,
+    );
+  }
   run(
     join(rootConsumer, 'node_modules', '.bin', `game-harness-visual-battery${binSuffix}`),
     ['--help'],
