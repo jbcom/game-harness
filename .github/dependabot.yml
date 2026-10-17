@@ -14,8 +14,8 @@ updates:
           - minor
           - patch
     ignore:
-      # @types/node tracks the active LTS line (24), not the newest release, so
-      # it never exposes APIs that the supported Node 22 runtime lacks.
+      # @types/node stays on the fleet's Node 24 major instead of tracking the
+      # newest release; its majors are raised deliberately, fleet-wide.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
 
