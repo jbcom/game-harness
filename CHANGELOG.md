@@ -4,6 +4,14 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.5.1](https://github.com/jbcom/game-harness/compare/game-harness-v1.5.0...game-harness-v1.5.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **deps:** update the transitive handlebars to 4.7.10 ([1d868de](https://github.com/jbcom/game-harness/commit/1d868de22e2ddab7982b41a0faab8c258a0a7471))
+* **deps:** update the transitive handlebars to 4.7.10 ([2f6b142](https://github.com/jbcom/game-harness/commit/2f6b142b860779518aee2fa5540e60107f9207cd))
+
 ## [1.5.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.4.0...game-harness-v1.5.0) (2026-10-16)
 
 
