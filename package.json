@@ -143,7 +143,7 @@
     "cross-spawn": "7.0.6",
     "get-port": "7.2.0",
     "pngjs": "^7.0.0",
-    "which": "^5.0.0"
+    "which": "^7.0.0"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.62.1 <2",
