@@ -80,8 +80,18 @@ describe('package peer boundaries', () => {
         './visual-battery',
         './subject-capture',
         './subject-pictures',
+        './touch',
+        './android-webview',
       ]),
     );
+  });
+
+  it('keeps scripted touch and the Android WebView forward free of any framework peer', () => {
+    for (const file of ['touch.ts', 'android-webview.ts']) {
+      const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
+      expect(source, file).not.toMatch(/from '(?:@playwright|playwright|vitest|@vitest)/u);
+    }
+    expect(rootSource).not.toContain("'./touch.js'");
   });
 
   it('keeps the subject-picture staleness check free of any browser peer', () => {

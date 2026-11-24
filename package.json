@@ -145,6 +145,26 @@
         "default": "./dist/cjs/subject-pictures.js"
       }
     },
+    "./touch": {
+      "import": {
+        "types": "./dist/types/touch.d.ts",
+        "default": "./dist/esm/touch.js"
+      },
+      "require": {
+        "types": "./dist/types/touch.d.cts",
+        "default": "./dist/cjs/touch.js"
+      }
+    },
+    "./android-webview": {
+      "import": {
+        "types": "./dist/types/android-webview.d.ts",
+        "default": "./dist/esm/android-webview.js"
+      },
+      "require": {
+        "types": "./dist/types/android-webview.d.cts",
+        "default": "./dist/cjs/android-webview.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/cjs/index.js",

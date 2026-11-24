@@ -19,6 +19,9 @@ Import only the entry point a game uses:
   `vitest` and `@vitest/browser-playwright`.
 - `game-harness/subject-capture` to render one subject to transparent PNGs
   with the software renderer; install `@playwright/test`.
+- `game-harness/touch` for scripted tap, double tap, press-drag and hold
+  as real touch events, and `/android-webview` to reach a debuggable Android
+  WebView with the same driver; both are peer-free (`adb` on the host).
 - `game-harness`, `/lighthouse`, `/release-ladder`, `/visual-battery`, and
   `/subject-pictures` for peer-free verification utilities.
 
@@ -41,6 +44,8 @@ loaded by the package root.
 | `/visual-battery`        | Deterministic screenshot baseline orchestration                 | None                                   |
 | `/subject-capture`       | One subject to transparent PNGs at fixed sizes, SwiftShader     | `@playwright/test`                     |
 | `/subject-pictures`      | Subject source hashes and the picture staleness check           | None                                   |
+| `/touch`                 | Scripted tap, double tap, press-drag, hold, second finger       | None                                   |
+| `/android-webview`       | `adb` forward to a debuggable WebView's DevTools endpoint       | None (`adb` on the host)               |
 
 The production-runtime entry point depends on the Playwright entry point
 because it composes `openSilentGame()` into a fresh-browser lifecycle; no

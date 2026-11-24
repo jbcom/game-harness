@@ -20,6 +20,8 @@ those tests explicit and fail-closed.
 | `/visual-battery`        | Deterministic screenshot baseline orchestration                 | None                                   |
 | `/subject-capture`       | One subject to transparent PNGs at fixed sizes, SwiftShader     | `@playwright/test`                     |
 | `/subject-pictures`      | Subject source hashes and the picture staleness check           | None                                   |
+| `/touch`                 | Scripted tap, double tap, press-drag, hold, second finger       | None                                   |
+| `/android-webview`       | `adb` forward to a debuggable WebView's DevTools endpoint       | None (`adb` on the host)               |
 
 The root deliberately does not re-export Playwright or Vitest integrations. A
 consumer that needs only peer-free utilities therefore never loads or installs

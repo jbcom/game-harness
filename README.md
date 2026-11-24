@@ -117,6 +117,9 @@ Import only the entry point a game uses:
   `vitest` and `@vitest/browser-playwright`;
 - `game-harness/subject-capture` to render one subject to transparent PNGs
   with the software renderer; install `@playwright/test`;
+- `game-harness/touch` for scripted tap, double tap, press-drag and hold as
+  real touch events, and `game-harness/android-webview` to reach a debuggable
+  Android WebView with the same driver; both are peer-free (`adb` on the host);
 - `game-harness`, `/lighthouse`, `/release-ladder`, `/visual-battery`, and
   `/subject-pictures` for peer-free verification utilities.
 
@@ -572,6 +575,53 @@ silent launch profile, screenshots with a transparent background, and fails
 closed on a non-SwiftShader renderer, a wrong-sized picture, a blank picture or
 an opaque background. Two fresh launches on one platform give the same bytes.
 See the [Subject pictures guide](docs/guides/subject-pictures.md).
+
+## Scripted touch
+
+`game-harness/touch` sends real touch events through the DevTools protocol, so
+a page sees `pointerType: "touch"` pointer events with the browser's own hit
+testing and slop. Create the Playwright context with `hasTouch: true` (and
+`isMobile: true` for a phone); the driver rejects a page without touch support.
+
+```ts
+import { createScriptedTouch } from 'game-harness/touch';
+
+const context = await browser.newContext({
+  viewport: { width: 390, height: 844 },
+  hasTouch: true,
+  isMobile: true,
+});
+const page = await context.newPage();
+await page.goto(gameUrl);
+const touch = await createScriptedTouch(page);
+
+await touch.tap({ x: 120, y: 320 });
+await touch.doubleTap(page.locator('#target'), { gapMs: 250 });
+const drag = await touch.pressDrag(
+  { x: 100, y: 400 },
+  { x: 300, y: 430 },
+  {
+    holdMs: 120,
+    stepPx: 12,
+    release: false, // read the page with the finger still down
+  },
+);
+await drag.release();
+const held = await touch.hold({ x: 120, y: 320 }, { durationMs: 600, release: false });
+await held.release();
+await touch.close();
+```
+
+Delays are exact on the driver's planned timeline and stamped onto each event,
+and never early on the wall clock; `touch.trace` records planned and actual
+times. `touch.press()` returns a finger, so a second simultaneous finger and
+`touch.cancel()` are available.
+
+On Android, `forwardAndroidWebView({ appId })` from
+`game-harness/android-webview` forwards a debuggable WebView's DevTools socket
+over `adb`; connect Playwright with `chromium.connectOverCDP(forward.endpoint)`
+and pass the page to the same `createScriptedTouch()`. See the
+[Scripted touch guide](docs/guides/scripted-touch.md).
 
 ## Lighthouse CI presets
 

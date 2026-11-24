@@ -52,6 +52,8 @@ code that must stay peer-free.
 | `/vitest`                | Vitest Browser Mode config fragment                          | `vitest`, `@vitest/browser-playwright` |
 | `/subject-capture`       | One subject to transparent PNGs at fixed sizes, SwiftShader  | `@playwright/test`                     |
 | `/subject-pictures`      | Subject source hashes and the picture staleness check        | nothing                                |
+| `/touch`                 | Scripted tap, double tap, press-drag, hold, second finger    | nothing                                |
+| `/android-webview`       | `adb` forward to a debuggable WebView's DevTools endpoint    | nothing (`adb` on the host)            |
 
 Full detail: [Entry points](https://jonbogaty.com/game-harness/entry-points/).
 
@@ -92,6 +94,15 @@ gate. See [Visual battery](https://jonbogaty.com/game-harness/guides/visual-batt
 nothing. To render one subject alone to a transparent PNG and detect when it
 went stale, use `captureSubject()` and `assertSubjectPicturesFresh()`. See
 [Subject pictures](https://jonbogaty.com/game-harness/guides/subject-pictures/).
+
+### Touch gestures are real touch events
+
+Drive phone input with `createScriptedTouch()` from `game-harness/touch`, not
+with `page.mouse` or synthetic events dispatched inside the page. The context
+must be created with `hasTouch: true` (and `isMobile: true` for a phone) or the
+driver rejects it, and the surface under the finger needs
+`touch-action: none`. See
+[Scripted touch](https://jonbogaty.com/game-harness/guides/scripted-touch/).
 
 ### Before claiming a change works
 
