@@ -55,6 +55,16 @@
         "default": "./dist/cjs/playwright-config.js"
       }
     },
+    "./playwright/xvfb-setup": {
+      "import": {
+        "types": "./dist/types/xvfb-setup.d.ts",
+        "default": "./dist/esm/xvfb-setup.js"
+      },
+      "require": {
+        "types": "./dist/types/xvfb-setup.d.cts",
+        "default": "./dist/cjs/xvfb-setup.js"
+      }
+    },
     "./silent-qa": {
       "import": {
         "types": "./dist/types/silent-qa.d.ts",

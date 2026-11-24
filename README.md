@@ -105,6 +105,8 @@ Import only the entry point a game uses:
 
 - `game-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`;
+- `game-harness/playwright/xvfb-setup` for a peer-free Playwright
+  `globalSetup` that starts Xvfb on Linux and does nothing elsewhere;
 - `game-harness/silent-qa` for a peer-free,
   audio-engine-agnostic application-side runtime mute adapter;
 - `game-harness/production-runtime` for a fresh, silent
@@ -300,6 +302,33 @@ Admission is a launch-time gate only. `requireHardwareWebGL()` from
 `game-harness/production-runtime` is the renderer check: call it in the journey
 so a green test proves the browser really received hardware WebGL on every
 platform, and keep nothing platform-specific in the specs.
+
+Headed runs also need a display. `game-harness/playwright/xvfb-setup` is a
+ready-made, peer-free Playwright `globalSetup` for that: on Linux it starts
+`Xvfb` with `-displayfd` (screen `1920x1200x24`, `-nolisten tcp`), waits for the
+server to report its display number, sets `process.env.DISPLAY` and returns a
+teardown that sends `SIGTERM`, waits for exit and restores the previous
+`DISPLAY`. On every other platform it does nothing and returns `undefined`, so
+macOS keeps using the desktop session. It rejects, leaving `DISPLAY` alone, if
+Xvfb cannot start or exits before reporting a display.
+
+```ts
+// playwright.config.ts
+import { admittedGpuMode } from 'game-harness/chromium';
+import { definePlaywrightConfig } from 'game-harness/playwright';
+
+export default definePlaywrightConfig({
+  gpuMode: admittedGpuMode(),
+  overrides: { globalSetup: 'game-harness/playwright/xvfb-setup' },
+});
+```
+
+The binary is `Xvfb` resolved from `PATH` (normally `/usr/bin/Xvfb`) unless
+`GAME_HARNESS_XVFB_PATH` names another. To change the binary or screen from
+code, write your own setup file:
+`export default createXvfbGlobalSetup({ xvfbPath, screen: '1280x720x24' })`.
+`setupXvfb(options)` is the same logic with injectable `platform`, `env` and
+`spawn` for tests.
 
 Moving from the scoped `test-harness` package this one grew out of? See
 [MIGRATION.md](MIGRATION.md).

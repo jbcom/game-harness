@@ -55,7 +55,9 @@ A Gitea runner job using the hardware profile must install
 `xvfb-run --auto-servernum`. Use `requireHardwareWebGL()` in the journey
 itself so a green test cannot silently fall back to SwiftShader or llvmpipe.
 The assertion also fails closed when the browser withholds its unmasked
-renderer.
+renderer. To start Xvfb from Playwright instead of wrapping the command, and
+to admit a hardware run from the heavy-slot environment, see
+[Hardware-gated suites](/game-harness/guides/chromium-and-silent-qa/#hardware-gated-suites).
 
 `deviceTiers` declares the available matrix, while the default fast gate runs
 only its first tier. Run `MULTIVIEW=1 pnpm exec playwright test` (or

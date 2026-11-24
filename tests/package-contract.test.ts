@@ -71,6 +71,7 @@ describe('package peer boundaries', () => {
         '.',
         './vitest',
         './playwright',
+        './playwright/xvfb-setup',
         './silent-qa',
         './production-runtime',
         './chromium',
@@ -79,6 +80,12 @@ describe('package peer boundaries', () => {
         './visual-battery',
       ]),
     );
+  });
+
+  it('keeps the Xvfb globalSetup peer-free so it can be named as a plain file path', () => {
+    const xvfbSource = readFileSync(new URL('../src/xvfb-setup.ts', import.meta.url), 'utf8');
+    expect(xvfbSource).not.toMatch(/from '(?:@playwright|playwright|vitest|@vitest)/u);
+    expect(JSON.stringify(manifest.exports['./playwright/xvfb-setup'])).toContain('xvfb-setup');
   });
 
   it('ships a stable executable shim before generated dist files exist', () => {

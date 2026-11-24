@@ -165,6 +165,40 @@ try {
     process.execPath,
     [
       '-e',
+      "const h=require('game-harness/chromium'); const env={HEAVY_BROWSER_GPU:'macos-hardware-metal',HEAVY_BROWSER_MUTE:'1'}; let refused=false; try{h.admittedGpuMode({env:{...env,HEAVY_BROWSER_MUTE:'0'},platform:'darwin'})}catch{refused=true} if(h.admittedGpuMode({env,platform:'darwin'})!=='macos-hardware-metal'||!refused)throw new Error('invalid CJS admittedGpuMode')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('game-harness/chromium'); const env={HEAVY_BROWSER_GPU:'linux-hardware-vulkan',HEAVY_BROWSER_MUTE:'1'}; if(h.admittedGpuMode({env,platform:'linux'})!=='linux-hardware-vulkan')throw new Error('invalid ESM admittedGpuMode')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('game-harness/playwright/xvfb-setup'); if(typeof h.default!=='function'||typeof h.createXvfbGlobalSetup!=='function')throw new Error('invalid CJS Xvfb entry'); h.setupXvfb({platform:'darwin'}).then(t=>{if(t!==undefined)throw new Error('Xvfb must be a no-op off Linux')})",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('game-harness/playwright/xvfb-setup'); if(typeof h.default!=='function'||typeof h.createXvfbGlobalSetup!=='function')throw new Error('invalid ESM Xvfb entry'); if(await h.setupXvfb({platform:'win32'})!==undefined)throw new Error('Xvfb must be a no-op off Linux')",
+    ],
+    rootConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '-e',
       "const h=require('game-harness/silent-qa'); const events=[]; const active=h.activateSilentQa(()=>events.push('mute'),{search:'?muted=1',markerTarget:{setAttribute:(name,value)=>events.push(name+'='+value)}}); if(!active||events.join(',')!=='mute,data-audio-mode=muted-test'||!h.isSilentQaActive())throw new Error('invalid CJS silent-QA entry')",
     ],
     rootConsumer,
