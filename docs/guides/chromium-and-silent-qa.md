@@ -36,6 +36,34 @@ for reasons unrelated to the game. Page Visibility is unaffected: a
 backgrounded page still reports `hidden`, so pause-on-hide logic stays
 testable.
 
+## Hardware-gated suites
+
+A suite that must run only on real graphics hardware, and only muted, asks
+`admittedGpuMode()` which `gpuMode` to launch with instead of hand-writing the
+platform, `HEAVY_BROWSER_GPU` and `HEAVY_BROWSER_MUTE` checks:
+
+```ts
+import { admittedGpuMode, createChromiumLaunchProfile } from 'game-harness/chromium';
+
+const { args, env } = createChromiumLaunchProfile({ gpuMode: admittedGpuMode() });
+```
+
+`admittedGpuMode({ env?, platform? })` defaults to `process.env` and
+`process.platform` and returns `'linux-hardware-vulkan'` on `linux` with
+`HEAVY_BROWSER_GPU=linux-hardware-vulkan`, or `'macos-hardware-metal'` on
+`darwin` with `HEAVY_BROWSER_GPU=macos-hardware-metal`. It requires
+`HEAVY_BROWSER_MUTE=1` and throws an `Error` otherwise: one message when the
+run is not muted (checked first, whatever the platform) and a distinct one
+when the platform or GPU value is not admitted. Nothing falls back to `auto`
+or `software`.
+
+Admission is a launch-time gate only. `requireHardwareWebGL()` from
+`game-harness/production-runtime` is the renderer check: call it in the journey
+so a green test proves the browser really received hardware WebGL on every
+platform.
+
+## Silent QA
+
 Every browser launched by `definePlaywrightConfig()` or
 `defineBrowserTestConfig()` receives Chromium's `--mute-audio` argument as a
 defense-in-depth guard, including projects with custom launch options. The

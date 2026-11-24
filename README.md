@@ -270,6 +270,37 @@ guard. Every profile also carries `CHROMIUM_ANTI_THROTTLING_ARGS`
 windows keep their timers on schedule when several headed browsers run at
 once; Page Visibility still reports `hidden`.
 
+## Hardware-gated suites
+
+A suite that must run only on real graphics hardware, and only muted, asks
+`admittedGpuMode()` which `gpuMode` to launch with instead of hand-writing the
+platform, `HEAVY_BROWSER_GPU` and `HEAVY_BROWSER_MUTE` checks:
+
+```ts
+// playwright.config.ts
+import { admittedGpuMode } from 'game-harness/chromium';
+import { definePlaywrightConfig } from 'game-harness/playwright';
+
+export default definePlaywrightConfig({
+  gpuMode: admittedGpuMode(),
+  // ...
+});
+```
+
+`admittedGpuMode({ env?, platform? })` defaults to `process.env` and
+`process.platform` and returns `'linux-hardware-vulkan'` on `linux` with
+`HEAVY_BROWSER_GPU=linux-hardware-vulkan`, or `'macos-hardware-metal'` on
+`darwin` with `HEAVY_BROWSER_GPU=macos-hardware-metal`. It requires
+`HEAVY_BROWSER_MUTE=1` and throws an `Error` otherwise: one message when the
+run is not muted (checked first, whatever the platform) and a distinct one
+when the platform or GPU value is not admitted. Nothing falls back to
+`auto` or `software`.
+
+Admission is a launch-time gate only. `requireHardwareWebGL()` from
+`game-harness/production-runtime` is the renderer check: call it in the journey
+so a green test proves the browser really received hardware WebGL on every
+platform, and keep nothing platform-specific in the specs.
+
 Moving from the scoped `test-harness` package this one grew out of? See
 [MIGRATION.md](MIGRATION.md).
 
