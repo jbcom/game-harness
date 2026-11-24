@@ -54,6 +54,16 @@ describe('forwardAndroidWebView', () => {
     expect(calls.filter((call) => call.includes('--remove'))).toHaveLength(1);
   });
 
+  it('lets a failed port-forward removal be retried', async () => {
+    const { runAdb, calls } = scriptedAdb({
+      'forward --remove tcp:41715': new Error('device offline'),
+    });
+    const forward = await forwardAndroidWebView({ appId: 'com.example.game', runAdb });
+    await expect(forward.close()).rejects.toThrow(/device offline/u);
+    await expect(forward.close()).rejects.toThrow(/device offline/u);
+    expect(calls.filter((call) => call.includes('--remove'))).toHaveLength(2);
+  });
+
   it('targets one device when a serial is given, and a fixed local port when asked', async () => {
     const { runAdb, calls } = scriptedAdb({
       'forward tcp:9222 localabstract:webview_devtools_remote_1234': '',

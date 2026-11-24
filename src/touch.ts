@@ -266,6 +266,8 @@ class TouchSession implements ScriptedTouch {
   private nextFingerId = 1;
   private plannedMs = 0;
   private busy = false;
+  private inflight: Promise<void> | undefined;
+  private closing = false;
   private closed = false;
   private readonly originMs: number;
 
@@ -284,16 +286,23 @@ class TouchSession implements ScriptedTouch {
 
   /** Serialises operations and moves a stale planned timeline up to the present. */
   private async run<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.closed) throw new ScriptedTouchError('this touch session is closed');
+    if (this.closing || this.closed) throw new ScriptedTouchError('this touch session is closed');
     if (this.busy) {
       throw new ScriptedTouchError(
         'a touch operation is still running: await each call before starting the next',
       );
     }
     this.busy = true;
-    try {
+    const running = (async () => {
       if (this.elapsed() - this.plannedMs > IDLE_REBASE_MS) this.plannedMs = this.elapsed();
-      return await operation();
+      return operation();
+    })();
+    this.inflight = running.then(
+      () => undefined,
+      () => undefined,
+    );
+    try {
+      return await running;
     } finally {
       this.busy = false;
     }
@@ -342,7 +351,13 @@ class TouchSession implements ScriptedTouch {
     const state: FingerState = { id: this.nextFingerId, ...point, released: false };
     this.nextFingerId += 1;
     this.fingers.set(state.id, state);
-    await this.emit('touchStart', state, this.plannedMs);
+    try {
+      await this.emit('touchStart', state, this.plannedMs);
+    } catch (error) {
+      // A finger the browser never saw must not be listed in later events.
+      this.fingers.delete(state.id);
+      throw error;
+    }
     return new TouchHandle(this, state);
   }
 
@@ -480,9 +495,14 @@ class TouchSession implements ScriptedTouch {
   }
 
   async close(): Promise<void> {
-    if (this.closed) return;
+    if (this.closing || this.closed) return;
+    // New calls are refused from here on. An operation already running is
+    // allowed to finish first, so fingers it leaves down are still cancelled
+    // and the session is not detached underneath it.
+    this.closing = true;
     try {
-      await this.run(() => this.cancelAll());
+      await this.inflight;
+      await this.cancelAll();
     } finally {
       this.closed = true;
       if (this.ownsSession) await this.session.detach?.();

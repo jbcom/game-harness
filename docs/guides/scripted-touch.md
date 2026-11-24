@@ -110,7 +110,10 @@ Timing is the reason this is a driver and not a handful of `setTimeout`s.
   gaps it cares about and see how late a loaded machine ran.
 
 After more than 250 ms of idle time between calls the plan is moved up to the
-present, so stamps stay close to real time.
+present, so stamps stay close to real time. A shorter idle gap between two
+separate calls is not part of the plan, so use `doubleTap({ gapMs })` or
+`touch.wait(ms)` between two taps whose spacing matters; both advance the plan
+by exactly the time asked for.
 
 ## Android WebView
 

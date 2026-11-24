@@ -151,8 +151,9 @@ export async function forwardAndroidWebView(
     pid: Number(pid),
     async close() {
       if (closed) return;
-      closed = true;
       await run([...device, 'forward', '--remove', `tcp:${port}`]);
+      // Only a removal that worked counts, so a failed one can be retried.
+      closed = true;
     },
   };
 }

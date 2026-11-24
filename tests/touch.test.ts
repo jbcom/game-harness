@@ -488,6 +488,38 @@ describe('invalid options and misuse', () => {
     await expect(touch.tap({ x: 1, y: 1 })).rejects.toThrow(/closed/u);
   });
 
+  it('lets a running operation finish on close, then cancels the finger it left down', async () => {
+    const fake = fakeSession();
+    const page = { context: () => ({ newCDPSession: async () => fake.session }) };
+    const touch = await createScriptedTouch(page, { clock: fake.clock });
+    const running = touch.hold({ x: 1, y: 1 }, { durationMs: 400, release: false });
+    const closing = touch.close();
+    await expect(touch.tap({ x: 2, y: 2 })).rejects.toThrow(/closed/u);
+    await Promise.all([running, closing]);
+    expect(fake.sent.map((event) => event.type)).toEqual(['touchStart', 'touchCancel']);
+    expect(fake.session.detach).toHaveBeenCalledOnce();
+    await touch.close();
+    expect(fake.session.detach).toHaveBeenCalledOnce();
+  });
+
+  it('closes cleanly when the running operation fails', async () => {
+    const fake = fakeSession();
+    const touch = await createScriptedTouch(fake.session, { clock: fake.clock });
+    const failing = touch.tap({ boundingBox: async () => null });
+    const closing = touch.close();
+    await expect(failing).rejects.toThrow(/no bounding box/u);
+    await expect(closing).resolves.toBeUndefined();
+  });
+
+  it('does not list a finger the browser never received when its start fails', async () => {
+    const { touch, sent, session } = await open();
+    session.send.mockRejectedValueOnce(new Error('target closed'));
+    await expect(touch.press({ x: 1, y: 1 })).rejects.toThrow(/target closed/u);
+    const finger = await touch.press({ x: 5, y: 5 });
+    expect(finger.id).toBe(2);
+    expect(sent[0]?.touchPoints).toEqual([{ id: 2, x: 5, y: 5 }]);
+  });
+
   it('still closes and detaches when cancelling the last finger fails', async () => {
     const fake = fakeSession();
     const page = { context: () => ({ newCDPSession: async () => fake.session }) };
