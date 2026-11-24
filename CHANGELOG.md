@@ -4,6 +4,14 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.7.1](https://github.com/jbcom/game-harness/compare/game-harness-v1.7.0...game-harness-v1.7.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **deps:** override vulnerable transitive docs-toolchain packages ([70d7079](https://github.com/jbcom/game-harness/commit/70d70791c6379c3622e47c2b5705d504779c2ae2))
+* **deps:** override vulnerable transitive docs-toolchain packages ([d87ace9](https://github.com/jbcom/game-harness/commit/d87ace97a18dfaa359775f1a03738d24dac2a4ea))
+
 ## [1.7.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.6.0...game-harness-v1.7.0) (2026-11-24)
 
 
