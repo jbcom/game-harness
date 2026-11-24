@@ -41,9 +41,13 @@ export interface AndroidWebViewForward {
 
 /** Thrown for invalid options, a failed `adb` call, and an app without a debuggable WebView. */
 export class AndroidWebViewError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
+  /** What `adb` printed on stderr, when the error comes from a failed `adb` call. */
+  readonly stderr: string;
+
+  constructor(message: string, options?: { cause?: unknown; stderr?: string }) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'AndroidWebViewError';
+    this.stderr = options?.stderr ?? '';
   }
 }
 
@@ -65,7 +69,7 @@ function createRunner(
           reject(
             new AndroidWebViewError(
               `adb ${args.join(' ')} failed: ${stderr.trim() || error.message}`,
-              { cause: error },
+              { cause: error, stderr: stderr.trim() },
             ),
           );
         } else {
@@ -108,38 +112,49 @@ export async function forwardAndroidWebView(
   let pids: string[];
   try {
     pids = (await run([...device, 'shell', 'pidof', options.appId])).match(/\d+/gu) ?? [];
-  } catch {
-    // `pidof` exits non-zero when nothing matches.
+  } catch (error) {
+    // `pidof` exits non-zero, silently, when nothing matches. Anything adb
+    // itself reported (no device, offline, unauthorised) is the real cause.
+    if (error instanceof AndroidWebViewError && error.stderr !== '') throw error;
     pids = [];
   }
   if (pids.length === 0) {
     throw new AndroidWebViewError(`${options.appId} is not running on the device`);
   }
 
+  // The full socket name is kept: a build may suffix it, and the forward must
+  // name the socket that exists, not one assembled from the pid.
   const sockets = [
     ...(await run([...device, 'shell', 'cat', '/proc/net/unix'])).matchAll(
-      new RegExp(`@${SOCKET_PREFIX}(\\d+)`, 'gu'),
+      new RegExp(`@(${SOCKET_PREFIX}(\\d+)\\S*)`, 'gu'),
     ),
-  ].map((match) => match[1]);
-  const pid = pids.find((candidate) => sockets.includes(candidate));
-  if (pid === undefined) {
+  ].map((match) => ({ name: match[1] as string, pid: match[2] as string }));
+  const found = pids
+    .map((candidate) => sockets.find((socket) => socket.pid === candidate))
+    .find((socket) => socket !== undefined);
+  if (found === undefined) {
     throw new AndroidWebViewError(
       `${options.appId} (pid ${pids.join(', ')}) has no WebView DevTools socket: install a ` +
-        `debuggable build with WebView debugging enabled (sockets present: ${sockets.join(', ') || 'none'})`,
+        `debuggable build with WebView debugging enabled (sockets present: ${sockets.map((candidate) => candidate.name).join(', ') || 'none'})`,
     );
   }
+  const { name: socket, pid } = found;
 
-  const socket = `${SOCKET_PREFIX}${pid}`;
+  // A fixed port must be free: --no-rebind makes a collision fail instead of
+  // silently taking the port from another client, whose mapping close() would
+  // then remove. Port 0 asks adb for an unused port and cannot collide.
   const forwarded = await run([
     ...device,
     'forward',
+    ...(localPort === 0 ? [] : ['--no-rebind']),
     `tcp:${localPort}`,
     `localabstract:${socket}`,
   ]);
-  const port = localPort === 0 ? Number.parseInt(forwarded.trim(), 10) : localPort;
-  if (!Number.isInteger(port) || port < 1) {
+  const reported = forwarded.trim();
+  const port = localPort === 0 && /^\d+$/u.test(reported) ? Number(reported) : localPort;
+  if (port < 1 || port > 65_535) {
     throw new AndroidWebViewError(
-      `adb forward did not report a local port (got ${JSON.stringify(forwarded.trim())})`,
+      `adb forward did not report a local port (got ${JSON.stringify(reported)})`,
     );
   }
 

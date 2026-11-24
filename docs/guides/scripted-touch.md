@@ -18,7 +18,9 @@ types.
 
 Create the context the way a phone would be: with touch and the mobile
 viewport. The driver refuses a page whose `navigator.maxTouchPoints` is 0
-rather than drive a layout a phone player would never see.
+rather than drive a layout a phone player would never see. That is the only
+thing it checks: it does not verify `isMobile`, so set it yourself for a phone
+test.
 
 ```ts
 import { chromium } from '@playwright/test';
@@ -73,9 +75,13 @@ const finger = await touch.press(point); // a finger stays down
 await finger.moveTo(target, { stepPx: 8 }); // events along the way
 await finger.hold(250); // stay down 250 ms more
 const second = await touch.press(otherPoint); // a second finger, simultaneous
-await touch.cancel(); // the system takes over: pointercancel
-await finger.release(); // or lift one finger at a time
+await second.release(); // lift one finger at a time
+await finger.release();
 ```
+
+To have the system take the gesture over instead, call `touch.cancel()` while
+fingers are down: the page sees `pointercancel` and every finger is released,
+so do not release them afterwards.
 
 Each call must be awaited before the next starts; overlapping calls reject.
 Fingers are numbered from 1 in the order they went down. The protocol cannot
@@ -126,15 +132,22 @@ import { forwardAndroidWebView } from 'game-harness/android-webview';
 import { createScriptedTouch } from 'game-harness/touch';
 
 const forward = await forwardAndroidWebView({ appId: 'com.example.game' });
-const browser = await chromium.connectOverCDP(forward.endpoint);
-const page = browser.contexts()[0].pages()[0];
-const touch = await createScriptedTouch(page);
-
-// ... the same gestures, in CSS pixels of the WebView's viewport ...
-
-await touch.close();
-await browser.close();
-await forward.close();
+try {
+  const browser = await chromium.connectOverCDP(forward.endpoint);
+  try {
+    const page = browser.contexts()[0].pages()[0];
+    const touch = await createScriptedTouch(page);
+    try {
+      // ... the same gestures, in CSS pixels of the WebView's viewport ...
+    } finally {
+      await touch.close();
+    }
+  } finally {
+    await browser.close();
+  }
+} finally {
+  await forward.close();
+}
 ```
 
 Requirements and limits:
@@ -145,6 +158,12 @@ Requirements and limits:
 - A debuggable WebView: a debug build with WebView debugging enabled. A release
   build exposes no DevTools socket and `forwardAndroidWebView()` says so.
 - With more than one device attached, pass `serial`.
+- By default `adb` picks a free local port. A fixed `localPort` is forwarded with
+  `--no-rebind`, so a port another client already forwards fails instead of
+  being taken from it. The forward uses the socket name found on the device,
+  suffix included.
+- An `adb` failure such as "no devices/emulators found" is reported as such; only
+  a silent `pidof` miss is reported as "not running".
 - Coordinates are CSS pixels, so no device-pixel or status-bar mapping is needed.
 - Verified here: the driver against Chromium reached over a DevTools endpoint
   with `connectOverCDP()` (the same path), and the `adb` sequence against a

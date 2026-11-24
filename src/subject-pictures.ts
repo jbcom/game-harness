@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { PNG } from 'pngjs';
 
 /**
  * Peer-free bookkeeping for subject pictures: what a picture was rendered
@@ -163,12 +164,14 @@ export function hashSubjectSourceFiles(
   );
 }
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-
+/** Decodes the whole file, so a truncated or corrupt picture is not mistaken for a good one. */
 function readPngDimensions(bytes: Buffer): { width: number; height: number } | undefined {
-  if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) return undefined;
-  if (bytes.toString('latin1', 12, 16) !== 'IHDR') return undefined;
-  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+  try {
+    const { width, height } = PNG.sync.read(bytes);
+    return { width, height };
+  } catch {
+    return undefined;
+  }
 }
 
 function checkRecord(
@@ -217,7 +220,7 @@ function checkRecord(
   }
   const dimensions = readPngDimensions(file);
   if (dimensions === undefined) {
-    problems.push({ kind: 'wrong-size', subject, path, detail: `${path} is not a PNG` });
+    problems.push({ kind: 'wrong-size', subject, path, detail: `${path} is not a readable PNG` });
   } else if (dimensions.width !== record.width || dimensions.height !== record.height) {
     problems.push({
       kind: 'wrong-size',
@@ -241,6 +244,11 @@ export function checkSubjectPictures(
   records: readonly SubjectPictureRecord[],
   options: CheckSubjectPicturesOptions,
 ): SubjectPictureCheck {
+  if (options.sizes?.length === 0) {
+    throw new SubjectPictureError(
+      'sizes must not be empty: omit it to require one picture per subject',
+    );
+  }
   const rootDir = options.rootDir ?? process.cwd();
   const problems = records.flatMap((record) => checkRecord(record, rootDir, options.sourceHashes));
 

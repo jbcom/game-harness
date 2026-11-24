@@ -99,8 +99,9 @@ went stale, use `captureSubject()` and `assertSubjectPicturesFresh()`. See
 
 Drive phone input with `createScriptedTouch()` from `game-harness/touch`, not
 with `page.mouse` or synthetic events dispatched inside the page. The context
-must be created with `hasTouch: true` (and `isMobile: true` for a phone) or the
-driver rejects it, and the surface under the finger needs
+must be created with `hasTouch: true` or the driver rejects it. It checks
+`navigator.maxTouchPoints` only and does not verify `isMobile`, so set
+`isMobile: true` yourself for a phone test. The surface under the finger needs
 `touch-action: none`. See
 [Scripted touch](https://jonbogaty.com/game-harness/guides/scripted-touch/).
 

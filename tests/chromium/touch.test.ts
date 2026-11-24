@@ -129,17 +129,27 @@ describe('scripted touch on a phone-sized Playwright context', () => {
     );
     expect(finger.released).toBe(true);
 
+    // What the driver sent: the exact steps, none longer than stepPx. Chromium
+    // may coalesce moves between frames, so the page is not asked to count them.
+    const sentMoves = touch.trace.filter((entry) => entry.type === 'touchMove');
+    expect(sentMoves).toHaveLength(Math.ceil(Math.hypot(200, 30) / 12));
+    let sentPrevious = { x: 100, y: 400 };
+    for (const move of sentMoves) {
+      const point = { x: move.x ?? 0, y: move.y ?? 0 };
+      expect(Math.hypot(point.x - sentPrevious.x, point.y - sentPrevious.y)).toBeLessThanOrEqual(
+        12.0001,
+      );
+      sentPrevious = point;
+    }
+    expect(sentPrevious).toEqual({ x: 300, y: 430 });
+
+    // What the page observed: touch input that ends on the target, on time.
     const recorded = await events(page);
     const moves = recorded.filter((event) => event.type === 'pointermove');
     const down = recorded.find((event) => event.type === 'pointerdown');
     const up = recorded.find((event) => event.type === 'pointerup');
-    expect(moves.length).toBeGreaterThanOrEqual(Math.ceil(Math.hypot(200, 30) / 12));
-    let previous = { x: down?.x ?? 0, y: down?.y ?? 0 };
-    for (const move of moves) {
-      expect(Math.hypot(move.x - previous.x, move.y - previous.y)).toBeLessThanOrEqual(12.0001);
-      previous = move;
-    }
-    expect([previous.x, previous.y]).toEqual([300, 430]);
+    expect(moves.length).toBeGreaterThanOrEqual(1);
+    expect([moves.at(-1)?.x, moves.at(-1)?.y]).toEqual([300, 430]);
     expect([up?.x, up?.y]).toEqual([300, 430]);
     // Nothing moves during the rest, and the whole drag takes the time asked for.
     expect((moves[0]?.at ?? 0) - (down?.at ?? 0)).toBeGreaterThanOrEqual(120);

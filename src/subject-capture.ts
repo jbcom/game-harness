@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { type Browser, chromium, type Page } from '@playwright/test';
 import { PNG } from 'pngjs';
@@ -163,6 +163,49 @@ function verifyPicture(bytes: Buffer, size: SubjectCaptureSize, label: string): 
 }
 
 /**
+ * Replaces the picture set as a unit. Every picture is staged beside its
+ * destination and the existing files are copied aside first; if any step
+ * fails, the files already replaced are restored, so a failure never leaves a
+ * half-replaced set behind.
+ */
+function publishPictures(
+  outDir: string,
+  rootDir: string,
+  pictures: readonly SubjectPicture[],
+): void {
+  mkdirSync(outDir, { recursive: true });
+  const targets = pictures.map((picture) => resolve(rootDir, picture.path));
+  const staged = targets.map((target) => `${target}.${process.pid}.new`);
+  const backups = new Map<string, string>();
+  const published: string[] = [];
+  try {
+    for (const [index, picture] of pictures.entries()) {
+      writeFileSync(staged[index] as string, picture.bytes);
+    }
+    for (const target of targets) {
+      if (existsSync(target)) {
+        const backup = `${target}.${process.pid}.old`;
+        copyFileSync(target, backup);
+        backups.set(target, backup);
+      }
+    }
+    for (const [index, target] of targets.entries()) {
+      renameSync(staged[index] as string, target);
+      published.push(target);
+    }
+  } catch (error) {
+    for (const target of published) {
+      const backup = backups.get(target);
+      if (backup === undefined) rmSync(target, { force: true });
+      else copyFileSync(backup, target);
+    }
+    throw error;
+  } finally {
+    for (const file of [...staged, ...backups.values()]) rmSync(file, { force: true });
+  }
+}
+
+/**
  * Renders one subject alone to a transparent PNG at each requested size, in a
  * fresh Chromium launched through the shared silent profile, and returns the
  * bytes with a record for the staleness check.
@@ -245,12 +288,8 @@ export async function captureSubject(
         await page.close();
       }
     }
-    // Nothing is written until every size has been captured and verified, so a
-    // failure never leaves a half-replaced set of pictures behind.
-    mkdirSync(outDir, { recursive: true });
-    for (const picture of pictures) {
-      writeFileSync(resolve(rootDir, picture.path), picture.bytes);
-    }
+    // Nothing is written until every size has been captured and verified.
+    publishPictures(outDir, rootDir, pictures);
     return { subject: options.subject, renderer, pictures };
   } finally {
     await browser.close();

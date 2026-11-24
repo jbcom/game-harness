@@ -66,7 +66,7 @@ describe('forwardAndroidWebView', () => {
 
   it('targets one device when a serial is given, and a fixed local port when asked', async () => {
     const { runAdb, calls } = scriptedAdb({
-      'forward tcp:9222 localabstract:webview_devtools_remote_1234': '',
+      'forward --no-rebind tcp:9222 localabstract:webview_devtools_remote_1234': '',
       'forward --remove tcp:9222': '',
     });
     const forward = await forwardAndroidWebView({
@@ -78,6 +78,29 @@ describe('forwardAndroidWebView', () => {
     expect(forward).toMatchObject({ endpoint: 'http://127.0.0.1:9222', port: 9222 });
     await forward.close();
     expect(calls.every((call) => call.startsWith('-s emulator-5554 '))).toBe(true);
+    expect(calls.some((call) => call.includes('--no-rebind tcp:9222'))).toBe(true);
+  });
+
+  it('refuses to take a fixed port that another adb client already forwards', async () => {
+    const { runAdb } = scriptedAdb({
+      'forward --no-rebind tcp:9222 localabstract:webview_devtools_remote_1234': new Error(
+        'adb: error: cannot rebind existing socket',
+      ),
+    });
+    await expect(
+      forwardAndroidWebView({ appId: 'com.example.game', localPort: 9222, runAdb }),
+    ).rejects.toThrow(/cannot rebind/u);
+  });
+
+  it('forwards the socket name found on the device, including a suffix', async () => {
+    const { runAdb, calls } = scriptedAdb({
+      'shell cat /proc/net/unix':
+        '0000: 00000002 0 0 0001 01 54321 @webview_devtools_remote_1234_zeus\n',
+      'forward tcp:0 localabstract:webview_devtools_remote_1234_zeus': '41717',
+    });
+    const forward = await forwardAndroidWebView({ appId: 'com.example.game', runAdb });
+    expect(forward).toMatchObject({ socket: 'webview_devtools_remote_1234_zeus', pid: 1234 });
+    expect(calls.at(-1)).toBe('forward tcp:0 localabstract:webview_devtools_remote_1234_zeus');
   });
 
   it('picks the process that owns a socket when the app has several', async () => {
@@ -93,6 +116,12 @@ describe('forwardAndroidWebView', () => {
     await expect(forwardAndroidWebView({ appId: 'com.example.game', runAdb })).rejects.toThrow(
       /is not running/u,
     );
+    const silent = scriptedAdb({
+      'shell pidof com.example.game': new AndroidWebViewError('adb failed', { stderr: '' }),
+    });
+    await expect(
+      forwardAndroidWebView({ appId: 'com.example.game', runAdb: silent.runAdb }),
+    ).rejects.toThrow(/is not running/u);
     const empty = scriptedAdb({ 'shell pidof com.example.game': '\n' });
     await expect(
       forwardAndroidWebView({ appId: 'com.example.game', runAdb: empty.runAdb }),
@@ -110,17 +139,22 @@ describe('forwardAndroidWebView', () => {
     const other = scriptedAdb({ 'shell pidof com.example.game': '777' });
     await expect(
       forwardAndroidWebView({ appId: 'com.example.game', runAdb: other.runAdb }),
-    ).rejects.toThrow(/sockets present: 1234, 9999/u);
-  });
-
-  it('fails when adb reports no port for an automatically chosen forward', async () => {
-    const { runAdb } = scriptedAdb({
-      'forward tcp:0 localabstract:webview_devtools_remote_1234': 'not a port',
-    });
-    await expect(forwardAndroidWebView({ appId: 'com.example.game', runAdb })).rejects.toThrow(
-      /did not report a local port/u,
+    ).rejects.toThrow(
+      /sockets present: webview_devtools_remote_1234, webview_devtools_remote_9999/u,
     );
   });
+
+  it.each(['not a port', '70000', '41715junk', '0', ''])(
+    'fails when adb reports %j as the port of an automatically chosen forward',
+    async (reported) => {
+      const { runAdb } = scriptedAdb({
+        'forward tcp:0 localabstract:webview_devtools_remote_1234': reported,
+      });
+      await expect(forwardAndroidWebView({ appId: 'com.example.game', runAdb })).rejects.toThrow(
+        /did not report a local port/u,
+      );
+    },
+  );
 
   it.each([
     [
@@ -188,7 +222,7 @@ describe('the default adb runner', () => {
   it('defaults to adb on the path and a 15 second timeout, and reports stderr on failure', async () => {
     respond(() => [new Error('Command failed'), '', 'error: no devices/emulators found\n']);
     await expect(forwardAndroidWebView({ appId: 'com.example.game' })).rejects.toThrow(
-      /is not running/u,
+      /error: no devices\/emulators found/u,
     );
     const call = vi.mocked(execFile).mock.calls[0] as unknown as [
       string,

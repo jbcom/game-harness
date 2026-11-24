@@ -86,11 +86,13 @@ POSIX path relative to `cwd`. Pin line endings with `.gitattributes` if sources
 are checked out on Windows.
 
 ```ts
-import { assertSubjectPicturesFresh } from 'game-harness/subject-pictures';
+import { assertSubjectPicturesFresh, hashSubjectSourceFiles } from 'game-harness/subject-pictures';
 
 assertSubjectPicturesFresh(records, {
   rootDir: process.cwd(),
-  sourceHashes: { shovel: hashSubjectSourceFiles(['src/models/shovel.ts']) },
+  sourceHashes: {
+    shovel: hashSubjectSourceFiles(['src/models/shovel.ts', 'src/models/palette.ts']),
+  },
   sizes: [256, 512],
 });
 ```

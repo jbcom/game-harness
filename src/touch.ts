@@ -181,8 +181,10 @@ const DEFAULT_DOUBLE_TAP_GAP_MS = 100;
 const DEFAULT_STEP_PX = 8;
 /** One frame at 60 Hz. */
 const FRAME_MS = 16;
-/** After this much idle time the planned timeline is moved up to the present. */
+/** After this much idle time between two calls the planned timeline is moved up to the present. */
 const IDLE_REBASE_MS = 250;
+/** The most move events one call may plan. */
+const MAX_MOVE_STEPS = 10_000;
 
 function requireDuration(name: string, value: number): void {
   if (!Number.isFinite(value) || value < 0) {
@@ -234,12 +236,23 @@ function planPath(
   }
   const totalLength = legs.reduce((sum, leg) => sum + leg.length, 0);
   const totalSteps = legs.reduce((sum, leg) => sum + leg.steps, 0);
+  // Checked before anything is allocated: a tiny stepPx on a long move must be
+  // refused, not turned into an array that never finishes filling.
+  if (!Number.isFinite(totalSteps) || totalSteps > MAX_MOVE_STEPS) {
+    throw new ScriptedTouchError(
+      `this move would take more than ${MAX_MOVE_STEPS} steps: raise stepPx or lower steps`,
+    );
+  }
   const totalMs = options.durationMs ?? totalSteps * FRAME_MS;
 
   const steps: PathStep[] = [];
   let legStartMs = 0;
   for (const leg of legs) {
-    const legMs = (totalMs * leg.length) / totalLength;
+    // An explicit duration is shared by leg length; otherwise every step is one frame.
+    const legMs =
+      options.durationMs === undefined
+        ? leg.steps * FRAME_MS
+        : (totalMs * leg.length) / totalLength;
     for (let index = 1; index <= leg.steps; index += 1) {
       const fraction = index / leg.steps;
       steps.push({
@@ -265,6 +278,8 @@ class TouchSession implements ScriptedTouch {
   private readonly fingers = new Map<number, FingerState>();
   private nextFingerId = 1;
   private plannedMs = 0;
+  /** When the previous operation finished, in milliseconds since the session began. */
+  private settledMs = 0;
   private busy = false;
   private inflight: Promise<void> | undefined;
   private closing = false;
@@ -294,7 +309,8 @@ class TouchSession implements ScriptedTouch {
     }
     this.busy = true;
     const running = (async () => {
-      if (this.elapsed() - this.plannedMs > IDLE_REBASE_MS) this.plannedMs = this.elapsed();
+      // Idle is the time between calls, not the time a slow send took inside one.
+      if (this.elapsed() - this.settledMs > IDLE_REBASE_MS) this.plannedMs = this.elapsed();
       return operation();
     })();
     this.inflight = running.then(
@@ -305,6 +321,7 @@ class TouchSession implements ScriptedTouch {
       return await running;
     } finally {
       this.busy = false;
+      this.settledMs = this.elapsed();
     }
   }
 
@@ -374,25 +391,39 @@ class TouchSession implements ScriptedTouch {
     this.fingers.clear();
   }
 
-  private async travel(
-    state: FingerState,
+  /** Resolves and validates a whole move without touching the screen. */
+  private async planTravel(
+    from: TouchPoint,
     targets: readonly TouchTarget[],
     options: MoveOptions,
+  ): Promise<ReturnType<typeof planPath>> {
+    return planPath(from, await Promise.all(targets.map(resolvePoint)), options);
+  }
+
+  private async followPath(
+    state: FingerState,
+    { steps, totalMs }: ReturnType<typeof planPath>,
   ): Promise<void> {
-    const waypoints = await Promise.all(targets.map(resolvePoint));
     const startMs = this.plannedMs;
     const wallStartMs = this.elapsed();
-    const { steps, totalMs } = planPath(state, waypoints, options);
     // A move that goes nowhere still takes the time it was asked to take.
     if (steps.length === 0) await this.pause(totalMs);
     for (const step of steps) {
+      const { x, y } = state;
       state.x = step.x;
       state.y = step.y;
       this.plannedMs = startMs + step.atMs;
-      // The wall clock follows the same schedule from the start of the move, so
-      // a slow step is made up by the next rather than stretching the drag.
-      await this.clock.sleepUntil(this.originMs + wallStartMs + step.atMs);
-      await this.emit('touchMove', state, this.plannedMs);
+      try {
+        // The wall clock follows the same schedule from the start of the move, so
+        // a slow step is made up by the next rather than stretching the drag.
+        await this.clock.sleepUntil(this.originMs + wallStartMs + step.atMs);
+        await this.emit('touchMove', state, this.plannedMs);
+      } catch (error) {
+        // The browser was not told about this step, so the finger has not moved.
+        state.x = x;
+        state.y = y;
+        throw error;
+      }
     }
   }
 
@@ -409,7 +440,10 @@ class TouchSession implements ScriptedTouch {
   ): Promise<void> {
     return this.run(async () => {
       this.guardFinger(state);
-      await this.travel(state, isTargetList(target) ? target : [target], options);
+      await this.followPath(
+        state,
+        await this.planTravel(state, isTargetList(target) ? target : [target], options),
+      );
     });
   }
 
@@ -477,11 +511,21 @@ class TouchSession implements ScriptedTouch {
     requireDuration('holdMs', holdMs);
     requireDuration('settleMs', settleMs);
     return this.run(async () => {
-      const handle = await this.down(await resolvePoint(from));
-      if (holdMs > 0) await this.pause(holdMs);
-      await this.travel(handle.state, isTargetList(to) ? to : [to], options);
-      if (settleMs > 0) await this.pause(settleMs);
-      if (options.release !== false) await this.lift(handle.state);
+      // The whole drag is validated before the finger goes down, so a bad
+      // option or a missing target never leaves a contact behind.
+      const start = await resolvePoint(from);
+      const plan = await this.planTravel(start, isTargetList(to) ? to : [to], options);
+      const handle = await this.down(start);
+      try {
+        if (holdMs > 0) await this.pause(holdMs);
+        await this.followPath(handle.state, plan);
+        if (settleMs > 0) await this.pause(settleMs);
+        if (options.release !== false) await this.lift(handle.state);
+      } catch (error) {
+        // Lift only this finger; others the caller has down are left alone.
+        await this.lift(handle.state).catch(() => undefined);
+        throw error;
+      }
       return handle;
     });
   }
@@ -503,10 +547,22 @@ class TouchSession implements ScriptedTouch {
     try {
       await this.inflight;
       await this.cancelAll();
-    } finally {
-      this.closed = true;
-      if (this.ownsSession) await this.session.detach?.();
+    } catch (error) {
+      if (!this.ownsSession) {
+        // A caller-owned session outlives this driver and its finger may still
+        // be down, so leave cleanup retryable.
+        this.closing = false;
+        throw error;
+      }
+      await this.finishClose();
+      throw error;
     }
+    await this.finishClose();
+  }
+
+  private async finishClose(): Promise<void> {
+    this.closed = true;
+    if (this.ownsSession) await this.session.detach?.();
   }
 }
 

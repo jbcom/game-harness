@@ -211,7 +211,7 @@ describe('checkSubjectPictures', () => {
       sourceHashes: { shovel: 'a'.repeat(64) },
     });
     expect(check.problems.map((problem) => problem.kind)).toEqual(['wrong-size', 'wrong-size']);
-    expect(check.problems[0]?.detail).toMatch(/not a PNG/u);
+    expect(check.problems[0]?.detail).toMatch(/not a readable PNG/u);
     expect(check.problems[1]?.detail).toMatch(/128x128/u);
   });
 
@@ -233,8 +233,42 @@ describe('checkSubjectPictures', () => {
       sizes: [{ width: 4, height: 4 }],
     });
     expect(check.problems).toEqual([
-      expect.objectContaining({ kind: 'wrong-size', detail: expect.stringContaining('not a PNG') }),
+      expect.objectContaining({
+        kind: 'wrong-size',
+        detail: expect.stringContaining('not a readable PNG'),
+      }),
     ]);
+  });
+
+  it('reports a truncated PNG even when its recorded digest and header size match', () => {
+    const truncated = png(16, 16).subarray(0, 40);
+    mkdirSync(join(root, 'pictures'), { recursive: true });
+    writeFileSync(join(root, 'pictures/cut.png'), truncated);
+    const record: SubjectPictureRecord = {
+      subject: 'shovel',
+      path: 'pictures/cut.png',
+      width: 16,
+      height: 16,
+      sha256: sha256Hex(truncated),
+      sourceSha256: 'a'.repeat(64),
+    };
+    const check = checkSubjectPictures([record], {
+      rootDir: root,
+      sourceHashes: { shovel: 'a'.repeat(64) },
+    });
+    expect(check.problems).toEqual([
+      expect.objectContaining({ kind: 'wrong-size', detail: expect.stringContaining('readable') }),
+    ]);
+  });
+
+  it('rejects an empty sizes list instead of waiving every subject', () => {
+    expect(() =>
+      checkSubjectPictures([], {
+        rootDir: root,
+        sourceHashes: { shovel: 'a'.repeat(64) },
+        sizes: [],
+      }),
+    ).toThrow(/sizes must not be empty/u);
   });
 
   it('reports a record for a subject that no longer exists', () => {

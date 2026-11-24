@@ -580,8 +580,10 @@ See the [Subject pictures guide](docs/guides/subject-pictures.md).
 
 `game-harness/touch` sends real touch events through the DevTools protocol, so
 a page sees `pointerType: "touch"` pointer events with the browser's own hit
-testing and slop. Create the Playwright context with `hasTouch: true` (and
-`isMobile: true` for a phone); the driver rejects a page without touch support.
+testing and slop. Create the Playwright context with `hasTouch: true`; the
+driver rejects a page without touch support. It checks `navigator.maxTouchPoints`
+only and does not verify `isMobile`, so set `isMobile: true` yourself for a
+phone test.
 
 ```ts
 import { createScriptedTouch } from 'game-harness/touch';

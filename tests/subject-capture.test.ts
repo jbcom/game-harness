@@ -1,4 +1,13 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
@@ -9,6 +18,10 @@ import { captureSubject, SubjectCaptureError } from '../src/subject-capture.js';
 import { sha256Hex } from '../src/subject-pictures.js';
 
 vi.mock('@playwright/test', () => ({ chromium: { launch: vi.fn() } }));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, renameSync: vi.fn(actual.renameSync) };
+});
 
 const SOURCE = 'a'.repeat(64);
 
@@ -313,6 +326,33 @@ describe('captureSubject', () => {
     createBrowser([squarePng(64), squarePng(32)]);
     await expect(captureSubject(base({ sizes: [64, 128] }))).rejects.toThrow(/came out 32x32/u);
     expect(existsSync(join(workDir, 'pictures'))).toBe(false);
+  });
+
+  it('keeps the previous set when a destination cannot be replaced at all', async () => {
+    const pictures = join(workDir, 'pictures');
+    mkdirSync(join(pictures, 'shovel-128.png'), { recursive: true });
+    writeFileSync(join(pictures, 'shovel-64.png'), 'previous 64');
+    createBrowser([squarePng(64), squarePng(128)]);
+    await expect(captureSubject(base({ sizes: [64, 128] }))).rejects.toThrow();
+    expect(readFileSync(join(pictures, 'shovel-64.png'), 'utf8')).toBe('previous 64');
+    expect(readdirSync(pictures).sort()).toEqual(['shovel-128.png', 'shovel-64.png']);
+  });
+
+  it('restores replaced pictures and removes new ones when a later replacement fails', async () => {
+    const pictures = join(workDir, 'pictures');
+    mkdirSync(pictures, { recursive: true });
+    writeFileSync(join(pictures, 'shovel-64.png'), 'previous 64');
+    createBrowser([squarePng(64), squarePng(128), squarePng(256)]);
+    const real = vi.mocked(renameSync).getMockImplementation() as typeof renameSync;
+    vi.mocked(renameSync)
+      .mockImplementationOnce(real)
+      .mockImplementationOnce(real)
+      .mockImplementationOnce(() => {
+        throw new Error('EXDEV: cross-device link not permitted');
+      });
+    await expect(captureSubject(base({ sizes: [64, 128, 256] }))).rejects.toThrow(/EXDEV/u);
+    expect(readFileSync(join(pictures, 'shovel-64.png'), 'utf8')).toBe('previous 64');
+    expect(readdirSync(pictures)).toEqual(['shovel-64.png']);
   });
 
   it('fails closed on a picture of a width that matches but a height that does not', async () => {

@@ -1,3 +1,4 @@
+import * as timers from 'node:timers/promises';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createScriptedTouch,
@@ -7,6 +8,11 @@ import {
   type TouchCdpSession,
   type TouchClock,
 } from '../src/touch.js';
+
+vi.mock('node:timers/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:timers/promises')>();
+  return { ...actual, setTimeout: vi.fn(actual.setTimeout) };
+});
 
 /** A clock that only moves when something sleeps or a send takes time, so no test really waits. */
 function virtualClock(startEpochMs = 1_700_000_000_000) {
@@ -128,10 +134,13 @@ describe('systemTouchClock', () => {
     const before = systemTouchClock.now();
     await systemTouchClock.sleepUntil(before + 20);
     expect(systemTouchClock.now()).toBeGreaterThanOrEqual(before + 20);
-    const again = systemTouchClock.now();
-    await systemTouchClock.sleepUntil(before);
-    expect(systemTouchClock.now() - again).toBeLessThan(15);
     expect(Math.abs(systemTouchClock.epochMs() - Date.now())).toBeLessThan(50);
+  });
+
+  it('starts no timer for a deadline that has already passed', async () => {
+    vi.mocked(timers.setTimeout).mockClear();
+    await systemTouchClock.sleepUntil(systemTouchClock.now() - 1_000);
+    expect(timers.setTimeout).not.toHaveBeenCalled();
   });
 
   it('keeps sleeping when a timer fires early', async () => {
@@ -532,7 +541,115 @@ describe('invalid options and misuse', () => {
   });
 });
 
+describe('failures mid-gesture', () => {
+  function failOn(session: { send: ReturnType<typeof vi.fn> }, ...types: string[]) {
+    const original = session.send.getMockImplementation() as (
+      method: string,
+      params?: { type?: string },
+    ) => Promise<unknown>;
+    session.send.mockImplementation(async (method: string, params?: { type?: string }) => {
+      if (params?.type !== undefined && types.includes(params.type)) {
+        throw new Error('target closed');
+      }
+      return original(method, params);
+    });
+  }
+
+  it('keeps the last position the browser received when a move fails to send', async () => {
+    const { touch, session, sent } = await open();
+    const finger = await touch.press({ x: 10, y: 10 });
+    failOn(session, 'touchMove');
+    await expect(finger.moveTo({ x: 20, y: 10 }, { steps: 1 })).rejects.toThrow(/target closed/u);
+    expect(finger.position).toEqual({ x: 10, y: 10 });
+    await touch.press({ x: 50, y: 50 });
+    expect(sent.at(-1)?.touchPoints).toEqual([
+      { id: 1, x: 10, y: 10 },
+      { id: 2, x: 50, y: 50 },
+    ]);
+  });
+
+  it('validates a whole drag before the finger goes down', async () => {
+    const { touch, sent } = await open();
+    await expect(touch.pressDrag({ x: 1, y: 1 }, { x: 9, y: 9 }, { stepPx: 0 })).rejects.toThrow(
+      /stepPx/u,
+    );
+    await expect(
+      touch.pressDrag({ x: 1, y: 1 }, { boundingBox: async () => null }),
+    ).rejects.toThrow(/no bounding box/u);
+    expect(sent).toEqual([]);
+  });
+
+  it('lifts only the dragging finger when a step fails after the start', async () => {
+    const { touch, session, sent } = await open();
+    const other = await touch.press({ x: 200, y: 200 });
+    failOn(session, 'touchMove');
+    await expect(touch.pressDrag({ x: 1, y: 1 }, { x: 9, y: 9 })).rejects.toThrow(/target closed/u);
+    expect(sent.map((event) => [event.type, event.touchPoints.map((point) => point.id)])).toEqual([
+      ['touchStart', [1]],
+      ['touchStart', [1, 2]],
+      ['touchEnd', [2]],
+    ]);
+    expect(other.released).toBe(false);
+  });
+
+  it('still reports the original failure when the cleanup lift fails too', async () => {
+    const { touch, session } = await open();
+    failOn(session, 'touchMove', 'touchEnd');
+    await expect(touch.pressDrag({ x: 1, y: 1 }, { x: 9, y: 9 })).rejects.toThrow(/target closed/u);
+  });
+
+  it('keeps cleanup retryable when cancelling fails on a session the caller owns', async () => {
+    const { touch, session, sent } = await open();
+    await touch.press({ x: 1, y: 1 });
+    failOn(session, 'touchCancel');
+    await expect(touch.close()).rejects.toThrow(/target closed/u);
+    session.send.mockImplementation(async (_method: string, params?: object) => {
+      sent.push(params as Sent);
+      return {};
+    });
+    await touch.close();
+    expect(sent.map((event) => event.type)).toEqual(['touchStart', 'touchCancel']);
+    await expect(touch.tap({ x: 1, y: 1 })).rejects.toThrow(/closed/u);
+  });
+});
+
+describe('move planning', () => {
+  it('refuses a move that would need an unreasonable number of steps', async () => {
+    const { touch, sent } = await open();
+    await expect(
+      touch.pressDrag({ x: 0, y: 0 }, { x: 1, y: 0 }, { stepPx: Number.MIN_VALUE }),
+    ).rejects.toThrow(/more than 10000 steps/u);
+    await expect(
+      touch.pressDrag({ x: 0, y: 0 }, { x: 50_000, y: 0 }, { stepPx: 1 }),
+    ).rejects.toThrow(/more than 10000 steps/u);
+    expect(sent).toEqual([]);
+  });
+
+  it('spaces steps one frame apart per leg when no duration is given', async () => {
+    const { touch } = await open();
+    await touch.pressDrag(
+      { x: 0, y: 0 },
+      [
+        { x: 1, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      { steps: 1 },
+    );
+    expect(
+      touch.trace.filter((entry) => entry.type === 'touchMove').map((e) => e.plannedMs),
+    ).toEqual([16, 32]);
+  });
+});
+
 describe('planned time after idle', () => {
+  it('does not count the time a slow send took as idle time', async () => {
+    const { touch } = await open({ latencyMs: 300 });
+    const finger = await touch.press({ x: 1, y: 1 });
+    await finger.hold(100);
+    await finger.release();
+    expect(touch.trace.map((entry) => entry.plannedMs)).toEqual([0, 100]);
+  });
+
   it('moves the plan up to the present when the script paused for a long time', async () => {
     const { touch, state } = await open();
     await touch.tap({ x: 1, y: 1 });
