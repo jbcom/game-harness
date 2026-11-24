@@ -3,3 +3,9 @@ packages:
   - docs
 allowBuilds:
   esbuild: true
+# Transitive dependencies of the docs toolchain (sourcey) that their parents
+# still resolve to a vulnerable release. Each override is the first patched
+# release at or above the vulnerable one.
+overrides:
+  fflate@<0.7.5: ^0.7.5
+  postcss-selector-parser@<6.1.5: ^6.1.5
