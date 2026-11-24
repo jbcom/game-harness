@@ -4,6 +4,24 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.7.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.6.0...game-harness-v1.7.0) (2026-11-24)
+
+
+### Features
+
+* subject pictures and scripted touch for browser and Android WebView runs ([b738bda](https://github.com/jbcom/game-harness/commit/b738bda320871d21952f7a15de5e10e972c9581a))
+* **subject-capture:** render one subject to transparent PNGs and check them for staleness ([fe9ba3a](https://github.com/jbcom/game-harness/commit/fe9ba3a82eb5ae93742751ebf9156227d612b027))
+* **touch:** scripted tap, double tap, press-drag and hold for browser and Android WebView runs ([9b28096](https://github.com/jbcom/game-harness/commit/9b28096993d8577eb956c669ca075b4f322313c3))
+
+
+### Bug Fixes
+
+* **chromium:** software renderer profile presents a blank white page ([d074543](https://github.com/jbcom/game-harness/commit/d07454334963256593dafc64bc1a1ea9ddf4bad1))
+* **subject-capture:** keep recovery copies when restoring a failed publish fails ([352a5a3](https://github.com/jbcom/game-harness/commit/352a5a3dba9196814cc118daf5715ef2e43bc4a0))
+* **subject-pictures:** order subjects with an explicit code-unit comparator ([1d4eb2f](https://github.com/jbcom/game-harness/commit/1d4eb2f405d4df876c29090720dc86e44b919c18))
+* **touch,android-webview,subject-capture:** harden failure paths found in review ([b3f959b](https://github.com/jbcom/game-harness/commit/b3f959bb77b4155afb4c8be17493275c9dc6def7))
+* **touch:** close waits for a running operation; a failed start leaves no ghost finger ([a62b4b8](https://github.com/jbcom/game-harness/commit/a62b4b8f31e04c6fe28b83a1b16e939c38f7dd89))
+
 ## [1.6.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.5.0...game-harness-v1.6.0) (2026-11-24)
 
 
