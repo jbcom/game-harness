@@ -180,7 +180,8 @@ Chromium is headed by default locally and in CI. Linux CI must provide a
 display with `xvfb-run`; it should not change the browser to headless simply to
 make WebGL start. The default `auto` profile lets Chromium select the native
 renderer (including Metal on macOS). `software` is an explicit SwiftShader
-fallback. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
+fallback through ANGLE (`--use-angle=swiftshader --enable-unsafe-swiftshader`),
+the profile for byte-stable software captures. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
 `EGL_PLATFORM=surfaceless` for a runner that exposes `/dev/dri/renderD128`.
 `macos-hardware-metal` asks ANGLE for its Metal backend (`--use-angle=metal
 --ignore-gpu-blocklist`); it is the profile for an Apple Silicon Mac with no

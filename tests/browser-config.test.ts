@@ -135,7 +135,8 @@ describe('defineBrowserTestConfig', () => {
       options?: { launchOptions?: { args?: string[] } };
     };
     expect(provider.options?.launchOptions?.args).toEqual([
-      '--use-gl=swiftshader',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
       '--enable-webgl',
       '--ignore-gpu-blocklist',
       ...CHROMIUM_ANTI_THROTTLING_ARGS,

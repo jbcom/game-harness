@@ -139,7 +139,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-gl=swiftshader'))throw new Error('invalid CJS Chromium entry')",
+      "const h=require('game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-angle=swiftshader'))throw new Error('invalid CJS Chromium entry')",
     ],
     rootConsumer,
   );

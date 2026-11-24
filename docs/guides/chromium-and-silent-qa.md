@@ -18,7 +18,7 @@ const browser = await chromium.launch({ args, env, headless: false });
 when driving Chromium yourself (a custom launch script, `production-runtime`'s
 own internals, or a non-Playwright automation layer). It resolves one of
 four renderer policies (`auto` leaves selection to Chromium; `software`
-opts into SwiftShader explicitly; `linux-hardware-vulkan` applies the
+opts into SwiftShader explicitly through ANGLE; `linux-hardware-vulkan` applies the
 reviewed Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner
 exposing `/dev/dri/renderD128`; `macos-hardware-metal` asks ANGLE for its
 Metal backend with `--use-angle=metal --ignore-gpu-blocklist`, which a
