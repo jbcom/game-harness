@@ -4,6 +4,21 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.6.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.5.0...game-harness-v1.6.0) (2026-11-24)
+
+
+### Features
+
+* admit hardware GPU runs from the env contract and ship an Xvfb globalSetup ([9264d42](https://github.com/jbcom/game-harness/commit/9264d42a2d077c9dee22a8702c61c24a9c709747))
+* **chromium:** admit hardware GPU runs from the heavy-slot env contract ([ebc9d9b](https://github.com/jbcom/game-harness/commit/ebc9d9b0b9eae240a2ffd234679ba15e8a891efd)), closes [#56](https://github.com/jbcom/game-harness/issues/56)
+* **playwright:** ship a platform-aware Xvfb globalSetup ([5c679cb](https://github.com/jbcom/game-harness/commit/5c679cbac7f533079fb14f62d197a3097f032a90)), closes [#56](https://github.com/jbcom/game-harness/issues/56)
+
+
+### Bug Fixes
+
+* **deps:** update the transitive handlebars to 4.7.10 ([1d868de](https://github.com/jbcom/game-harness/commit/1d868de22e2ddab7982b41a0faab8c258a0a7471))
+* **deps:** update the transitive handlebars to 4.7.10 ([2f6b142](https://github.com/jbcom/game-harness/commit/2f6b142b860779518aee2fa5540e60107f9207cd))
+
 ## [1.5.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.4.0...game-harness-v1.5.0) (2026-10-16)
 
 
