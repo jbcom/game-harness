@@ -1,6 +1,6 @@
 {
   "name": "game-harness",
-  "version": "1.5.0",
+  "version": "1.7.0",
   "description": "Release-grade browser QA primitives for TypeScript games: silent Playwright/Vitest sessions, deterministic screenshots, runtime proof, and Lighthouse gates.",
   "type": "module",
   "license": "MIT",
@@ -53,6 +53,16 @@
       "require": {
         "types": "./dist/types/playwright-config.d.cts",
         "default": "./dist/cjs/playwright-config.js"
+      }
+    },
+    "./playwright/xvfb-setup": {
+      "import": {
+        "types": "./dist/types/xvfb-setup.d.ts",
+        "default": "./dist/esm/xvfb-setup.js"
+      },
+      "require": {
+        "types": "./dist/types/xvfb-setup.d.cts",
+        "default": "./dist/cjs/xvfb-setup.js"
       }
     },
     "./silent-qa": {
@@ -115,6 +125,46 @@
         "default": "./dist/cjs/visual-battery.js"
       }
     },
+    "./subject-capture": {
+      "import": {
+        "types": "./dist/types/subject-capture.d.ts",
+        "default": "./dist/esm/subject-capture.js"
+      },
+      "require": {
+        "types": "./dist/types/subject-capture.d.cts",
+        "default": "./dist/cjs/subject-capture.js"
+      }
+    },
+    "./subject-pictures": {
+      "import": {
+        "types": "./dist/types/subject-pictures.d.ts",
+        "default": "./dist/esm/subject-pictures.js"
+      },
+      "require": {
+        "types": "./dist/types/subject-pictures.d.cts",
+        "default": "./dist/cjs/subject-pictures.js"
+      }
+    },
+    "./touch": {
+      "import": {
+        "types": "./dist/types/touch.d.ts",
+        "default": "./dist/esm/touch.js"
+      },
+      "require": {
+        "types": "./dist/types/touch.d.cts",
+        "default": "./dist/cjs/touch.js"
+      }
+    },
+    "./android-webview": {
+      "import": {
+        "types": "./dist/types/android-webview.d.ts",
+        "default": "./dist/esm/android-webview.js"
+      },
+      "require": {
+        "types": "./dist/types/android-webview.d.cts",
+        "default": "./dist/cjs/android-webview.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/cjs/index.js",
@@ -163,19 +213,19 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
-    "@playwright/test": "1.64.0",
+    "@playwright/test": "1.65.1",
     "@types/cross-spawn": "6.0.6",
     "@types/node": "24.19.2",
     "@types/pngjs": "^6.0.5",
     "@types/which": "^3.0.4",
-    "@vitest/browser-playwright": "5.0.4",
-    "@vitest/coverage-v8": "5.0.4",
-    "oxlint": "1.88.0",
-    "prettier": "3.9.10",
+    "@vitest/browser-playwright": "5.1.1",
+    "@vitest/coverage-v8": "5.1.1",
+    "oxlint": "1.94.0",
+    "prettier": "3.10.1",
     "publint": "0.3.25",
-    "rimraf": "6.1.3",
+    "rimraf": "6.1.4",
     "typescript": "7.0.2",
-    "vitest": "5.0.4"
+    "vitest": "5.1.1"
   },
   "engines": {
     "node": ">=22"

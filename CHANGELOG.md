@@ -4,6 +4,39 @@ All notable changes are recorded here. Releases follow
 [Semantic Versioning](https://semver.org/) and are generated from Conventional
 Commits by release-please.
 
+## [1.7.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.6.0...game-harness-v1.7.0) (2026-11-24)
+
+
+### Features
+
+* subject pictures and scripted touch for browser and Android WebView runs ([b738bda](https://github.com/jbcom/game-harness/commit/b738bda320871d21952f7a15de5e10e972c9581a))
+* **subject-capture:** render one subject to transparent PNGs and check them for staleness ([fe9ba3a](https://github.com/jbcom/game-harness/commit/fe9ba3a82eb5ae93742751ebf9156227d612b027))
+* **touch:** scripted tap, double tap, press-drag and hold for browser and Android WebView runs ([9b28096](https://github.com/jbcom/game-harness/commit/9b28096993d8577eb956c669ca075b4f322313c3))
+
+
+### Bug Fixes
+
+* **chromium:** software renderer profile presents a blank white page ([d074543](https://github.com/jbcom/game-harness/commit/d07454334963256593dafc64bc1a1ea9ddf4bad1))
+* **subject-capture:** keep recovery copies when restoring a failed publish fails ([352a5a3](https://github.com/jbcom/game-harness/commit/352a5a3dba9196814cc118daf5715ef2e43bc4a0))
+* **subject-pictures:** order subjects with an explicit code-unit comparator ([1d4eb2f](https://github.com/jbcom/game-harness/commit/1d4eb2f405d4df876c29090720dc86e44b919c18))
+* **touch,android-webview,subject-capture:** harden failure paths found in review ([b3f959b](https://github.com/jbcom/game-harness/commit/b3f959bb77b4155afb4c8be17493275c9dc6def7))
+* **touch:** close waits for a running operation; a failed start leaves no ghost finger ([a62b4b8](https://github.com/jbcom/game-harness/commit/a62b4b8f31e04c6fe28b83a1b16e939c38f7dd89))
+
+## [1.6.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.5.0...game-harness-v1.6.0) (2026-11-24)
+
+
+### Features
+
+* admit hardware GPU runs from the env contract and ship an Xvfb globalSetup ([9264d42](https://github.com/jbcom/game-harness/commit/9264d42a2d077c9dee22a8702c61c24a9c709747))
+* **chromium:** admit hardware GPU runs from the heavy-slot env contract ([ebc9d9b](https://github.com/jbcom/game-harness/commit/ebc9d9b0b9eae240a2ffd234679ba15e8a891efd)), closes [#56](https://github.com/jbcom/game-harness/issues/56)
+* **playwright:** ship a platform-aware Xvfb globalSetup ([5c679cb](https://github.com/jbcom/game-harness/commit/5c679cbac7f533079fb14f62d197a3097f032a90)), closes [#56](https://github.com/jbcom/game-harness/issues/56)
+
+
+### Bug Fixes
+
+* **deps:** update the transitive handlebars to 4.7.10 ([1d868de](https://github.com/jbcom/game-harness/commit/1d868de22e2ddab7982b41a0faab8c258a0a7471))
+* **deps:** update the transitive handlebars to 4.7.10 ([2f6b142](https://github.com/jbcom/game-harness/commit/2f6b142b860779518aee2fa5540e60107f9207cd))
+
 ## [1.5.0](https://github.com/jbcom/game-harness/compare/game-harness-v1.4.0...game-harness-v1.5.0) (2026-10-16)
 
 

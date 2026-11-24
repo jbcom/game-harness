@@ -139,7 +139,7 @@ try {
     process.execPath,
     [
       '-e',
-      "const h=require('game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-gl=swiftshader'))throw new Error('invalid CJS Chromium entry')",
+      "const h=require('game-harness/chromium'); const p=h.createChromiumLaunchProfile({gpuMode:'software'}); if(p.args.at(-1)!=='--mute-audio'||!p.args.includes('--use-angle=swiftshader'))throw new Error('invalid CJS Chromium entry')",
     ],
     rootConsumer,
   );
@@ -161,6 +161,20 @@ try {
     ],
     rootConsumer,
   );
+  for (const moduleMode of ['commonjs', 'module']) {
+    const load = (specifier) =>
+      moduleMode === 'module' ? `await import('${specifier}')` : `require('${specifier}')`;
+    const hardwareEnv = "{HEAVY_BROWSER_GPU:'macos-hardware-metal',HEAVY_BROWSER_MUTE:'1'}";
+    run(
+      process.execPath,
+      [
+        ...(moduleMode === 'module' ? ['--input-type=module'] : []),
+        '-e',
+        `(async()=>{const c=${load('game-harness/chromium')};const x=${load('game-harness/playwright/xvfb-setup')};const env=${hardwareEnv};let refused=false;try{c.admittedGpuMode({env:{...env,HEAVY_BROWSER_MUTE:'0'},platform:'darwin'})}catch{refused=true}if(c.admittedGpuMode({env,platform:'darwin'})!=='macos-hardware-metal'||!refused)throw new Error('invalid admittedGpuMode');if(typeof x.default!=='function'||typeof x.createXvfbGlobalSetup!=='function'||await x.setupXvfb({platform:'darwin'})!==undefined)throw new Error('invalid Xvfb entry')})()`,
+      ],
+      rootConsumer,
+    );
+  }
   run(
     process.execPath,
     [
@@ -189,6 +203,32 @@ try {
         ...(moduleMode === 'module' ? ['--input-type=module'] : []),
         '-e',
         `(async()=>{const h=${load};const search=await h.resolveSilentQaSearch({search:'?seed=real',nativeLaunch:{readUrl:async()=> 'example://qa/?muted=0&progress=999',accepts:u=>u.protocol==='example:'&&u.hostname==='qa'}});if(search!=='?seed=real&muted=1'||h.isSilentQaActive())throw new Error('invalid peer-free native silent launch')})()`,
+      ],
+      rootConsumer,
+    );
+  }
+  for (const moduleMode of ['commonjs', 'module']) {
+    const load = (specifier) =>
+      moduleMode === 'module' ? `await import('${specifier}')` : `require('${specifier}')`;
+    run(
+      process.execPath,
+      [
+        ...(moduleMode === 'module' ? ['--input-type=module'] : []),
+        '-e',
+        `(async()=>{for(const h of [${load('game-harness/subject-pictures')},${load('game-harness')}]){const a=h.hashSubjectSources([{path:'a.ts',bytes:'x'}]);const b=h.hashSubjectSources([{path:'a.ts',bytes:'y'}]);const c=h.checkSubjectPictures([],{sourceHashes:{shovel:a}});if(a===b||c.ok||c.problems[0].kind!=='missing-record'||typeof h.assertSubjectPicturesFresh!=='function')throw new Error('invalid subject-pictures entry')}})()`,
+      ],
+      rootConsumer,
+    );
+  }
+  for (const moduleMode of ['commonjs', 'module']) {
+    const load = (specifier) =>
+      moduleMode === 'module' ? `await import('${specifier}')` : `require('${specifier}')`;
+    run(
+      process.execPath,
+      [
+        ...(moduleMode === 'module' ? ['--input-type=module'] : []),
+        '-e',
+        `(async()=>{const t=${load('game-harness/touch')};const a=${load('game-harness/android-webview')};const sent=[];const touch=await t.createScriptedTouch({send:async(m,p)=>{if(m==='Runtime.evaluate')return{result:{value:{touchPoints:1,now:Date.now()}}};sent.push(p.type);return{}}});await touch.tap({x:1,y:2},{pressMs:0});await touch.close();let refused=false;try{await a.forwardAndroidWebView({appId:'not valid'})}catch(e){refused=e instanceof a.AndroidWebViewError}if(sent.join()!=='touchStart,touchEnd'||!refused||typeof t.ScriptedTouchError!=='function')throw new Error('invalid touch entries')})()`,
       ],
       rootConsumer,
     );
@@ -224,6 +264,23 @@ try {
       '--input-type=module',
       '-e',
       "const h=await import('game-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid ESM production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid ESM production-runtime port allocation')",
+    ],
+    playwrightConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('game-harness/subject-capture'); if(typeof h.captureSubject!=='function'||typeof h.SubjectCaptureError!=='function')throw new Error('invalid CJS subject-capture entry')",
+    ],
+    playwrightConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('game-harness/subject-capture'); if(typeof h.captureSubject!=='function'||typeof h.SubjectCaptureError!=='function')throw new Error('invalid ESM subject-capture entry')",
     ],
     playwrightConsumer,
   );
