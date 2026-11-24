@@ -81,6 +81,12 @@ export class SubjectPictureError extends Error {
   }
 }
 
+/** Orders strings by UTF-16 code unit, the same on every machine and locale. */
+function compareCodePoints(left: string, right: string): number {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+}
+
 export function sha256Hex(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
@@ -108,9 +114,7 @@ export function hashSubjectSources(entries: readonly SubjectSourceEntry[]): stri
   if (entries.length === 0) {
     throw new SubjectPictureError('a subject needs at least one source to hash');
   }
-  const sorted = [...entries].sort((left, right) =>
-    left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
-  );
+  const sorted = [...entries].sort((left, right) => compareCodePoints(left.path, right.path));
   const hash = createHash('sha256');
   let previous: string | undefined;
   for (const { path, bytes } of sorted) {
@@ -241,7 +245,7 @@ export function checkSubjectPictures(
   const problems = records.flatMap((record) => checkRecord(record, rootDir, options.sourceHashes));
 
   const sizes = options.sizes?.map(subjectPictureDimensions);
-  for (const subject of Object.keys(options.sourceHashes).sort()) {
+  for (const subject of Object.keys(options.sourceHashes).sort(compareCodePoints)) {
     const own = records.filter((record) => record.subject === subject);
     if (sizes === undefined) {
       if (own.length === 0) {
