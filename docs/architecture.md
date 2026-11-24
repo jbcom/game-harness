@@ -6,17 +6,22 @@ those tests explicit and fail-closed.
 
 ## Package boundaries
 
-| Entry point           | Responsibility                                                  | Required peer                          |
-| --------------------- | --------------------------------------------------------------- | -------------------------------------- |
-| package root          | Lighthouse policy, release ladder, visual battery               | None                                   |
-| `/chromium`           | Renderer and mandatory mute launch profile                      | None                                   |
-| `/silent-qa`          | Application-side runtime mute request and readiness marker      | None                                   |
-| `/playwright`         | Device tiers, isolated ports, preview server, silent navigation | `@playwright/test`                     |
-| `/production-runtime` | Fresh server/browser lifecycle and runtime evidence             | `@playwright/test`                     |
-| `/vitest`             | Vitest Browser Mode configuration                               | `vitest`, `@vitest/browser-playwright` |
-| `/lighthouse`         | Immutable Lighthouse CI presets                                 | None                                   |
-| `/release-ladder`     | Ordered sync/async verification steps                           | None                                   |
-| `/visual-battery`     | Deterministic screenshot baseline orchestration                 | None                                   |
+| Entry point              | Responsibility                                                  | Required peer                          |
+| ------------------------ | --------------------------------------------------------------- | -------------------------------------- |
+| package root             | Lighthouse policy, release ladder, visual battery               | None                                   |
+| `/chromium`              | Renderer, mandatory mute launch profile, hardware GPU admission | None                                   |
+| `/playwright/xvfb-setup` | `globalSetup` that starts Xvfb on Linux, no-op elsewhere        | None                                   |
+| `/silent-qa`             | Application-side runtime mute request and readiness marker      | None                                   |
+| `/playwright`            | Device tiers, isolated ports, preview server, silent navigation | `@playwright/test`                     |
+| `/production-runtime`    | Fresh server/browser lifecycle and runtime evidence             | `@playwright/test`                     |
+| `/vitest`                | Vitest Browser Mode configuration                               | `vitest`, `@vitest/browser-playwright` |
+| `/lighthouse`            | Immutable Lighthouse CI presets                                 | None                                   |
+| `/release-ladder`        | Ordered sync/async verification steps                           | None                                   |
+| `/visual-battery`        | Deterministic screenshot baseline orchestration                 | None                                   |
+| `/subject-capture`       | One subject to transparent PNGs at fixed sizes, SwiftShader     | `@playwright/test`                     |
+| `/subject-pictures`      | Subject source hashes and the picture staleness check           | None                                   |
+| `/touch`                 | Scripted tap, double tap, press-drag, hold, second finger       | None                                   |
+| `/android-webview`       | `adb` forward to a debuggable WebView's DevTools endpoint       | None (`adb` on the host)               |
 
 The root deliberately does not re-export Playwright or Vitest integrations. A
 consumer that needs only peer-free utilities therefore never loads or installs

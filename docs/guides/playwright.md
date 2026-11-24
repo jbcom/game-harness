@@ -41,7 +41,9 @@ Chromium is headed by default locally and in CI. Linux CI must provide a
 display with `xvfb-run`; it should not change the browser to headless simply
 to make WebGL start. The default `auto` profile lets Chromium select the
 native renderer (including Metal on macOS). `software` is an explicit
-SwiftShader fallback. `linux-hardware-vulkan` applies the reviewed
+SwiftShader fallback through ANGLE (`--use-angle=swiftshader
+--enable-unsafe-swiftshader`), the profile for byte-stable software captures.
+`linux-hardware-vulkan` applies the reviewed
 Mesa/ANGLE flags and `EGL_PLATFORM=surfaceless` for a runner that exposes
 `/dev/dri/renderD128`. `macos-hardware-metal` asks ANGLE for its Metal backend
 (`--use-angle=metal --ignore-gpu-blocklist`); it is the profile for an Apple
@@ -55,7 +57,9 @@ A Gitea runner job using the hardware profile must install
 `xvfb-run --auto-servernum`. Use `requireHardwareWebGL()` in the journey
 itself so a green test cannot silently fall back to SwiftShader or llvmpipe.
 The assertion also fails closed when the browser withholds its unmasked
-renderer.
+renderer. To start Xvfb from Playwright instead of wrapping the command, and
+to admit a hardware run from the heavy-slot environment, see
+[Hardware-gated suites](/game-harness/guides/chromium-and-silent-qa/#hardware-gated-suites).
 
 `deviceTiers` declares the available matrix, while the default fast gate runs
 only its first tier. Run `MULTIVIEW=1 pnpm exec playwright test` (or

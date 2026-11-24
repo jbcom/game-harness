@@ -105,6 +105,8 @@ Import only the entry point a game uses:
 
 - `game-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`;
+- `game-harness/playwright/xvfb-setup` for a peer-free Playwright
+  `globalSetup` that starts Xvfb on Linux and does nothing elsewhere;
 - `game-harness/silent-qa` for a peer-free,
   audio-engine-agnostic application-side runtime mute adapter;
 - `game-harness/production-runtime` for a fresh, silent
@@ -113,8 +115,13 @@ Import only the entry point a game uses:
   silence launch profiles;
 - `game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
-- `game-harness`, `/lighthouse`, `/release-ladder`, and
-  `/visual-battery` for peer-free verification utilities.
+- `game-harness/subject-capture` to render one subject to transparent PNGs
+  with the software renderer; install `@playwright/test`;
+- `game-harness/touch` for scripted tap, double tap, press-drag and hold as
+  real touch events, and `game-harness/android-webview` to reach a debuggable
+  Android WebView with the same driver; both are peer-free (`adb` on the host);
+- `game-harness`, `/lighthouse`, `/release-ladder`, `/visual-battery`, and
+  `/subject-pictures` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never loaded
 by the package root. Each consumer must install the peers required by the
@@ -178,7 +185,8 @@ Chromium is headed by default locally and in CI. Linux CI must provide a
 display with `xvfb-run`; it should not change the browser to headless simply to
 make WebGL start. The default `auto` profile lets Chromium select the native
 renderer (including Metal on macOS). `software` is an explicit SwiftShader
-fallback. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
+fallback through ANGLE (`--use-angle=swiftshader --enable-unsafe-swiftshader`),
+the profile for byte-stable software captures. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
 `EGL_PLATFORM=surfaceless` for a runner that exposes `/dev/dri/renderD128`.
 `macos-hardware-metal` asks ANGLE for its Metal backend (`--use-angle=metal
 --ignore-gpu-blocklist`); it is the profile for an Apple Silicon Mac with no
@@ -269,6 +277,64 @@ guard. Every profile also carries `CHROMIUM_ANTI_THROTTLING_ARGS`
 `--disable-backgrounding-occluded-windows`), so background and occluded
 windows keep their timers on schedule when several headed browsers run at
 once; Page Visibility still reports `hidden`.
+
+## Hardware-gated suites
+
+A suite that must run only on real graphics hardware, and only muted, asks
+`admittedGpuMode()` which `gpuMode` to launch with instead of hand-writing the
+platform, `HEAVY_BROWSER_GPU` and `HEAVY_BROWSER_MUTE` checks:
+
+```ts
+// playwright.config.ts
+import { admittedGpuMode } from 'game-harness/chromium';
+import { definePlaywrightConfig } from 'game-harness/playwright';
+
+export default definePlaywrightConfig({
+  gpuMode: admittedGpuMode(),
+  // ...
+});
+```
+
+`admittedGpuMode({ env?, platform? })` defaults to `process.env` and
+`process.platform` and returns `'linux-hardware-vulkan'` on `linux` with
+`HEAVY_BROWSER_GPU=linux-hardware-vulkan`, or `'macos-hardware-metal'` on
+`darwin` with `HEAVY_BROWSER_GPU=macos-hardware-metal`. It requires
+`HEAVY_BROWSER_MUTE=1` and throws an `Error` otherwise: one message when the
+run is not muted (checked first, whatever the platform) and a distinct one
+when the platform or GPU value is not admitted. Nothing falls back to
+`auto` or `software`.
+
+Admission is a launch-time gate only. `requireHardwareWebGL()` from
+`game-harness/production-runtime` is the renderer check: call it in the journey
+so a green test proves the browser really received hardware WebGL on every
+platform, and keep nothing platform-specific in the specs.
+
+Headed runs also need a display. `game-harness/playwright/xvfb-setup` is a
+ready-made, peer-free Playwright `globalSetup` for that: on Linux it starts
+`Xvfb` with `-displayfd` (screen `1920x1200x24`, `-nolisten tcp`), waits for the
+server to report its display number, sets `process.env.DISPLAY` and returns a
+teardown that sends `SIGTERM`, waits for exit and restores the previous
+`DISPLAY`. On every other platform it does nothing and returns `undefined`, so
+macOS keeps using the desktop session. It rejects, leaving `DISPLAY` alone, if
+Xvfb cannot start or exits before reporting a display.
+
+```ts
+// playwright.config.ts
+import { admittedGpuMode } from 'game-harness/chromium';
+import { definePlaywrightConfig } from 'game-harness/playwright';
+
+export default definePlaywrightConfig({
+  gpuMode: admittedGpuMode(),
+  overrides: { globalSetup: 'game-harness/playwright/xvfb-setup' },
+});
+```
+
+The binary is `Xvfb` resolved from `PATH` (normally `/usr/bin/Xvfb`) unless
+`GAME_HARNESS_XVFB_PATH` names another. To change the binary or screen from
+code, write your own setup file:
+`export default createXvfbGlobalSetup({ xvfbPath, screen: '1280x720x24' })`.
+`setupXvfb(options)` is the same logic with injectable `platform`, `env` and
+`spawn` for tests.
 
 Moving from the scoped `test-harness` package this one grew out of? See
 [MIGRATION.md](MIGRATION.md).
@@ -472,6 +538,92 @@ runVisualBattery('tests/harness', {
   isolatedHarnessFiles: ['scene.browser.test.tsx'],
 });
 ```
+
+## Subject pictures
+
+`game-harness/visual-battery` compares screenshots a harness already wrote; it
+renders nothing. To render **one subject alone** to a transparent PNG at fixed
+sizes, and to know when that picture has gone stale, use
+`game-harness/subject-capture` (needs `@playwright/test`) and
+`game-harness/subject-pictures` (peer-free, also exported from the root).
+
+```ts
+import { captureSubject } from 'game-harness/subject-capture';
+import { assertSubjectPicturesFresh, hashSubjectSourceFiles } from 'game-harness/subject-pictures';
+
+const sources = ['src/models/shovel.ts', 'src/models/palette.ts'];
+
+const { pictures } = await captureSubject({
+  subject: 'shovel',
+  url: ({ width }) => `http://127.0.0.1:4173/lab.html?subject=shovel&size=${width}`,
+  sizes: [256, 512],
+  outDir: 'src/ui/assets/pictures',
+  sourceSha256: hashSubjectSourceFiles(sources),
+  ready: (page) => page.waitForFunction('window.labReady === true'),
+});
+// Commit the PNGs; keep `pictures` (minus `bytes`) in the asset manifest.
+
+// In the build: fail when a model changed after its picture was rendered.
+assertSubjectPicturesFresh(manifestRecords, {
+  sourceHashes: { shovel: hashSubjectSourceFiles(sources) },
+  sizes: [256, 512],
+});
+```
+
+The capture runs headless on the `software` (SwiftShader) profile through the
+silent launch profile, screenshots with a transparent background, and fails
+closed on a non-SwiftShader renderer, a wrong-sized picture, a blank picture or
+an opaque background. Two fresh launches on one platform give the same bytes.
+See the [Subject pictures guide](docs/guides/subject-pictures.md).
+
+## Scripted touch
+
+`game-harness/touch` sends real touch events through the DevTools protocol, so
+a page sees `pointerType: "touch"` pointer events with the browser's own hit
+testing and slop. Create the Playwright context with `hasTouch: true`; the
+driver rejects a page without touch support. It checks `navigator.maxTouchPoints`
+only and does not verify `isMobile`, so set `isMobile: true` yourself for a
+phone test.
+
+```ts
+import { createScriptedTouch } from 'game-harness/touch';
+
+const context = await browser.newContext({
+  viewport: { width: 390, height: 844 },
+  hasTouch: true,
+  isMobile: true,
+});
+const page = await context.newPage();
+await page.goto(gameUrl);
+const touch = await createScriptedTouch(page);
+
+await touch.tap({ x: 120, y: 320 });
+await touch.doubleTap(page.locator('#target'), { gapMs: 250 });
+const drag = await touch.pressDrag(
+  { x: 100, y: 400 },
+  { x: 300, y: 430 },
+  {
+    holdMs: 120,
+    stepPx: 12,
+    release: false, // read the page with the finger still down
+  },
+);
+await drag.release();
+const held = await touch.hold({ x: 120, y: 320 }, { durationMs: 600, release: false });
+await held.release();
+await touch.close();
+```
+
+Delays are exact on the driver's planned timeline and stamped onto each event,
+and never early on the wall clock; `touch.trace` records planned and actual
+times. `touch.press()` returns a finger, so a second simultaneous finger and
+`touch.cancel()` are available.
+
+On Android, `forwardAndroidWebView({ appId })` from
+`game-harness/android-webview` forwards a debuggable WebView's DevTools socket
+over `adb`; connect Playwright with `chromium.connectOverCDP(forward.endpoint)`
+and pass the page to the same `createScriptedTouch()`. See the
+[Scripted touch guide](docs/guides/scripted-touch.md).
 
 ## Lighthouse CI presets
 

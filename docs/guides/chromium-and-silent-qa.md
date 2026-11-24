@@ -18,7 +18,7 @@ const browser = await chromium.launch({ args, env, headless: false });
 when driving Chromium yourself (a custom launch script, `production-runtime`'s
 own internals, or a non-Playwright automation layer). It resolves one of
 four renderer policies (`auto` leaves selection to Chromium; `software`
-opts into SwiftShader explicitly; `linux-hardware-vulkan` applies the
+opts into SwiftShader explicitly through ANGLE; `linux-hardware-vulkan` applies the
 reviewed Mesa/ANGLE flags plus `EGL_PLATFORM=surfaceless` for a runner
 exposing `/dev/dri/renderD128`; `macos-hardware-metal` asks ANGLE for its
 Metal backend with `--use-angle=metal --ignore-gpu-blocklist`, which a
@@ -35,6 +35,61 @@ one wake-up per second and deprioritise occluded windows, and suites time out
 for reasons unrelated to the game. Page Visibility is unaffected: a
 backgrounded page still reports `hidden`, so pause-on-hide logic stays
 testable.
+
+## Hardware-gated suites
+
+A suite that must run only on real graphics hardware, and only muted, asks
+`admittedGpuMode()` which `gpuMode` to launch with instead of hand-writing the
+platform, `HEAVY_BROWSER_GPU` and `HEAVY_BROWSER_MUTE` checks:
+
+```ts
+import { admittedGpuMode, createChromiumLaunchProfile } from 'game-harness/chromium';
+
+const { args, env } = createChromiumLaunchProfile({ gpuMode: admittedGpuMode() });
+```
+
+`admittedGpuMode({ env?, platform? })` defaults to `process.env` and
+`process.platform` and returns `'linux-hardware-vulkan'` on `linux` with
+`HEAVY_BROWSER_GPU=linux-hardware-vulkan`, or `'macos-hardware-metal'` on
+`darwin` with `HEAVY_BROWSER_GPU=macos-hardware-metal`. It requires
+`HEAVY_BROWSER_MUTE=1` and throws an `Error` otherwise: one message when the
+run is not muted (checked first, whatever the platform) and a distinct one
+when the platform or GPU value is not admitted. Nothing falls back to `auto`
+or `software`.
+
+Admission is a launch-time gate only. `requireHardwareWebGL()` from
+`game-harness/production-runtime` is the renderer check: call it in the journey
+so a green test proves the browser really received hardware WebGL on every
+platform.
+
+Headed runs also need a display. `game-harness/playwright/xvfb-setup` is a
+ready-made, peer-free Playwright `globalSetup` for that: on Linux it starts
+`Xvfb` with `-displayfd` (screen `1920x1200x24`, `-nolisten tcp`), waits for the
+server to report its display number, sets `process.env.DISPLAY` and returns a
+teardown that sends `SIGTERM`, waits for exit and restores the previous
+`DISPLAY`. On every other platform it does nothing and returns `undefined`, so
+macOS keeps using the desktop session. It rejects, leaving `DISPLAY` alone, if
+Xvfb cannot start or exits before reporting a display.
+
+```ts
+// playwright.config.ts
+import { admittedGpuMode } from 'game-harness/chromium';
+import { definePlaywrightConfig } from 'game-harness/playwright';
+
+export default definePlaywrightConfig({
+  gpuMode: admittedGpuMode(),
+  overrides: { globalSetup: 'game-harness/playwright/xvfb-setup' },
+});
+```
+
+The binary is `Xvfb` resolved from `PATH` (normally `/usr/bin/Xvfb`) unless
+`GAME_HARNESS_XVFB_PATH` names another. To change the binary or screen from
+code, write your own setup file:
+`export default createXvfbGlobalSetup({ xvfbPath, screen: '1280x720x24' })`.
+`setupXvfb(options)` is the same logic with injectable `platform`, `env` and
+`spawn` for tests.
+
+## Silent QA
 
 Every browser launched by `definePlaywrightConfig()` or
 `defineBrowserTestConfig()` receives Chromium's `--mute-audio` argument as a
