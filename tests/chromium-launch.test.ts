@@ -212,7 +212,8 @@ describe('createChromiumLaunchProfile', () => {
   it('omits env entirely when no environment overrides and no hardware profile are requested', () => {
     expect(createChromiumLaunchProfile({ gpuMode: 'software' })).toEqual({
       args: [
-        '--use-gl=swiftshader',
+        '--use-angle=swiftshader',
+        '--enable-unsafe-swiftshader',
         '--enable-webgl',
         '--ignore-gpu-blocklist',
         ...CHROMIUM_ANTI_THROTTLING_ARGS,

@@ -60,6 +60,8 @@ export default defineConfig({
                 'guides/chromium-and-silent-qa',
                 'guides/production-runtime',
                 'guides/visual-battery',
+                'guides/subject-pictures',
+                'guides/scripted-touch',
                 'guides/lighthouse-and-release-ladder',
               ],
             },

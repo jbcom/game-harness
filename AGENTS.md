@@ -50,6 +50,10 @@ code that must stay peer-free.
 | `/playwright`            | Device tiers, isolated ports, strict-port preview server     | `@playwright/test`                     |
 | `/production-runtime`    | Fresh server/browser lifecycle, fail-closed runtime evidence | `@playwright/test`                     |
 | `/vitest`                | Vitest Browser Mode config fragment                          | `vitest`, `@vitest/browser-playwright` |
+| `/subject-capture`       | One subject to transparent PNGs at fixed sizes, SwiftShader  | `@playwright/test`                     |
+| `/subject-pictures`      | Subject source hashes and the picture staleness check        | nothing                                |
+| `/touch`                 | Scripted tap, double tap, press-drag, hold, second finger    | nothing                                |
+| `/android-webview`       | `adb` forward to a debuggable WebView's DevTools endpoint    | nothing (`adb` on the host)            |
 
 Full detail: [Entry points](https://jonbogaty.com/game-harness/entry-points/).
 
@@ -83,6 +87,23 @@ directory a test file lives in (Vitest resolves screenshot paths relative to
 the test file). A second `__screenshots__` directory anywhere else in the
 harness tree is rejected — it would let a screenshot escape the Git diff
 gate. See [Visual battery](https://jonbogaty.com/game-harness/guides/visual-battery/).
+
+### Product pictures are not a visual-battery job
+
+`runVisualBattery()` diffs screenshots a harness already wrote; it renders
+nothing. To render one subject alone to a transparent PNG and detect when it
+went stale, use `captureSubject()` and `assertSubjectPicturesFresh()`. See
+[Subject pictures](https://jonbogaty.com/game-harness/guides/subject-pictures/).
+
+### Touch gestures are real touch events
+
+Drive phone input with `createScriptedTouch()` from `game-harness/touch`, not
+with `page.mouse` or synthetic events dispatched inside the page. The context
+must be created with `hasTouch: true` or the driver rejects it. It checks
+`navigator.maxTouchPoints` only and does not verify `isMobile`, so set
+`isMobile: true` yourself for a phone test. The surface under the finger needs
+`touch-action: none`. See
+[Scripted touch](https://jonbogaty.com/game-harness/guides/scripted-touch/).
 
 ### Before claiming a change works
 

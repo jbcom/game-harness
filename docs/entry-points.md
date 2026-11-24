@@ -17,8 +17,13 @@ Import only the entry point a game uses:
   silence launch profiles.
 - `game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`.
-- `game-harness`, `/lighthouse`, `/release-ladder`, and
-  `/visual-battery` for peer-free verification utilities.
+- `game-harness/subject-capture` to render one subject to transparent PNGs
+  with the software renderer; install `@playwright/test`.
+- `game-harness/touch` for scripted tap, double tap, press-drag and hold
+  as real touch events, and `/android-webview` to reach a debuggable Android
+  WebView with the same driver; both are peer-free (`adb` on the host).
+- `game-harness`, `/lighthouse`, `/release-ladder`, `/visual-battery`, and
+  `/subject-pictures` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never
 loaded by the package root.
@@ -37,6 +42,10 @@ loaded by the package root.
 | `/lighthouse`            | Immutable Lighthouse CI presets                                 | None                                   |
 | `/release-ladder`        | Ordered sync/async verification steps                           | None                                   |
 | `/visual-battery`        | Deterministic screenshot baseline orchestration                 | None                                   |
+| `/subject-capture`       | One subject to transparent PNGs at fixed sizes, SwiftShader     | `@playwright/test`                     |
+| `/subject-pictures`      | Subject source hashes and the picture staleness check           | None                                   |
+| `/touch`                 | Scripted tap, double tap, press-drag, hold, second finger       | None                                   |
+| `/android-webview`       | `adb` forward to a debuggable WebView's DevTools endpoint       | None (`adb` on the host)               |
 
 The production-runtime entry point depends on the Playwright entry point
 because it composes `openSilentGame()` into a fresh-browser lifecycle; no

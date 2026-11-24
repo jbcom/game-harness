@@ -115,8 +115,13 @@ Import only the entry point a game uses:
   silence launch profiles;
 - `game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
-- `game-harness`, `/lighthouse`, `/release-ladder`, and
-  `/visual-battery` for peer-free verification utilities.
+- `game-harness/subject-capture` to render one subject to transparent PNGs
+  with the software renderer; install `@playwright/test`;
+- `game-harness/touch` for scripted tap, double tap, press-drag and hold as
+  real touch events, and `game-harness/android-webview` to reach a debuggable
+  Android WebView with the same driver; both are peer-free (`adb` on the host);
+- `game-harness`, `/lighthouse`, `/release-ladder`, `/visual-battery`, and
+  `/subject-pictures` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never loaded
 by the package root. Each consumer must install the peers required by the
@@ -180,7 +185,8 @@ Chromium is headed by default locally and in CI. Linux CI must provide a
 display with `xvfb-run`; it should not change the browser to headless simply to
 make WebGL start. The default `auto` profile lets Chromium select the native
 renderer (including Metal on macOS). `software` is an explicit SwiftShader
-fallback. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
+fallback through ANGLE (`--use-angle=swiftshader --enable-unsafe-swiftshader`),
+the profile for byte-stable software captures. `linux-hardware-vulkan` applies the reviewed Mesa/ANGLE flags and
 `EGL_PLATFORM=surfaceless` for a runner that exposes `/dev/dri/renderD128`.
 `macos-hardware-metal` asks ANGLE for its Metal backend (`--use-angle=metal
 --ignore-gpu-blocklist`); it is the profile for an Apple Silicon Mac with no
@@ -532,6 +538,92 @@ runVisualBattery('tests/harness', {
   isolatedHarnessFiles: ['scene.browser.test.tsx'],
 });
 ```
+
+## Subject pictures
+
+`game-harness/visual-battery` compares screenshots a harness already wrote; it
+renders nothing. To render **one subject alone** to a transparent PNG at fixed
+sizes, and to know when that picture has gone stale, use
+`game-harness/subject-capture` (needs `@playwright/test`) and
+`game-harness/subject-pictures` (peer-free, also exported from the root).
+
+```ts
+import { captureSubject } from 'game-harness/subject-capture';
+import { assertSubjectPicturesFresh, hashSubjectSourceFiles } from 'game-harness/subject-pictures';
+
+const sources = ['src/models/shovel.ts', 'src/models/palette.ts'];
+
+const { pictures } = await captureSubject({
+  subject: 'shovel',
+  url: ({ width }) => `http://127.0.0.1:4173/lab.html?subject=shovel&size=${width}`,
+  sizes: [256, 512],
+  outDir: 'src/ui/assets/pictures',
+  sourceSha256: hashSubjectSourceFiles(sources),
+  ready: (page) => page.waitForFunction('window.labReady === true'),
+});
+// Commit the PNGs; keep `pictures` (minus `bytes`) in the asset manifest.
+
+// In the build: fail when a model changed after its picture was rendered.
+assertSubjectPicturesFresh(manifestRecords, {
+  sourceHashes: { shovel: hashSubjectSourceFiles(sources) },
+  sizes: [256, 512],
+});
+```
+
+The capture runs headless on the `software` (SwiftShader) profile through the
+silent launch profile, screenshots with a transparent background, and fails
+closed on a non-SwiftShader renderer, a wrong-sized picture, a blank picture or
+an opaque background. Two fresh launches on one platform give the same bytes.
+See the [Subject pictures guide](docs/guides/subject-pictures.md).
+
+## Scripted touch
+
+`game-harness/touch` sends real touch events through the DevTools protocol, so
+a page sees `pointerType: "touch"` pointer events with the browser's own hit
+testing and slop. Create the Playwright context with `hasTouch: true`; the
+driver rejects a page without touch support. It checks `navigator.maxTouchPoints`
+only and does not verify `isMobile`, so set `isMobile: true` yourself for a
+phone test.
+
+```ts
+import { createScriptedTouch } from 'game-harness/touch';
+
+const context = await browser.newContext({
+  viewport: { width: 390, height: 844 },
+  hasTouch: true,
+  isMobile: true,
+});
+const page = await context.newPage();
+await page.goto(gameUrl);
+const touch = await createScriptedTouch(page);
+
+await touch.tap({ x: 120, y: 320 });
+await touch.doubleTap(page.locator('#target'), { gapMs: 250 });
+const drag = await touch.pressDrag(
+  { x: 100, y: 400 },
+  { x: 300, y: 430 },
+  {
+    holdMs: 120,
+    stepPx: 12,
+    release: false, // read the page with the finger still down
+  },
+);
+await drag.release();
+const held = await touch.hold({ x: 120, y: 320 }, { durationMs: 600, release: false });
+await held.release();
+await touch.close();
+```
+
+Delays are exact on the driver's planned timeline and stamped onto each event,
+and never early on the wall clock; `touch.trace` records planned and actual
+times. `touch.press()` returns a finger, so a second simultaneous finger and
+`touch.cancel()` are available.
+
+On Android, `forwardAndroidWebView({ appId })` from
+`game-harness/android-webview` forwards a debuggable WebView's DevTools socket
+over `adb`; connect Playwright with `chromium.connectOverCDP(forward.endpoint)`
+and pass the page to the same `createScriptedTouch()`. See the
+[Scripted touch guide](docs/guides/scripted-touch.md).
 
 ## Lighthouse CI presets
 

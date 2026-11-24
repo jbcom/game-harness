@@ -87,7 +87,15 @@ function describeValue(value: string | undefined): string {
 
 const GPU_ARGS: Readonly<Record<ChromiumGpuMode, readonly string[]>> = {
   auto: [],
-  software: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'],
+  // ANGLE's SwiftShader backend. The legacy `--use-gl=swiftshader` switch still
+  // creates a WebGL context on current Chromium but presents an opaque white
+  // page, so a software capture silently loses both its pixels and its alpha.
+  software: [
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--enable-webgl',
+    '--ignore-gpu-blocklist',
+  ],
   'linux-hardware-vulkan': [
     '--use-gpu-in-tests',
     '--use-gl=angle',

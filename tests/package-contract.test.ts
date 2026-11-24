@@ -78,8 +78,30 @@ describe('package peer boundaries', () => {
         './lighthouse',
         './release-ladder',
         './visual-battery',
+        './subject-capture',
+        './subject-pictures',
+        './touch',
+        './android-webview',
       ]),
     );
+  });
+
+  it('keeps scripted touch and the Android WebView forward free of any framework peer', () => {
+    for (const file of ['touch.ts', 'android-webview.ts']) {
+      const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
+      expect(source, file).not.toMatch(/from '(?:@playwright|playwright|vitest|@vitest)/u);
+    }
+    expect(rootSource).not.toContain("'./touch.js'");
+  });
+
+  it('keeps the subject-picture staleness check free of any browser peer', () => {
+    const picturesSource = readFileSync(
+      new URL('../src/subject-pictures.ts', import.meta.url),
+      'utf8',
+    );
+    expect(picturesSource).not.toMatch(/from '(?:@playwright|playwright|vitest|@vitest)/u);
+    expect(rootSource).toContain("'./subject-pictures.js'");
+    expect(rootSource).not.toContain("'./subject-capture.js'");
   });
 
   it('keeps the Xvfb globalSetup peer-free so it can be named as a plain file path', () => {
