@@ -33,7 +33,7 @@ const packageVerifier = readFileSync(
 );
 
 describe('package peer boundaries', () => {
-  it('pins the current browser-tool matrix and declares the widest supported Node range', () => {
+  it('declares the widest supported Node range and the package manager', () => {
     // version is release-please's to manage -- assert shape, not an exact
     // value, so a routine release doesn't break this contract test.
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
@@ -41,15 +41,32 @@ describe('package peer boundaries', () => {
       name: 'game-harness',
       engines: { node: '>=22' },
       packageManager: 'pnpm@11.23.0',
-      devDependencies: {
-        '@playwright/test': '1.64.0',
-        '@types/node': '24.19.2',
-        '@vitest/browser-playwright': '5.0.4',
-        rimraf: '6.1.3',
-        typescript: '7.0.2',
-        vitest: '5.0.4',
-      },
     });
+  });
+
+  it('pins the browser-tool matrix to exact, mutually consistent versions', () => {
+    // The contract is that the toolchain is pinned exactly and that the vitest
+    // family moves together. The numbers themselves belong to the dependency
+    // group, so a routine bump must not break this test.
+    const exact = /^\d+\.\d+\.\d+$/;
+    const toolchain = [
+      '@playwright/test',
+      '@types/node',
+      '@vitest/browser-playwright',
+      '@vitest/coverage-v8',
+      'rimraf',
+      'typescript',
+      'vitest',
+    ];
+    for (const name of toolchain) {
+      expect(manifest.devDependencies[name], name).toMatch(exact);
+    }
+
+    const { vitest } = manifest.devDependencies;
+    expect(manifest.devDependencies['@vitest/browser-playwright']).toBe(vitest);
+    expect(manifest.devDependencies['@vitest/coverage-v8']).toBe(vitest);
+    expect(manifest.devDependencies.typescript).toMatch(/^7\./);
+    expect(manifest.devDependencies['@types/node']).toMatch(/^24\./);
   });
 
   it('lets consumers install only the framework peer for their chosen entry point', () => {
