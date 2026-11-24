@@ -41,14 +41,15 @@ policy does not require equality to a patch release.
 Import only the subpath a task needs — never import a framework subpath from
 code that must stay peer-free.
 
-| Entry point           | Use for                                                      | Requires                               |
-| --------------------- | ------------------------------------------------------------ | -------------------------------------- |
-| `game-harness` (root) | Lighthouse presets, release ladder, visual battery           | nothing                                |
-| `/chromium`           | Renderer + mandatory `--mute-audio` launch profile           | nothing                                |
-| `/silent-qa`          | Application-side runtime mute adapter and readiness marker   | nothing                                |
-| `/playwright`         | Device tiers, isolated ports, strict-port preview server     | `@playwright/test`                     |
-| `/production-runtime` | Fresh server/browser lifecycle, fail-closed runtime evidence | `@playwright/test`                     |
-| `/vitest`             | Vitest Browser Mode config fragment                          | `vitest`, `@vitest/browser-playwright` |
+| Entry point              | Use for                                                      | Requires                               |
+| ------------------------ | ------------------------------------------------------------ | -------------------------------------- |
+| `game-harness` (root)    | Lighthouse presets, release ladder, visual battery           | nothing                                |
+| `/chromium`              | Renderer + mandatory `--mute-audio` launch profile           | nothing                                |
+| `/playwright/xvfb-setup` | `globalSetup`: Xvfb on Linux, no-op elsewhere                | nothing                                |
+| `/silent-qa`             | Application-side runtime mute adapter and readiness marker   | nothing                                |
+| `/playwright`            | Device tiers, isolated ports, strict-port preview server     | `@playwright/test`                     |
+| `/production-runtime`    | Fresh server/browser lifecycle, fail-closed runtime evidence | `@playwright/test`                     |
+| `/vitest`                | Vitest Browser Mode config fragment                          | `vitest`, `@vitest/browser-playwright` |
 
 Full detail: [Entry points](https://jonbogaty.com/game-harness/entry-points/).
 

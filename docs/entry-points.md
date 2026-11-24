@@ -7,6 +7,8 @@ Import only the entry point a game uses:
 
 - `game-harness/playwright` for Playwright projects and strict
   preview-server configuration; install `@playwright/test`.
+- `game-harness/playwright/xvfb-setup` for a peer-free Playwright
+  `globalSetup` that starts Xvfb on Linux and does nothing elsewhere.
 - `game-harness/silent-qa` for a peer-free,
   audio-engine-agnostic application-side runtime mute adapter.
 - `game-harness/production-runtime` for a fresh, silent
@@ -23,17 +25,18 @@ loaded by the package root.
 
 ## Package boundaries
 
-| Entry point           | Responsibility                                                  | Required peer                          |
-| --------------------- | --------------------------------------------------------------- | -------------------------------------- |
-| package root          | Lighthouse policy, release ladder, visual battery               | None                                   |
-| `/chromium`           | Renderer and mandatory mute launch profile                      | None                                   |
-| `/silent-qa`          | Application-side runtime mute request and readiness marker      | None                                   |
-| `/playwright`         | Device tiers, isolated ports, preview server, silent navigation | `@playwright/test`                     |
-| `/production-runtime` | Fresh server/browser lifecycle and runtime evidence             | `@playwright/test`                     |
-| `/vitest`             | Vitest Browser Mode configuration                               | `vitest`, `@vitest/browser-playwright` |
-| `/lighthouse`         | Immutable Lighthouse CI presets                                 | None                                   |
-| `/release-ladder`     | Ordered sync/async verification steps                           | None                                   |
-| `/visual-battery`     | Deterministic screenshot baseline orchestration                 | None                                   |
+| Entry point              | Responsibility                                                  | Required peer                          |
+| ------------------------ | --------------------------------------------------------------- | -------------------------------------- |
+| package root             | Lighthouse policy, release ladder, visual battery               | None                                   |
+| `/chromium`              | Renderer, mandatory mute launch profile, hardware GPU admission | None                                   |
+| `/playwright/xvfb-setup` | `globalSetup` that starts Xvfb on Linux, no-op elsewhere        | None                                   |
+| `/silent-qa`             | Application-side runtime mute request and readiness marker      | None                                   |
+| `/playwright`            | Device tiers, isolated ports, preview server, silent navigation | `@playwright/test`                     |
+| `/production-runtime`    | Fresh server/browser lifecycle and runtime evidence             | `@playwright/test`                     |
+| `/vitest`                | Vitest Browser Mode configuration                               | `vitest`, `@vitest/browser-playwright` |
+| `/lighthouse`            | Immutable Lighthouse CI presets                                 | None                                   |
+| `/release-ladder`        | Ordered sync/async verification steps                           | None                                   |
+| `/visual-battery`        | Deterministic screenshot baseline orchestration                 | None                                   |
 
 The production-runtime entry point depends on the Playwright entry point
 because it composes `openSilentGame()` into a fresh-browser lifecycle; no

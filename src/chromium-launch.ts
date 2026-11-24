@@ -32,6 +32,59 @@ export interface ChromiumLaunchProfile {
   env?: ChromiumEnvironment;
 }
 
+export interface AdmittedGpuModeOptions {
+  /** Environment to read the heavy-slot contract from. Defaults to `process.env`. */
+  env?: Readonly<ChromiumEnvironment>;
+  /** Platform to admit against (`process.platform` values). Defaults to `process.platform`. */
+  platform?: string;
+}
+
+/** The hardware GPU mode each admitted platform may request through `HEAVY_BROWSER_GPU`. */
+const ADMITTED_HARDWARE_GPU: Readonly<Record<string, ChromiumGpuMode>> = {
+  linux: 'linux-hardware-vulkan',
+  darwin: 'macos-hardware-metal',
+};
+
+/**
+ * Admits a hardware-GPU run from the heavy-slot environment contract and
+ * returns the `ChromiumGpuMode` to launch with.
+ *
+ * A host is admitted only when `HEAVY_BROWSER_MUTE=1` and the platform
+ * matches the requested hardware profile: `linux` with
+ * `HEAVY_BROWSER_GPU=linux-hardware-vulkan`, or `darwin` with
+ * `HEAVY_BROWSER_GPU=macos-hardware-metal`. Anything else throws, so a
+ * hardware-gated suite can never fall back to a software renderer or run
+ * audibly. The mute flag is checked first: an audible run is refused
+ * whatever the platform.
+ *
+ * Admission is a launch-time gate only; use `requireHardwareWebGL()` from
+ * `game-harness/production-runtime` in the journey to prove the renderer the
+ * browser actually received.
+ */
+export function admittedGpuMode(options: AdmittedGpuModeOptions = {}): ChromiumGpuMode {
+  const env = options.env ?? process.env;
+  const platform = options.platform ?? process.platform;
+  const gpu = env.HEAVY_BROWSER_GPU;
+
+  if (env.HEAVY_BROWSER_MUTE !== '1') {
+    throw new Error(
+      `Hardware GPU runs must be muted: set HEAVY_BROWSER_MUTE=1 (got ${describeValue(env.HEAVY_BROWSER_MUTE)}).`,
+    );
+  }
+  const admitted = ADMITTED_HARDWARE_GPU[platform];
+  if (admitted === undefined || gpu !== admitted) {
+    throw new Error(
+      `This is not an admitted hardware GPU host: platform "${platform}" with HEAVY_BROWSER_GPU=${describeValue(gpu)}. ` +
+        'Admitted hosts are linux with HEAVY_BROWSER_GPU="linux-hardware-vulkan" and darwin with HEAVY_BROWSER_GPU="macos-hardware-metal".',
+    );
+  }
+  return admitted;
+}
+
+function describeValue(value: string | undefined): string {
+  return value === undefined ? '<unset>' : JSON.stringify(value);
+}
+
 const GPU_ARGS: Readonly<Record<ChromiumGpuMode, readonly string[]>> = {
   auto: [],
   software: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'],

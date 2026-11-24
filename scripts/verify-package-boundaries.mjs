@@ -161,6 +161,20 @@ try {
     ],
     rootConsumer,
   );
+  for (const moduleMode of ['commonjs', 'module']) {
+    const load = (specifier) =>
+      moduleMode === 'module' ? `await import('${specifier}')` : `require('${specifier}')`;
+    const hardwareEnv = "{HEAVY_BROWSER_GPU:'macos-hardware-metal',HEAVY_BROWSER_MUTE:'1'}";
+    run(
+      process.execPath,
+      [
+        ...(moduleMode === 'module' ? ['--input-type=module'] : []),
+        '-e',
+        `(async()=>{const c=${load('game-harness/chromium')};const x=${load('game-harness/playwright/xvfb-setup')};const env=${hardwareEnv};let refused=false;try{c.admittedGpuMode({env:{...env,HEAVY_BROWSER_MUTE:'0'},platform:'darwin'})}catch{refused=true}if(c.admittedGpuMode({env,platform:'darwin'})!=='macos-hardware-metal'||!refused)throw new Error('invalid admittedGpuMode');if(typeof x.default!=='function'||typeof x.createXvfbGlobalSetup!=='function'||await x.setupXvfb({platform:'darwin'})!==undefined)throw new Error('invalid Xvfb entry')})()`,
+      ],
+      rootConsumer,
+    );
+  }
   run(
     process.execPath,
     [
