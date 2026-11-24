@@ -207,6 +207,19 @@ try {
       rootConsumer,
     );
   }
+  for (const moduleMode of ['commonjs', 'module']) {
+    const load = (specifier) =>
+      moduleMode === 'module' ? `await import('${specifier}')` : `require('${specifier}')`;
+    run(
+      process.execPath,
+      [
+        ...(moduleMode === 'module' ? ['--input-type=module'] : []),
+        '-e',
+        `(async()=>{for(const h of [${load('game-harness/subject-pictures')},${load('game-harness')}]){const a=h.hashSubjectSources([{path:'a.ts',bytes:'x'}]);const b=h.hashSubjectSources([{path:'a.ts',bytes:'y'}]);const c=h.checkSubjectPictures([],{sourceHashes:{shovel:a}});if(a===b||c.ok||c.problems[0].kind!=='missing-record'||typeof h.assertSubjectPicturesFresh!=='function')throw new Error('invalid subject-pictures entry')}})()`,
+      ],
+      rootConsumer,
+    );
+  }
   run(
     join(rootConsumer, 'node_modules', '.bin', `game-harness-visual-battery${binSuffix}`),
     ['--help'],
@@ -238,6 +251,23 @@ try {
       '--input-type=module',
       '-e',
       "const h=await import('game-harness/production-runtime'); if(typeof h.verifyProductionRuntime!=='function'||typeof h.findAvailableProductionPort!=='function'||typeof h.ProductionRuntimeVerificationError!=='function'||typeof h.requireHardwareWebGL!=='function')throw new Error('invalid ESM production-runtime entry'); const [a,b]=await Promise.all([h.findAvailableProductionPort(),h.findAvailableProductionPort()]); if(!Number.isInteger(a)||a<1||a>65535||a===b)throw new Error('invalid ESM production-runtime port allocation')",
+    ],
+    playwrightConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '-e',
+      "const h=require('game-harness/subject-capture'); if(typeof h.captureSubject!=='function'||typeof h.SubjectCaptureError!=='function')throw new Error('invalid CJS subject-capture entry')",
+    ],
+    playwrightConsumer,
+  );
+  run(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "const h=await import('game-harness/subject-capture'); if(typeof h.captureSubject!=='function'||typeof h.SubjectCaptureError!=='function')throw new Error('invalid ESM subject-capture entry')",
     ],
     playwrightConsumer,
   );

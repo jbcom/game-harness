@@ -115,8 +115,10 @@ Import only the entry point a game uses:
   silence launch profiles;
 - `game-harness/vitest` for Vitest Browser Mode; install
   `vitest` and `@vitest/browser-playwright`;
-- `game-harness`, `/lighthouse`, `/release-ladder`, and
-  `/visual-battery` for peer-free verification utilities.
+- `game-harness/subject-capture` to render one subject to transparent PNGs
+  with the software renderer; install `@playwright/test`;
+- `game-harness`, `/lighthouse`, `/release-ladder`, `/visual-battery`, and
+  `/subject-pictures` for peer-free verification utilities.
 
 Framework peers are intentionally optional at install time and are never loaded
 by the package root. Each consumer must install the peers required by the
@@ -533,6 +535,43 @@ runVisualBattery('tests/harness', {
   isolatedHarnessFiles: ['scene.browser.test.tsx'],
 });
 ```
+
+## Subject pictures
+
+`game-harness/visual-battery` compares screenshots a harness already wrote; it
+renders nothing. To render **one subject alone** to a transparent PNG at fixed
+sizes, and to know when that picture has gone stale, use
+`game-harness/subject-capture` (needs `@playwright/test`) and
+`game-harness/subject-pictures` (peer-free, also exported from the root).
+
+```ts
+import { captureSubject } from 'game-harness/subject-capture';
+import { assertSubjectPicturesFresh, hashSubjectSourceFiles } from 'game-harness/subject-pictures';
+
+const sources = ['src/models/shovel.ts', 'src/models/palette.ts'];
+
+const { pictures } = await captureSubject({
+  subject: 'shovel',
+  url: ({ width }) => `http://127.0.0.1:4173/lab.html?subject=shovel&size=${width}`,
+  sizes: [256, 512],
+  outDir: 'src/ui/assets/pictures',
+  sourceSha256: hashSubjectSourceFiles(sources),
+  ready: (page) => page.waitForFunction('window.labReady === true'),
+});
+// Commit the PNGs; keep `pictures` (minus `bytes`) in the asset manifest.
+
+// In the build: fail when a model changed after its picture was rendered.
+assertSubjectPicturesFresh(manifestRecords, {
+  sourceHashes: { shovel: hashSubjectSourceFiles(sources) },
+  sizes: [256, 512],
+});
+```
+
+The capture runs headless on the `software` (SwiftShader) profile through the
+silent launch profile, screenshots with a transparent background, and fails
+closed on a non-SwiftShader renderer, a wrong-sized picture, a blank picture or
+an opaque background. Two fresh launches on one platform give the same bytes.
+See the [Subject pictures guide](docs/guides/subject-pictures.md).
 
 ## Lighthouse CI presets
 

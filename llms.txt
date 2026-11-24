@@ -21,6 +21,7 @@ agent-oriented quick reference before writing code against this package.
 - [Chromium launch profile & Silent QA guide](https://jonbogaty.com/game-harness/guides/chromium-and-silent-qa/): The peer-free primitives behind every silent browser launch.
 - [Production runtime verification guide](https://jonbogaty.com/game-harness/guides/production-runtime/): Turning a build into fail-closed runtime evidence.
 - [Visual battery guide](https://jonbogaty.com/game-harness/guides/visual-battery/): Deterministic screenshot baseline orchestration.
+- [Subject pictures guide](https://jonbogaty.com/game-harness/guides/subject-pictures/): One subject to a transparent PNG at fixed sizes with the software renderer, and the staleness check.
 - [Lighthouse presets & release ladder guide](https://jonbogaty.com/game-harness/guides/lighthouse-and-release-ladder/): CI Lighthouse assertions and the release-step orchestrator.
 - [Architecture reference](https://jonbogaty.com/game-harness/reference/architecture/): Module boundaries, runtime evidence flow, build/distribution guarantees.
 - [Decisions reference](https://jonbogaty.com/game-harness/decisions/): Migration and compatibility decisions and their rationale.

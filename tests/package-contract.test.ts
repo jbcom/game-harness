@@ -78,8 +78,20 @@ describe('package peer boundaries', () => {
         './lighthouse',
         './release-ladder',
         './visual-battery',
+        './subject-capture',
+        './subject-pictures',
       ]),
     );
+  });
+
+  it('keeps the subject-picture staleness check free of any browser peer', () => {
+    const picturesSource = readFileSync(
+      new URL('../src/subject-pictures.ts', import.meta.url),
+      'utf8',
+    );
+    expect(picturesSource).not.toMatch(/from '(?:@playwright|playwright|vitest|@vitest)/u);
+    expect(rootSource).toContain("'./subject-pictures.js'");
+    expect(rootSource).not.toContain("'./subject-capture.js'");
   });
 
   it('keeps the Xvfb globalSetup peer-free so it can be named as a plain file path', () => {
