@@ -1,4 +1,5 @@
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -20,7 +21,11 @@ import { sha256Hex } from '../src/subject-pictures.js';
 vi.mock('@playwright/test', () => ({ chromium: { launch: vi.fn() } }));
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
-  return { ...actual, renameSync: vi.fn(actual.renameSync) };
+  return {
+    ...actual,
+    renameSync: vi.fn(actual.renameSync),
+    copyFileSync: vi.fn(actual.copyFileSync),
+  };
 });
 
 const SOURCE = 'a'.repeat(64);
@@ -353,6 +358,37 @@ describe('captureSubject', () => {
     await expect(captureSubject(base({ sizes: [64, 128, 256] }))).rejects.toThrow(/EXDEV/u);
     expect(readFileSync(join(pictures, 'shovel-64.png'), 'utf8')).toBe('previous 64');
     expect(readdirSync(pictures)).toEqual(['shovel-64.png']);
+  });
+
+  it('keeps the recovery copy of a picture that cannot be restored, and says so', async () => {
+    const pictures = join(workDir, 'pictures');
+    mkdirSync(pictures, { recursive: true });
+    writeFileSync(join(pictures, 'shovel-64.png'), 'previous 64');
+    writeFileSync(join(pictures, 'shovel-128.png'), 'previous 128');
+    createBrowser([squarePng(64), squarePng(128), squarePng(256)]);
+    const realRename = vi.mocked(renameSync).getMockImplementation() as typeof renameSync;
+    vi.mocked(renameSync)
+      .mockImplementationOnce(realRename)
+      .mockImplementationOnce(realRename)
+      .mockImplementationOnce(() => {
+        throw new Error('EXDEV: cross-device link not permitted');
+      });
+    const realCopy = vi.mocked(copyFileSync).getMockImplementation() as typeof copyFileSync;
+    // Two backups are made; restoring the first picture fails, the second works.
+    vi.mocked(copyFileSync)
+      .mockImplementationOnce(realCopy)
+      .mockImplementationOnce(realCopy)
+      .mockImplementationOnce(() => {
+        throw new Error('EIO: i/o error');
+      });
+    await expect(captureSubject(base({ sizes: [64, 128, 256] }))).rejects.toThrow(
+      /EXDEV.*1 could not be restored; kept for recovery: .*shovel-64\.png\.\d+\.old/su,
+    );
+    // The second picture was still restored, and only the unrestored backup remains.
+    expect(readFileSync(join(pictures, 'shovel-128.png'), 'utf8')).toBe('previous 128');
+    const leftovers = readdirSync(pictures).filter((name) => name.endsWith('.old'));
+    expect(leftovers).toHaveLength(1);
+    expect(readFileSync(join(pictures, leftovers[0] as string), 'utf8')).toBe('previous 64');
   });
 
   it('fails closed on a picture of a width that matches but a height that does not', async () => {

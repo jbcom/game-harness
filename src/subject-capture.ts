@@ -194,15 +194,36 @@ function publishPictures(
       published.push(target);
     }
   } catch (error) {
+    // Each picture is restored on its own, so one failed restoration does not
+    // strand the rest, and the copy of anything not restored is kept.
+    const kept: string[] = [];
     for (const target of published) {
       const backup = backups.get(target);
-      if (backup === undefined) rmSync(target, { force: true });
-      else copyFileSync(backup, target);
+      if (backup === undefined) {
+        rmSync(target, { force: true });
+        continue;
+      }
+      try {
+        copyFileSync(backup, target);
+      } catch {
+        kept.push(backup);
+      }
+    }
+    for (const file of backups.values()) {
+      if (!kept.includes(file)) rmSync(file, { force: true });
+    }
+    for (const file of staged) rmSync(file, { force: true });
+    if (kept.length > 0) {
+      throw new SubjectCaptureError(
+        `publishing the pictures failed (${(error as Error).message}) and ${kept.length} ` +
+          `could not be restored; kept for recovery: ${kept.join(', ')}`,
+        { cause: error },
+      );
     }
     throw error;
-  } finally {
-    for (const file of [...staged, ...backups.values()]) rmSync(file, { force: true });
   }
+  // Published: the copies of what was replaced are no longer needed.
+  for (const backup of backups.values()) rmSync(backup, { force: true });
 }
 
 /**
